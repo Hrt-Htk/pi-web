@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -975,32 +976,52 @@ func handleAvailableModels(w http.ResponseWriter, r *http.Request) {
 		Error string `json:"error"`
 	}
 
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
-	for scanner.Scan() {
-		line := strings.TrimSuffix(scanner.Text(), "\r")
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var res response
-		if err := json.Unmarshal([]byte(line), &res); err != nil {
-			continue
-		}
-		if res.Type == "response" && res.ID == reqID {
-			if !res.Success {
-				writeJSONError(w, http.StatusInternalServerError, res.Error)
+	type scanResult struct {
+		models []map[string]any
+		err    error
+	}
+
+	resultCh := make(chan scanResult, 1)
+	go func() {
+		defer close(resultCh)
+		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+		for scanner.Scan() {
+			line := strings.TrimSuffix(scanner.Text(), "\r")
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			var res response
+			if err := json.Unmarshal([]byte(line), &res); err != nil {
+				continue
+			}
+			if res.Type == "response" && res.ID == reqID {
+				if !res.Success {
+					resultCh <- scanResult{err: errors.New(res.Error)}
+					return
+				}
+				resultCh <- scanResult{models: res.Data.Models}
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"models": res.Data.Models})
+		}
+		if err := scanner.Err(); err != nil {
+			resultCh <- scanResult{err: err}
+		} else {
+			resultCh <- scanResult{err: fmt.Errorf("pi closed stdout without response")}
+		}
+	}()
+
+	select {
+	case res := <-resultCh:
+		if res.err != nil {
+			writeJSONError(w, http.StatusInternalServerError, res.err.Error())
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"models": res.models})
+	case <-time.After(10 * time.Second):
+		writeJSONError(w, http.StatusGatewayTimeout, "timed out waiting for model list")
 	}
-	if err := scanner.Err(); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSONError(w, http.StatusGatewayTimeout, "timed out waiting for model list")
 }
 
 // ── Session data model ─────────────────────────────────────────────────────
