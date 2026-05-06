@@ -1098,13 +1098,15 @@ func generateExportHtml(session Session, showButtons bool) string {
 func chatComposerHtml(sessionID string) string {
 	return `<form id="pi-chat-composer" class="pi-chat-composer" data-session-id="` + template.HTMLEscapeString(sessionID) + `">
   <input id="pi-chat-images" name="images" type="file" accept="image/*" multiple hidden>
-  <button type="button" id="pi-chat-attach" class="pi-chat-icon-button" title="Attach images">◉</button>
-  <div class="pi-chat-main">
+  <div class="pi-chat-shell">
     <textarea id="pi-chat-message" name="message" rows="2" placeholder="Continue this pi session…"></textarea>
     <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
-    <div id="pi-chat-status" class="pi-chat-status">idle</div>
+    <div class="pi-chat-toolbar">
+      <button type="button" id="pi-chat-attach" class="pi-chat-icon-button" title="Attach images" aria-label="Attach images">◉</button>
+      <div id="pi-chat-status" class="pi-chat-status">idle</div>
+      <button type="submit" id="pi-chat-send" class="pi-chat-send">Send</button>
+    </div>
   </div>
-  <button type="submit" id="pi-chat-send" class="pi-chat-send">Send</button>
 </form>`
 }
 

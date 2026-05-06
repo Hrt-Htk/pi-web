@@ -1764,24 +1764,51 @@
         const attachmentList = document.getElementById('pi-chat-attachments');
         const status = document.getElementById('pi-chat-status');
         const sendButton = document.getElementById('pi-chat-send');
+        let selectedChatFiles = [];
 
         function setStatus(text, cls) {
           status.textContent = text;
           status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
         }
 
+        function fileKey(file) {
+          return [file.name, file.size, file.lastModified].join(':');
+        }
+
         function renderAttachments() {
           attachmentList.innerHTML = '';
-          for (const file of fileInput.files) {
+          selectedChatFiles.forEach((file, index) => {
             const item = document.createElement('span');
             item.className = 'pi-chat-attachment';
-            item.textContent = '◉ ' + file.name;
+            const name = document.createElement('span');
+            name.className = 'pi-chat-attachment-name';
+            name.textContent = '◉ ' + file.name;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'pi-chat-remove';
+            remove.setAttribute('aria-label', 'Remove ' + file.name);
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+              selectedChatFiles.splice(index, 1);
+              renderAttachments();
+            });
+            item.append(name, remove);
             attachmentList.appendChild(item);
-          }
+          });
         }
 
         attachButton.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', renderAttachments);
+        fileInput.addEventListener('change', () => {
+          const seen = new Set(selectedChatFiles.map(fileKey));
+          for (const file of fileInput.files) {
+            if (!seen.has(fileKey(file))) {
+              selectedChatFiles.push(file);
+              seen.add(fileKey(file));
+            }
+          }
+          fileInput.value = '';
+          renderAttachments();
+        });
         textarea.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -1792,13 +1819,13 @@
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
           const message = textarea.value.trim();
-          if (!message && fileInput.files.length === 0) {
+          if (!message && selectedChatFiles.length === 0) {
             setStatus('message or image required', 'error');
             return;
           }
           const body = new FormData();
           body.set('message', message);
-          for (const file of fileInput.files) body.append('images', file);
+          for (const file of selectedChatFiles) body.append('images', file);
           sendButton.disabled = true;
           setStatus('sending', 'running');
           try {
@@ -1806,6 +1833,7 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'chat request failed');
             textarea.value = '';
+            selectedChatFiles = [];
             fileInput.value = '';
             renderAttachments();
             setStatus('accepted', 'running');

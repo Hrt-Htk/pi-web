@@ -1020,51 +1020,67 @@
       position: sticky;
       bottom: 0;
       z-index: 80;
-      display: flex;
-      align-items: flex-end;
-      gap: 6px;
-      padding: 8px 10px;
-      background: var(--container-bg);
+      padding: 10px 12px 12px;
+      background: color-mix(in srgb, var(--container-bg) 94%, transparent);
       border-top: 1px solid var(--dim);
+      backdrop-filter: blur(8px);
     }
 
-    .pi-chat-main { flex: 1; min-width: 0; }
+    .pi-chat-shell {
+      width: 100%;
+      overflow: hidden;
+      background: var(--body-bg);
+      border: 1px solid var(--dim);
+      border-radius: 6px;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+    }
 
     #pi-chat-message {
+      display: block;
       width: 100%;
-      min-height: 42px;
-      max-height: 132px;
+      min-height: 48px;
+      max-height: 144px;
       resize: vertical;
       font-family: inherit;
       font-size: 12px;
       line-height: var(--line-height);
-      background: var(--body-bg);
+      background: transparent;
       color: var(--text);
-      border: 1px solid var(--dim);
-      border-radius: 3px;
-      padding: 6px 8px;
+      border: 0;
+      padding: 9px 11px;
       outline: none;
     }
 
-    #pi-chat-message:focus { border-color: var(--border); }
+    .pi-chat-shell:focus-within { border-color: var(--borderMuted); }
 
-    .pi-chat-icon-button, .pi-chat-send {
-      height: 30px;
+    .pi-chat-toolbar {
+      min-height: 35px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      background: var(--container-bg);
+      border-top: none;
+    }
+
+    .pi-chat-icon-button, .pi-chat-send, .pi-chat-remove {
+      height: 25px;
       font-family: inherit;
       font-size: 11px;
-      background: var(--container-bg);
+      background: transparent;
       color: var(--muted);
       border: 1px solid var(--dim);
-      border-radius: 3px;
+      border-radius: 4px;
       cursor: pointer;
     }
 
-    .pi-chat-icon-button { width: 30px; padding: 0; }
-    .pi-chat-send { padding: 4px 10px; }
+    .pi-chat-icon-button { width: 27px; padding: 0; flex-shrink: 0; }
+    .pi-chat-send { padding: 3px 12px; flex-shrink: 0; }
 
-    .pi-chat-icon-button:hover, .pi-chat-send:hover {
+    .pi-chat-icon-button:hover, .pi-chat-send:hover, .pi-chat-remove:hover {
       color: var(--text);
       border-color: var(--borderMuted);
+      background: var(--selectedBg);
     }
 
     .pi-chat-icon-button:disabled, .pi-chat-send:disabled {
@@ -1075,22 +1091,45 @@
     .pi-chat-attachments {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 4px;
+      gap: 5px;
+      padding: 0 8px 7px;
     }
 
+    .pi-chat-attachments:empty { display: none; }
+
     .pi-chat-attachment {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 280px;
       color: var(--muted);
+      background: var(--container-bg);
       border: 1px solid var(--dim);
-      border-radius: 3px;
-      padding: 1px 5px;
+      border-radius: 999px;
+      padding: 2px 7px;
       font-size: 11px;
+    }
+
+    .pi-chat-attachment-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pi-chat-remove {
+      width: 17px;
+      height: 17px;
+      line-height: 14px;
+      padding: 0;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
 
     .pi-chat-status {
-      margin-top: 4px;
       color: var(--dim);
       font-size: 11px;
+      flex: 1;
+      min-width: 0;
     }
 
     .pi-chat-status.error { color: var(--error); }
