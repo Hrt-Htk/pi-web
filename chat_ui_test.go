@@ -32,3 +32,16 @@ func TestChatComposerCSSUsesIntegratedToolbarLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestChatComposerEnterKeyDoesNotSubmitOnMobile(t *testing.T) {
+	checks := []string{
+		"function isMobileTextInputMode()",
+		"if (isMobileTextInputMode()) return;",
+		"form.requestSubmit();",
+	}
+	for _, check := range checks {
+		if !strings.Contains(templateJs, check) {
+			t.Fatalf("template JS missing %q; mobile Enter should insert a newline instead of sending", check)
+		}
+	}
+}

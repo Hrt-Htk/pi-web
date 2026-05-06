@@ -1834,6 +1834,8 @@
 
       let onWorkerModelUpdate = null;
       let knownModelLabel = '';
+      let knownThinkingLevel = '';
+      let currentModelForThinking = null;
 
       function setChatStatus(text, cls) {
         const status = document.getElementById('pi-chat-status');
@@ -1848,6 +1850,28 @@
         if (label) {
           btn.textContent = label;
           btn.style.display = '';
+        } else {
+          btn.style.display = 'none';
+        }
+      }
+
+      const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+      const THINKING_COLORS = {
+        off: 'var(--thinkingOff)',
+        minimal: 'var(--thinkingMinimal)',
+        low: 'var(--thinkingLow)',
+        medium: 'var(--thinkingMedium)',
+        high: 'var(--thinkingHigh)',
+        xhigh: 'var(--thinkingXhigh)'
+      };
+
+      function setThinkingLabel(level) {
+        const btn = document.getElementById('pi-chat-thinking-label');
+        if (!btn) return;
+        if (level) {
+          btn.textContent = level;
+          btn.style.display = '';
+          btn.className = 'pi-chat-thinking-label thinking-' + level;
         } else {
           btn.style.display = 'none';
         }
@@ -1871,6 +1895,10 @@
 
         function fileKey(file) {
           return [file.name, file.size, file.lastModified].join(':');
+        }
+
+        function isMobileTextInputMode() {
+          return !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
         }
 
         function renderAttachments() {
@@ -1909,6 +1937,7 @@
         });
         textarea.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
+            if (isMobileTextInputMode()) return;
             event.preventDefault();
             form.requestSubmit();
           }
@@ -2012,10 +2041,12 @@
             const data = await response.json();
             const apiModelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
             if (apiModelLabel) knownModelLabel = apiModelLabel;
+            if (data.thinkingLevel) knownThinkingLevel = data.thinkingLevel;
             if (data.state === 'running') setStatus('running', 'running');
             if (data.state === 'idle') setStatus('idle', '');
             if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
             setModelLabel(knownModelLabel);
+            setThinkingLabel(knownThinkingLevel);
             if (data.modelProvider && data.model && onWorkerModelUpdate) {
               onWorkerModelUpdate(data.modelProvider, data.model);
             }
@@ -2030,10 +2061,16 @@
         refreshWorkerStatus();
       }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupPiChatComposer);
-      } else {
+      function initPiChatControls() {
         setupPiChatComposer();
+        loadModelSelector();
+        setupThinkingLevelSelector();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPiChatControls);
+      } else {
+        initPiChatControls();
       }
 
       // Model selector
@@ -2053,6 +2090,7 @@
 
           function setSelected(m) {
             selectedModel = m;
+            currentModelForThinking = m || null;
           }
 
           function updateToggleFromStatus(provider, modelId) {
@@ -2227,7 +2265,97 @@
           // silently ignore if pi is not available
         }
       }
-      loadModelSelector();
+
+      // ── Thinking level selector ──────────────────────────────────────────
+      function setupThinkingLevelSelector() {
+        const sessionId = new URLSearchParams(window.location.search).get('id') || (document.getElementById('pi-chat-composer') || {}).dataset?.sessionId || '';
+        const thinkingLabelBtn = document.getElementById('pi-chat-thinking-label');
+        const thinkingPopup = document.getElementById('pi-chat-thinking-popup');
+        const thinkingList = document.getElementById('pi-chat-thinking-list');
+        if (!thinkingLabelBtn || !thinkingPopup || !thinkingList) return;
+
+        function supportedThinkingLevels(model) {
+          if (!model) return THINKING_LEVELS;
+          if (!model.reasoning) return ['off'];
+          const map = model.thinkingLevelMap || {};
+          return THINKING_LEVELS.filter(function(level) {
+            const mapped = map[level];
+            if (mapped === null) return false;
+            if (level === 'xhigh') return mapped !== undefined;
+            return true;
+          });
+        }
+
+        function renderThinkingList(selectedLevel) {
+          const supported = supportedThinkingLevels(currentModelForThinking);
+          let html = '';
+          THINKING_LEVELS.forEach(function(level) {
+            const active = level === selectedLevel ? ' selected' : '';
+            const disabled = supported.indexOf(level) < 0 ? ' disabled title="Not supported by current model"' : '';
+            const label = supported.indexOf(level) < 0 ? level + ' (unsupported)' : level;
+            html += `<button type="button" class="thinking-level-item thinking-${level}${active}" data-level="${level}"${disabled}>${label}</button>`;
+          });
+          thinkingList.innerHTML = html;
+        }
+
+        function openThinkingPopup() {
+          thinkingPopup.style.display = 'flex';
+          renderThinkingList(knownThinkingLevel);
+        }
+
+        function closeThinkingPopup() {
+          thinkingPopup.style.display = 'none';
+        }
+
+        thinkingLabelBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (thinkingPopup.style.display !== 'none') {
+            closeThinkingPopup();
+          } else {
+            openThinkingPopup();
+          }
+        });
+
+        thinkingList.addEventListener('click', async function(e) {
+          const item = e.target.closest('.thinking-level-item');
+          if (!item) return;
+          if (item.disabled) return;
+          const level = item.dataset.level;
+          if (!level) return;
+          closeThinkingPopup();
+          try {
+            const res = await fetch('/api/set-thinking-level?id=' + encodeURIComponent(sessionId), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ level })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'set thinking level failed');
+            const effectiveLevel = data.thinkingLevel || level;
+            knownThinkingLevel = effectiveLevel;
+            setThinkingLabel(effectiveLevel);
+            setChatStatus('thinking: ' + effectiveLevel, 'ok');
+          } catch (err) {
+            setChatStatus(err.message || String(err), 'error');
+          }
+        });
+
+        document.addEventListener('click', function(e) {
+          if (thinkingPopup.style.display !== 'none' && !thinkingPopup.contains(e.target) && e.target !== thinkingLabelBtn) {
+            closeThinkingPopup();
+          }
+        });
+
+        // Detect initial thinking level from latest thinking_level_change entry
+        const thinkingChanges = entries.filter(function(e) { return e.type === 'thinking_level_change'; });
+        if (thinkingChanges.length > 0) {
+          const latest = thinkingChanges[thinkingChanges.length - 1];
+          if (latest.thinkingLevel) {
+            knownThinkingLevel = latest.thinkingLevel;
+            setThinkingLabel(latest.thinkingLevel);
+          }
+        }
+      }
 
       // Initial render
       // If URL has targetId, scroll to that specific message; otherwise stay at top

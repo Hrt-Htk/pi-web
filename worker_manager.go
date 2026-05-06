@@ -28,11 +28,14 @@ type WorkerStatus struct {
 	Model         string      `json:"model,omitempty"`
 	ModelName     string      `json:"modelName,omitempty"`
 	ModelProvider string      `json:"modelProvider,omitempty"`
+	ThinkingLevel string      `json:"thinkingLevel,omitempty"`
 }
 
 type ChatWorker interface {
 	Prompt(ctx context.Context, chat ChatRequest) error
 	SetModel(ctx context.Context, provider, modelID string) error
+	SetThinkingLevel(ctx context.Context, level string) error
+	GetState(ctx context.Context) (WorkerStatus, error)
 	Status() WorkerStatus
 	Close() error
 }
@@ -75,6 +78,24 @@ func (m *WorkerManager) SetModel(sessionID, sessionPath, provider, modelID strin
 	return worker.SetModel(context.Background(), provider, modelID)
 }
 
+func (m *WorkerManager) SetThinkingLevel(sessionID, sessionPath, level string) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.SetThinkingLevel(context.Background(), level)
+}
+
+func (m *WorkerManager) GetState(ctx context.Context, sessionID string) (WorkerStatus, error) {
+	m.mu.Lock()
+	worker := m.workers[sessionID]
+	m.mu.Unlock()
+	if worker == nil {
+		return WorkerStatus{State: WorkerStateIdle}, nil
+	}
+	return worker.GetState(ctx)
+}
+
 func (m *WorkerManager) Close() error {
 	m.mu.Lock()
 	workers := make([]ChatWorker, 0, len(m.workers))
@@ -114,17 +135,18 @@ func (m *WorkerManager) workerFor(sessionID, sessionPath string) (ChatWorker, er
 }
 
 type piRPCWorker struct {
-	mu              sync.Mutex
-	writeMu         sync.Mutex
-	sessionPath     string
-	cmd             *exec.Cmd
-	stdin           io.WriteCloser
-	status          WorkerStatus
-	seq             atomic.Uint64
-	pending         map[string]chan rpcResponse
-	currentModel    string
-	currentProvider string
-	stderrBuf       *strings.Builder
+	mu                   sync.Mutex
+	writeMu              sync.Mutex
+	sessionPath          string
+	cmd                  *exec.Cmd
+	stdin                io.WriteCloser
+	status               WorkerStatus
+	seq                  atomic.Uint64
+	pending              map[string]chan rpcResponse
+	currentModel         string
+	currentProvider      string
+	currentThinkingLevel string
+	stderrBuf            *strings.Builder
 }
 
 func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
@@ -229,11 +251,62 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 		w.currentProvider = m.Provider
 		w.status = WorkerStatus{State: WorkerStateIdle, Model: m.ID, ModelName: m.Name, ModelProvider: m.Provider}
 		w.mu.Unlock()
+		// Refresh thinking level after model switch
+		go w.refreshThinkingLevel()
 		return nil
 	case <-ctx.Done():
 		w.removePending(id)
 		return ctx.Err()
 	}
+}
+
+func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error {
+	return w.sendAndAwait(ctx, buildSetThinkingLevelCommand(w.nextID(), level))
+}
+
+func (w *piRPCWorker) GetState(ctx context.Context) (WorkerStatus, error) {
+	id := w.nextID()
+	ch := make(chan rpcResponse, 1)
+	w.mu.Lock()
+	w.pending[id] = ch
+	w.mu.Unlock()
+
+	w.writeMu.Lock()
+	err := writeRPCCommand(w.stdin, buildGetStateCommand(id))
+	w.writeMu.Unlock()
+	if err != nil {
+		w.removePending(id)
+		return WorkerStatus{}, err
+	}
+
+	select {
+	case res := <-ch:
+		if !res.Success {
+			if res.Error != "" {
+				return WorkerStatus{}, errors.New(res.Error)
+			}
+			return WorkerStatus{}, fmt.Errorf("rpc get_state rejected")
+		}
+		var state struct {
+			ThinkingLevel string `json:"thinkingLevel"`
+		}
+		_ = json.Unmarshal(res.Data, &state)
+		w.mu.Lock()
+		w.currentThinkingLevel = state.ThinkingLevel
+		s := w.status
+		s.ThinkingLevel = state.ThinkingLevel
+		w.mu.Unlock()
+		return s, nil
+	case <-ctx.Done():
+		w.removePending(id)
+		return WorkerStatus{}, ctx.Err()
+	}
+}
+
+func (w *piRPCWorker) refreshThinkingLevel() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, _ = w.GetState(ctx)
 }
 
 func (w *piRPCWorker) Status() WorkerStatus {
@@ -242,6 +315,7 @@ func (w *piRPCWorker) Status() WorkerStatus {
 	s := w.status
 	s.Model = w.currentModel
 	s.ModelProvider = w.currentProvider
+	s.ThinkingLevel = w.currentThinkingLevel
 	return s
 }
 
@@ -340,6 +414,13 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 		w.mu.Lock()
 		w.status = WorkerStatus{State: WorkerStateIdle}
 		w.mu.Unlock()
+	}
+	if raw["type"] == "thinking_level_changed" {
+		if level, ok := raw["level"].(string); ok && level != "" {
+			w.mu.Lock()
+			w.currentThinkingLevel = level
+			w.mu.Unlock()
+		}
 	}
 }
 

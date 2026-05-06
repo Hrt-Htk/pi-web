@@ -32,6 +32,12 @@ func (f *fakeChatWorker) Status() WorkerStatus {
 
 func (f *fakeChatWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
 
+func (f *fakeChatWorker) SetThinkingLevel(ctx context.Context, level string) error { return nil }
+
+func (f *fakeChatWorker) GetState(ctx context.Context) (WorkerStatus, error) {
+	return f.Status(), nil
+}
+
 func (f *fakeChatWorker) Close() error { return nil }
 
 func TestWorkerManagerCreatesOneWorkerPerSession(t *testing.T) {

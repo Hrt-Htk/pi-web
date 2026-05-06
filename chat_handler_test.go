@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,14 @@ func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, ch
 
 func (f *fakeSender) SetModel(sessionID, sessionPath, provider, modelID string) error {
 	return nil
+}
+
+func (f *fakeSender) SetThinkingLevel(sessionID, sessionPath, level string) error {
+	return nil
+}
+
+func (f *fakeSender) GetState(ctx context.Context, sessionID string) (WorkerStatus, error) {
+	return WorkerStatus{State: WorkerStateIdle}, nil
 }
 
 func (f *fakeSender) Status(sessionID string) WorkerStatus {
@@ -76,5 +85,32 @@ func TestHandleWorkerStatusDefaultsIdle(t *testing.T) {
 	}
 	if got := w.Body.String(); got != "{\"state\":\"idle\"}\n" {
 		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleSetThinkingLevelRequiresLevel(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	s := &server{sessionsDir: root, chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodPost, "/api/set-thinking-level?id=session.jsonl", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleSetThinkingLevel(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "level required") {
+		t.Fatalf("body = %q", w.Body.String())
+	}
+}
+
+func TestHandleSetThinkingLevelRejectsMissingSession(t *testing.T) {
+	s := &server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodPost, "/api/set-thinking-level?id=missing.jsonl", strings.NewReader(`{"level":"high"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleSetThinkingLevel(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", w.Code)
 	}
 }

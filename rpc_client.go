@@ -61,3 +61,11 @@ func buildPromptCommand(id string, chat ChatRequest, streaming bool) map[string]
 	}
 	return cmd
 }
+
+func buildGetStateCommand(id string) map[string]any {
+	return map[string]any{"id": id, "type": "get_state"}
+}
+
+func buildSetThinkingLevelCommand(id, level string) map[string]any {
+	return map[string]any{"id": id, "type": "set_thinking_level", "level": level}
+}

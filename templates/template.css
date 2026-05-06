@@ -1275,7 +1275,7 @@
       }
 
       #content {
-        padding: var(--line-height) 16px;
+        padding: calc(var(--line-height) * 3) 16px var(--line-height);
       }
 
       #content > * {
@@ -1468,3 +1468,82 @@
     }
     .pi-chat-model-label::before { content: '· '; opacity: 0.5; }
     .pi-chat-model-label:hover { background: var(--selected-bg, #3a3a4a); color: var(--text); }
+
+    .pi-chat-thinking-label {
+      background: none;
+      border: none;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 1px 6px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .pi-chat-thinking-label:hover { background: var(--selected-bg, #3a3a4a); }
+    .pi-chat-thinking-label.thinking-off { color: var(--thinkingOff); }
+    .pi-chat-thinking-label.thinking-minimal { color: var(--thinkingMinimal); }
+    .pi-chat-thinking-label.thinking-low { color: var(--thinkingLow); }
+    .pi-chat-thinking-label.thinking-medium { color: var(--thinkingMedium); }
+    .pi-chat-thinking-label.thinking-high { color: var(--thinkingHigh); }
+    .pi-chat-thinking-label.thinking-xhigh { color: var(--thinkingXhigh); }
+
+    .pi-chat-thinking-popup {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      right: 0;
+      background: var(--container-bg, #1e1e2e);
+      border: 1px solid var(--dim);
+      border-radius: 6px;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.3);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      min-width: 120px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .pi-chat-thinking-list {
+      padding: 4px;
+    }
+    .thinking-level-item {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 5px 8px;
+      border-radius: 3px;
+      text-align: left;
+      transition: background 0.1s;
+    }
+    .thinking-level-item:hover { background: var(--selected-bg, #3a3a4a); color: var(--text); }
+    .thinking-level-item.selected { background: var(--selected-bg, #3a3a4a); color: var(--text); }
+    .thinking-level-item:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
+      background: transparent;
+    }
+    .thinking-level-item:disabled:hover { background: transparent; color: var(--muted); }
+    .thinking-level-item.thinking-off { color: var(--thinkingOff); }
+    .thinking-level-item.thinking-minimal { color: var(--thinkingMinimal); }
+    .thinking-level-item.thinking-low { color: var(--thinkingLow); }
+    .thinking-level-item.thinking-medium { color: var(--thinkingMedium); }
+    .thinking-level-item.thinking-high { color: var(--thinkingHigh); }
+    .thinking-level-item.thinking-xhigh { color: var(--thinkingXhigh); }
+    .thinking-level-item.selected.thinking-off,
+    .thinking-level-item:hover.thinking-off { color: var(--thinkingOff); }
+    .thinking-level-item.selected.thinking-minimal,
+    .thinking-level-item:hover.thinking-minimal { color: var(--thinkingMinimal); }
+    .thinking-level-item.selected.thinking-low,
+    .thinking-level-item:hover.thinking-low { color: var(--thinkingLow); }
+    .thinking-level-item.selected.thinking-medium,
+    .thinking-level-item:hover.thinking-medium { color: var(--thinkingMedium); }
+    .thinking-level-item.selected.thinking-high,
+    .thinking-level-item:hover.thinking-high { color: var(--thinkingHigh); }
+    .thinking-level-item.selected.thinking-xhigh,
+    .thinking-level-item:hover.thinking-xhigh { color: var(--thinkingXhigh); }
