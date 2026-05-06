@@ -631,6 +631,8 @@ func main() {
 	http.HandleFunc("/api/worker-status", srv.handleWorkerStatus)
 	http.HandleFunc("/share", srv.handleShare)
 	http.HandleFunc("/events", srv.handleEvents)
+	http.HandleFunc("/api/new-session", srv.handleNewSession)
+	http.HandleFunc("/api/recent-locations", srv.handleRecentLocations)
 
 	addr := net.JoinHostPort(bindHost, *port)
 	url := "http://" + addr
@@ -983,6 +985,42 @@ func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (s *server) handleNewSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if body.Path == "" {
+		writeJSONError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	id, err := createSessionFile(s.sessionsDir, body.Path)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": id})
+}
+
+func (s *server) handleRecentLocations(w http.ResponseWriter, r *http.Request) {
+	locations, err := listRecentLocations(s.sessionsDir)
+	if err != nil {
+		locations = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"locations": locations})
 }
 
 func handleAvailableModels(w http.ResponseWriter, r *http.Request) {
