@@ -899,7 +899,8 @@
               const canClick = !result || questionToolFailed;
               const tag = canClick ? 'button' : 'div';
               const actionClass = canClick ? ' ask-question-option-action' : '';
-              const dataAttrs = canClick ? ` type="button" data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
+              const bridgeAttrs = !result ? ` data-tool-call-id="${escapeHtml(args.toolCallId || '')}" data-multi-select="${q.multiSelect === true}"` : '';
+              const dataAttrs = canClick ? ` type="button"${bridgeAttrs} data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
               html += `<${tag} class="ask-question-option${selected ? ' selected' : ''}${actionClass}"${dataAttrs}>`;
               html += `<div class="ask-question-option-label">${selected ? '✓ ' : ''}${escapeHtml(label)}</div>`;
               if (description) html += `<div class="ask-question-option-desc">${escapeHtml(description)}</div>`;
@@ -912,10 +913,13 @@
           } else if (questionToolFailed) {
             html += '<div class="ask-question-hint">Use these options as a fallback. Each tap sends that answer to pi.</div>';
           } else if (!result) {
-            html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
+            html += '<div class="ask-question-hint">Choose answers here, then submit them to pi.</div>';
           }
           html += '</div>';
         });
+        if (!result && questions.length > 1) {
+          html += '<button type="button" class="ask-question-submit" data-tool-call-id="' + escapeHtml(args.toolCallId || '') + '">Submit answers</button>';
+        }
         html += '</div>';
         return html;
       }
@@ -1040,7 +1044,7 @@
             break;
           }
           case 'ask_user_question': {
-            html += renderAskUserQuestionTool(args, result);
+            html += renderAskUserQuestionTool({ ...args, toolCallId: call.id }, result);
             break;
           }
           default: {
@@ -1918,10 +1922,65 @@
           }
         });
 
+        async function submitQuestionCard(card, toolCallId) {
+          const answers = {};
+          for (const block of card.querySelectorAll('.ask-question-block')) {
+            const question = block.querySelector('.ask-question-option-action')?.dataset.question;
+            if (!question) continue;
+            const selected = Array.from(block.querySelectorAll('.ask-question-option-action.selected')).map(el => el.dataset.answer || el.textContent.trim());
+            if (selected.length === 0) return false;
+            answers[question] = selected.join(', ');
+          }
+          const response = await fetch('/api/question-answer?id=' + encodeURIComponent(sessionId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toolCallId, answers })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'question answer failed');
+          setStatus('answered', 'running');
+          return true;
+        }
+
         document.addEventListener('click', async (event) => {
+          const submit = event.target.closest?.('.ask-question-submit');
+          if (submit) {
+            event.preventDefault();
+            submit.disabled = true;
+            try {
+              const ok = await submitQuestionCard(submit.closest('.ask-question-card'), submit.dataset.toolCallId);
+              if (!ok) throw new Error('choose an answer for each question');
+            } catch (error) {
+              setStatus(error.message || String(error), 'error');
+              submit.disabled = false;
+            }
+            return;
+          }
+
           const option = event.target.closest?.('.ask-question-option-action');
           if (!option) return;
           event.preventDefault();
+          const card = option.closest('.ask-question-card');
+          const block = option.closest('.ask-question-block');
+          const toolCallId = option.dataset.toolCallId;
+          if (toolCallId) {
+            if (option.dataset.multiSelect === 'true') {
+              option.classList.toggle('selected');
+              return;
+            }
+            block.querySelectorAll('.ask-question-option-action').forEach(el => el.classList.remove('selected'));
+            option.classList.add('selected');
+            if (!card.querySelector('.ask-question-submit')) {
+              try {
+                option.disabled = true;
+                await submitQuestionCard(card, toolCallId);
+              } catch (error) {
+                setStatus(error.message || String(error), 'error');
+                option.disabled = false;
+              }
+            }
+            return;
+          }
           const question = option.dataset.question || 'Question';
           const answer = option.dataset.answer || option.textContent.trim();
           const message = `"${question}" = "${answer}"`;

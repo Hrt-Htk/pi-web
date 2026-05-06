@@ -568,6 +568,7 @@ func main() {
 	http.HandleFunc("/session", srv.handleSession)
 	http.HandleFunc("/api/session", srv.handleApiSession)
 	http.HandleFunc("/api/chat", srv.handleChat)
+	http.HandleFunc("/api/question-answer", srv.handleQuestionAnswer)
 	http.HandleFunc("/api/worker-status", srv.handleWorkerStatus)
 	http.HandleFunc("/share", srv.handleShare)
 	http.HandleFunc("/events", srv.handleEvents)
@@ -624,14 +625,19 @@ type server struct {
 	fileMod     map[string]time.Time
 	fileModMu   sync.RWMutex
 	chatSender  ChatSender
+	questionDir string
 }
 
 func newServer(sessionsDir string) *server {
+	qDir := questionBridgeDir()
 	s := &server{
 		sessionsDir: sessionsDir,
 		clients:     make([]*sseClient, 0),
 		fileMod:     make(map[string]time.Time),
-		chatSender:  NewWorkerManager(newPiRPCWorker),
+		questionDir: qDir,
+		chatSender: NewWorkerManager(func(sessionPath string) (ChatWorker, error) {
+			return newPiRPCWorkerWithQuestionDir(sessionPath, qDir)
+		}),
 	}
 	go s.watchFiles()
 	return s

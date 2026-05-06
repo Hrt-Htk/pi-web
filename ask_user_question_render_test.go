@@ -47,3 +47,18 @@ func TestErroredAskUserQuestionKeepsFallbackOptionsClickable(t *testing.T) {
 		}
 	}
 }
+
+func TestPendingAskUserQuestionUsesQuestionBridge(t *testing.T) {
+	checks := []string{
+		"data-tool-call-id=",
+		"ask-question-submit",
+		"submitQuestionCard(card, toolCallId)",
+		"/api/question-answer?id=",
+		"answers[question] = selected.join(', ');",
+	}
+	for _, check := range checks {
+		if !strings.Contains(templateJs+templateCss, check) {
+			t.Fatalf("missing %q; pending multi-question cards should answer the waiting RPC tool", check)
+		}
+	}
+}

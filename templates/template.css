@@ -653,6 +653,22 @@
       cursor: not-allowed;
     }
 
+    .ask-question-submit {
+      justify-self: end;
+      padding: 6px 12px;
+      font: inherit;
+      color: var(--body-bg);
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .ask-question-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .ask-question-option.selected {
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 16%, var(--body-bg));
