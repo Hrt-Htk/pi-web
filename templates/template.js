@@ -712,6 +712,7 @@
               if (window.getSelection().toString()) return;
               const leafId = findNewestLeaf(entry.id);
               navigateTo(leafId, 'target', entry.id);
+              if (isMobileLayout()) closeSidebar();
             });
 
             container.appendChild(div);
@@ -1679,16 +1680,19 @@
 
       setupSidebarResize();
 
+      function setSidebarOpen(open) {
+        sidebar.classList.toggle('open', open);
+        overlay.classList.toggle('open', open);
+        document.body.classList.toggle('sidebar-open', open);
+        hamburger.style.display = open ? 'none' : '';
+      }
+
       hamburger.addEventListener('click', () => {
-        sidebar.classList.add('open');
-        overlay.classList.add('open');
-        hamburger.style.display = 'none';
+        setSidebarOpen(true);
       });
 
       const closeSidebar = () => {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('open');
-        hamburger.style.display = '';
+        setSidebarOpen(false);
       };
 
       overlay.addEventListener('click', closeSidebar);

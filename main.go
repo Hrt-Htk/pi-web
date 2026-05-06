@@ -425,8 +425,16 @@ const liveReloadJs = `
   function showIndicator() {
     if (indicator) return;
     indicator = document.createElement('div');
-    indicator.textContent = 'updated';
-    indicator.style.cssText = 'position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;';
+    indicator.textContent = 'updated - tap to view';
+    indicator.style.cssText = 'position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;cursor:pointer;';
+    indicator.addEventListener('click', function() {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebar-overlay')?.classList.remove('open');
+      document.body.classList.remove('sidebar-open');
+      var hamburger = document.getElementById('hamburger');
+      if (hamburger) hamburger.style.display = '';
+      scrollToBottom(true);
+    });
     document.body.appendChild(indicator);
     requestAnimationFrame(function() { indicator.style.opacity = '1'; });
     setTimeout(function() {
@@ -1081,9 +1089,9 @@ func generateExportHtml(session Session, showButtons bool) string {
 	html = strings.Replace(html, "{{HIGHLIGHT_JS}}", hljsJs, 1)
 
 	if showButtons {
-		btns := `<div style="position:fixed;top:10px;right:10px;z-index:101;display:flex;flex-direction:column;gap:6px;">
-<a href="/" title="Back to sessions" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--muted);border:1px solid var(--dim);border-radius:3px;text-decoration:none;cursor:pointer;text-align:center;">← Sessions</a>
-<button id="share-btn" title="Share session as GitHub Gist" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--muted);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">↗ Share</button>
+		btns := `<div class="session-actions">
+<a href="/" class="session-action" title="Back to sessions">← Sessions</a>
+<button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
 </div>`
 		html = strings.Replace(html, "<body>", "<body>"+btns, 1)
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtml(session.ID), 1)

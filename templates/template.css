@@ -296,6 +296,34 @@
       border-color: var(--borderAccent);
     }
 
+    .session-actions {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .session-action {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      background: var(--container-bg);
+      color: var(--muted);
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      text-decoration: none;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .session-action:hover {
+      color: var(--text);
+      border-color: var(--borderMuted);
+    }
+
     /* Header */
     .header {
       background: var(--container-bg);
@@ -1007,6 +1035,17 @@
 
       #content > * {
         max-width: 100%;
+      }
+
+      .session-actions {
+        top: auto;
+        right: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        flex-direction: row;
+      }
+
+      body.sidebar-open .session-actions {
+        display: none;
       }
     }
 
