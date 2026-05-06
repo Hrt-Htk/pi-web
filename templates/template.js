@@ -1833,8 +1833,11 @@
         refreshWorkerStatus();
       }
 
-      setupPiChatComposer();
-
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupPiChatComposer);
+      } else {
+        setupPiChatComposer();
+      }
 
       // Initial render
       // If URL has targetId, scroll to that specific message; otherwise stay at top
