@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type WorkerState string
@@ -96,6 +99,7 @@ type piRPCWorker struct {
 	stdin       io.WriteCloser
 	status      WorkerStatus
 	seq         atomic.Uint64
+	pending     map[string]chan rpcResponse
 }
 
 func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
@@ -111,12 +115,21 @@ func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
 	if err != nil {
 		return nil, err
 	}
+	worker := &piRPCWorker{
+		sessionPath: sessionPath,
+		cmd:         cmd,
+		stdin:       stdin,
+		status:      WorkerStatus{State: WorkerStateIdle},
+		pending:     make(map[string]chan rpcResponse),
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	worker := &piRPCWorker{sessionPath: sessionPath, cmd: cmd, stdin: stdin, status: WorkerStatus{State: WorkerStateIdle}}
 	go worker.consume(stdout)
-	if err := worker.switchSession(context.Background()); err != nil {
+	go worker.wait()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := worker.switchSession(ctx); err != nil {
 		_ = worker.Close()
 		return nil, err
 	}
@@ -128,7 +141,14 @@ func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
 	streaming := w.status.State == WorkerStateRunning
 	w.status = WorkerStatus{State: WorkerStateRunning}
 	w.mu.Unlock()
-	return writeRPCCommand(w.stdin, buildPromptCommand(w.nextID(), chat, streaming))
+	id := w.nextID()
+	if err := w.sendAndAwait(ctx, buildPromptCommand(id, chat, streaming)); err != nil {
+		w.mu.Lock()
+		w.status = WorkerStatus{State: WorkerStateError, Error: err.Error()}
+		w.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (w *piRPCWorker) Status() WorkerStatus {
@@ -152,21 +172,100 @@ func (w *piRPCWorker) nextID() string {
 }
 
 func (w *piRPCWorker) switchSession(ctx context.Context) error {
-	return writeRPCCommand(w.stdin, buildSwitchSessionCommand(w.nextID(), w.sessionPath))
+	return w.sendAndAwait(ctx, buildSwitchSessionCommand(w.nextID(), w.sessionPath))
+}
+
+func (w *piRPCWorker) sendAndAwait(ctx context.Context, cmd map[string]any) error {
+	id, _ := cmd["id"].(string)
+	if id == "" {
+		return errors.New("rpc command missing id")
+	}
+	ch := make(chan rpcResponse, 1)
+	w.mu.Lock()
+	w.pending[id] = ch
+	w.mu.Unlock()
+
+	if err := writeRPCCommand(w.stdin, cmd); err != nil {
+		w.removePending(id)
+		return err
+	}
+
+	select {
+	case res := <-ch:
+		if !res.Success {
+			if res.Error != "" {
+				return errors.New(res.Error)
+			}
+			return fmt.Errorf("rpc %s rejected", res.Command)
+		}
+		return nil
+	case <-ctx.Done():
+		w.removePending(id)
+		return ctx.Err()
+	}
+}
+
+func (w *piRPCWorker) removePending(id string) {
+	w.mu.Lock()
+	delete(w.pending, id)
+	w.mu.Unlock()
 }
 
 func (w *piRPCWorker) consume(r io.Reader) {
-	lines, err := readJSONLLines(r)
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if err != nil {
-		w.status = WorkerStatus{State: WorkerStateError, Error: err.Error()}
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSuffix(scanner.Text(), "\r")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		w.handleRPCLine(line)
+	}
+	if err := scanner.Err(); err != nil {
+		w.setError(err)
+	}
+}
+
+func (w *piRPCWorker) handleRPCLine(line string) {
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(line), &raw); err != nil {
 		return
 	}
-	for _, line := range lines {
-		var event map[string]any
-		if json.Unmarshal([]byte(line), &event) == nil && event["type"] == "agent_end" {
-			w.status = WorkerStatus{State: WorkerStateIdle}
+	if raw["type"] == "response" {
+		var res rpcResponse
+		if err := json.Unmarshal([]byte(line), &res); err != nil {
+			return
 		}
+		w.mu.Lock()
+		ch := w.pending[res.ID]
+		delete(w.pending, res.ID)
+		w.mu.Unlock()
+		if ch != nil {
+			ch <- res
+		}
+		return
+	}
+	if raw["type"] == "agent_end" {
+		w.mu.Lock()
+		w.status = WorkerStatus{State: WorkerStateIdle}
+		w.mu.Unlock()
+	}
+}
+
+func (w *piRPCWorker) wait() {
+	if err := w.cmd.Wait(); err != nil {
+		w.setError(err)
+	}
+}
+
+func (w *piRPCWorker) setError(err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.status.State != WorkerStateError {
+		w.status = WorkerStatus{State: WorkerStateError, Error: err.Error()}
+	}
+	for id, ch := range w.pending {
+		delete(w.pending, id)
+		ch <- rpcResponse{ID: id, Type: "response", Success: false, Error: err.Error()}
 	}
 }

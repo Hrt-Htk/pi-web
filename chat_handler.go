@@ -39,6 +39,8 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusRequestEntityTooLarge, err.Error())
 		case errors.Is(err, errUnsupportedImageType):
 			writeJSONError(w, http.StatusUnsupportedMediaType, err.Error())
+		case errors.As(err, new(*http.MaxBytesError)):
+			writeJSONError(w, http.StatusRequestEntityTooLarge, err.Error())
 		default:
 			writeJSONError(w, http.StatusBadRequest, err.Error())
 		}

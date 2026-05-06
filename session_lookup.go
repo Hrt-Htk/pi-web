@@ -20,9 +20,32 @@ func resolveSessionByID(sessionsDir, id string) (ResolvedSession, error) {
 		return ResolvedSession{}, errInvalidSessionID
 	}
 
-	entries, err := os.ReadDir(sessionsDir)
+	sessions, err := loadAllSessions(sessionsDir)
 	if err != nil {
 		return ResolvedSession{}, err
+	}
+	var matched *Session
+	for i := range sessions {
+		if sessions[i].ID == id {
+			matched = &sessions[i]
+			break
+		}
+	}
+	if matched == nil {
+		return ResolvedSession{}, errSessionNotFound
+	}
+
+	path, err := findSessionPathByFilename(sessionsDir, id)
+	if err != nil {
+		return ResolvedSession{}, err
+	}
+	return ResolvedSession{Session: *matched, Path: path}, nil
+}
+
+func findSessionPathByFilename(sessionsDir, id string) (string, error) {
+	entries, err := os.ReadDir(sessionsDir)
+	if err != nil {
+		return "", err
 	}
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -34,16 +57,10 @@ func resolveSessionByID(sessionsDir, id string) (ResolvedSession, error) {
 			continue
 		}
 		for _, f := range subs {
-			if f.IsDir() || f.Name() != id || !strings.HasSuffix(f.Name(), ".jsonl") {
-				continue
+			if !f.IsDir() && f.Name() == id && strings.HasSuffix(f.Name(), ".jsonl") {
+				return filepath.Join(subDir, f.Name()), nil
 			}
-			path := filepath.Join(subDir, f.Name())
-			sess, err := parseSession(path, e.Name(), f.Name())
-			if err != nil {
-				return ResolvedSession{}, err
-			}
-			return ResolvedSession{Session: sess, Path: path}, nil
 		}
 	}
-	return ResolvedSession{}, errSessionNotFound
+	return "", errSessionNotFound
 }
