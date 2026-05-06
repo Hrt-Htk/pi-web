@@ -1541,6 +1541,7 @@ body {
   color: var(--text);
   background: var(--body-bg);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 .header {
   background: var(--container-bg);
@@ -1550,6 +1551,7 @@ body {
 .header-inner {
   max-width: 1200px;
   margin: 0 auto;
+  min-width: 0;
 }
 .header-top {
   display: flex;
@@ -1610,9 +1612,12 @@ body {
   padding: calc(var(--line-height)) calc(var(--line-height) * 2);
   max-width: 1200px;
   margin: 0 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .project-group {
   margin-bottom: calc(var(--line-height) * 2);
+  min-width: 0;
 }
 .project-name {
   font-size: 11px;
