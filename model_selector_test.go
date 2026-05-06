@@ -39,11 +39,12 @@ func TestHandleSetModelRejectsMissingSession(t *testing.T) {
 
 func TestModelSelectorMarkupExists(t *testing.T) {
 	jsChecks := []string{
-		"model-dropdown",
+		"pi-chat-model-popup",
+		"pi-chat-model-search",
+		"pi-chat-model-list",
 		"/api/models",
 		"/api/set-model?id=",
 		"loadModelSelector",
-		"model-search",
 		"model-scope-badge",
 		"isScoped",
 		"modelChanges",
@@ -58,9 +59,8 @@ func TestModelSelectorMarkupExists(t *testing.T) {
 		}
 	}
 	cssChecks := []string{
-		"model-dropdown",
-		"model-dropdown-menu",
-		"model-search",
+		"pi-chat-model-popup",
+		"pi-chat-model-search",
 		"model-item",
 		"model-scope-badge",
 	}

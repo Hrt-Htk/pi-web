@@ -867,7 +867,11 @@
         const answers = result?.details?.answers || {};
         const cancelled = result?.details?.cancelled === true;
         const questionToolFailed = result?.isError === true;
-        let html = '<div class="ask-question-card">';
+        const canClick = !result || questionToolFailed;
+        const isInteractive = canClick || cancelled;
+        const isMulti = questions.length > 1;
+
+        let html = `<div class="ask-question-card" data-question-count="${questions.length}">`;
         html += '<div class="ask-question-title">Question for you</div>';
         if (questionToolFailed) {
           html += '<div class="ask-question-state error">question UI failed</div>';
@@ -887,7 +891,7 @@
           const questionText = typeof q.question === 'string' ? q.question : `Question ${qIndex + 1}`;
           const answer = answers[questionText];
           const options = Array.isArray(q.options) ? q.options : [];
-          html += '<div class="ask-question-block">';
+          html += `<div class="ask-question-block" data-question-text="${escapeHtml(questionText)}">`;
           if (q.header) html += `<div class="ask-question-header">${escapeHtml(String(q.header))}</div>`;
           html += `<div class="ask-question-text">${escapeHtml(questionText)}</div>`;
           if (options.length > 0) {
@@ -896,10 +900,9 @@
               const label = typeof option?.label === 'string' ? option.label : String(option || '');
               const description = typeof option?.description === 'string' ? option.description : '';
               const selected = answer === label || (typeof answer === 'string' && answer.split(', ').includes(label));
-              const canClick = !result || questionToolFailed;
-              const tag = canClick ? 'button' : 'div';
-              const actionClass = canClick ? ' ask-question-option-action' : '';
-              const dataAttrs = canClick ? ` type="button" data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
+              const tag = isInteractive ? 'button' : 'div';
+              const actionClass = isInteractive ? ' ask-question-option-action' : '';
+              const dataAttrs = isInteractive ? ` type="button" data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
               html += `<${tag} class="ask-question-option${selected ? ' selected' : ''}${actionClass}"${dataAttrs}>`;
               html += `<div class="ask-question-option-label">${selected ? '✓ ' : ''}${escapeHtml(label)}</div>`;
               if (description) html += `<div class="ask-question-option-desc">${escapeHtml(description)}</div>`;
@@ -909,13 +912,22 @@
           }
           if (answer) {
             html += `<div class="ask-question-answer"><span>Answer:</span> ${escapeHtml(String(answer))}</div>`;
-          } else if (questionToolFailed) {
-            html += '<div class="ask-question-hint">Use these options as a fallback. Each tap sends that answer to pi.</div>';
-          } else if (!result) {
-            html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
           }
           html += '</div>';
         });
+
+        if (isInteractive) {
+          if (isMulti) {
+            html += '<div class="ask-question-actions" style="display:none"><button type="button" class="ask-question-submit-btn">Send answers</button></div>';
+          } else if (questionToolFailed) {
+            html += '<div class="ask-question-hint">Use these options as a fallback — click an option to send your answer to pi.</div>';
+          } else if (cancelled) {
+            html += '<div class="ask-question-hint">Click an option to send your answer to pi.</div>';
+          } else if (!result) {
+            html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
+          }
+        }
+
         html += '</div>';
         return html;
       }
@@ -1372,13 +1384,6 @@
             <div class="help-bar">
               <span class="help-hint">T toggle thinking · O toggle tools</span>
               <div class="help-actions">
-                <div class="model-dropdown" id="model-dropdown">
-                  <button type="button" class="model-dropdown-toggle" id="model-dropdown-toggle" title="Switch model">Model…</button>
-                  <div class="model-dropdown-menu" id="model-dropdown-menu" style="display:none">
-                    <input type="text" class="model-search" id="model-search" placeholder="Search models…" autocomplete="off">
-                    <div class="model-list" id="model-list"></div>
-                  </div>
-                </div>
                 <button type="button" class="header-toggle-btn" data-action="toggle-thinking" title="Toggle thinking (T)">Toggle thinking</button>
                 <button type="button" class="header-toggle-btn" data-action="toggle-tools" title="Toggle tools (O)">Toggle tools</button>
                 <button type="button" class="download-json-btn" onclick="downloadSessionJson()" title="Download session as JSONL">↓ JSONL</button>
@@ -1828,12 +1833,24 @@
       });
 
       let onWorkerModelUpdate = null;
+      let knownModelLabel = '';
 
       function setChatStatus(text, cls) {
         const status = document.getElementById('pi-chat-status');
         if (!status) return;
         status.textContent = text;
         status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
+      }
+
+      function setModelLabel(label) {
+        const btn = document.getElementById('pi-chat-model-label');
+        if (!btn) return;
+        if (label) {
+          btn.textContent = label;
+          btn.style.display = '';
+        } else {
+          btn.style.display = 'none';
+        }
       }
 
       function setupPiChatComposer() {
@@ -1934,31 +1951,78 @@
         });
 
         document.addEventListener('click', async (event) => {
+          // Submit button: send all collected answers
+          const submitBtn = event.target.closest?.('.ask-question-submit-btn');
+          if (submitBtn) {
+            event.preventDefault();
+            const card = submitBtn.closest('.ask-question-card');
+            if (!card) return;
+            const parts = [];
+            card.querySelectorAll('.ask-question-block').forEach(block => {
+              const questionText = block.dataset.questionText || '';
+              const sel = block.querySelector('.ask-question-option-action.selected');
+              if (sel && questionText) parts.push(`"${questionText}" = "${sel.dataset.answer || ''}"`);
+            });
+            if (parts.length === 0) return;
+            card.querySelectorAll('.ask-question-option-action').forEach(b => { b.disabled = true; });
+            submitBtn.disabled = true;
+            const sent = await sendChatMessage(parts.join('\n'), []);
+            if (!sent) {
+              card.querySelectorAll('.ask-question-option-action').forEach(b => { b.disabled = false; });
+              submitBtn.disabled = false;
+            }
+            return;
+          }
+
+          // Option click
           const option = event.target.closest?.('.ask-question-option-action');
           if (!option) return;
           event.preventDefault();
-          const question = option.dataset.question || 'Question';
-          const answer = option.dataset.answer || option.textContent.trim();
-          const message = `"${question}" = "${answer}"`;
-          option.disabled = true;
-          const sent = await sendChatMessage(message, []);
-          if (!sent) option.disabled = false;
+
+          const card = option.closest('.ask-question-card');
+          const block = option.closest('.ask-question-block');
+          const questionCount = parseInt(card?.dataset.questionCount || '1', 10);
+
+          if (questionCount === 1) {
+            // Single question: send immediately
+            const question = option.dataset.question || 'Question';
+            const answer = option.dataset.answer || option.textContent.trim();
+            option.disabled = true;
+            const sent = await sendChatMessage(`"${question}" = "${answer}"`, []);
+            if (!sent) option.disabled = false;
+            return;
+          }
+
+          // Multi-question: mark selection, show submit button
+          if (block) {
+            block.querySelectorAll('.ask-question-option-action').forEach(b => b.classList.remove('selected'));
+            option.classList.add('selected');
+          }
+          const actions = card?.querySelector('.ask-question-actions');
+          if (actions) actions.style.display = '';
         });
 
+        let workerStatusInflight = false;
         async function refreshWorkerStatus() {
+          if (workerStatusInflight) return;
+          workerStatusInflight = true;
           try {
             const response = await fetch('/api/worker-status?id=' + encodeURIComponent(sessionId));
             if (!response.ok) return;
             const data = await response.json();
-            const modelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
-            if (data.state === 'running') setStatus('running' + (modelLabel ? ' · ' + modelLabel : ''), 'running');
-            if (data.state === 'idle') setStatus('idle' + (modelLabel ? ' · ' + modelLabel : ''), '');
-            if (data.state === 'error') setStatus((data.error || 'worker error') + (modelLabel ? ' · ' + modelLabel : ''), 'error');
+            const apiModelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
+            if (apiModelLabel) knownModelLabel = apiModelLabel;
+            if (data.state === 'running') setStatus('running', 'running');
+            if (data.state === 'idle') setStatus('idle', '');
+            if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
+            setModelLabel(knownModelLabel);
             if (data.modelProvider && data.model && onWorkerModelUpdate) {
               onWorkerModelUpdate(data.modelProvider, data.model);
             }
           } catch {
             setStatus('status unavailable', 'error');
+          } finally {
+            workerStatusInflight = false;
           }
         }
 
@@ -1974,62 +2038,21 @@
 
       // Model selector
       async function loadModelSelector() {
+        const sessionId = new URLSearchParams(window.location.search).get('id') || (document.getElementById('pi-chat-composer') || {}).dataset?.sessionId || '';
         try {
           const res = await fetch('/api/models');
           const data = await res.json();
           if (!res.ok || !data.models) return;
 
-          const toggle = document.getElementById('model-dropdown-toggle');
-          const menu = document.getElementById('model-dropdown-menu');
-          const search = document.getElementById('model-search');
-          const list = document.getElementById('model-list');
-          if (!toggle || !menu || !search || !list) return;
-
           let allModels = data.models;
           let selectedModel = null;
-          let activeIndex = -1;
 
           function isScoped(m) {
             return !!(m.isScoped || m.scoped || m.scope);
           }
 
-          function renderList(filter) {
-            const term = (filter || '').toLowerCase().trim();
-            const byProvider = {};
-            for (const m of allModels) {
-              const name = (m.name || m.id || m.modelId || '').toLowerCase();
-              const provider = (m.provider || 'unknown').toLowerCase();
-              if (term && !name.includes(term) && !provider.includes(term)) continue;
-              const p = m.provider || 'unknown';
-              if (!byProvider[p]) byProvider[p] = [];
-              byProvider[p].push(m);
-            }
-            let html = '';
-            const providers = Object.keys(byProvider).sort();
-            if (providers.length === 0) {
-              html = '<div class="model-empty">No models match</div>';
-            } else {
-              for (const provider of providers) {
-                html += `<div class="model-provider">${escapeHtml(provider)}</div>`;
-                for (const m of byProvider[provider]) {
-                  const id = m.id || m.modelId || '';
-                  const name = m.name || id;
-                  const scoped = isScoped(m) ? '<span class="model-scope-badge">scoped</span>' : '';
-                  const active = selectedModel && selectedModel.provider === provider && (selectedModel.id === id || selectedModel.modelId === id) ? ' selected' : '';
-                  html += `<button type="button" class="model-item${active}" data-provider="${escapeHtml(provider)}" data-model-id="${escapeHtml(id)}">${escapeHtml(name)}${scoped}</button>`;
-                }
-              }
-            }
-            list.innerHTML = html;
-            activeIndex = -1;
-          }
-
           function setSelected(m) {
             selectedModel = m;
-            toggle.textContent = m ? (m.name || m.id || m.modelId || 'Model') : 'Model…';
-            toggle.title = m ? `Current: ${m.provider || '?'}/${m.id || m.modelId || '?'}` : 'Switch model';
-            menu.style.display = 'none';
-            renderList(search.value);
           }
 
           function updateToggleFromStatus(provider, modelId) {
@@ -2037,105 +2060,167 @@
             const m = allModels.find(function(x) {
               return (x.provider || '') === provider && ((x.id || '') === modelId || (x.modelId || '') === modelId);
             });
-            if (m && (!selectedModel || selectedModel.provider !== m.provider || (selectedModel.id !== m.id && selectedModel.modelId !== m.modelId))) {
-              selectedModel = m;
-              toggle.textContent = m.name || m.id || m.modelId || 'Model';
-              toggle.title = `Current: ${m.provider || '?'}/${m.id || m.modelId || '?'}`;
-              renderList(search.value);
-            }
+            if (m) setSelected(m);
           }
 
           onWorkerModelUpdate = updateToggleFromStatus;
 
-          function openMenu() {
-            menu.style.display = 'block';
-            search.value = '';
-            renderList('');
-            search.focus();
-          }
+          // Chat toolbar popup
+          const popup = document.getElementById('pi-chat-model-popup');
+          const popupSearch = document.getElementById('pi-chat-model-search');
+          const popupList = document.getElementById('pi-chat-model-list');
 
-          toggle.addEventListener('click', function() {
-            if (menu.style.display === 'block') {
-              menu.style.display = 'none';
-            } else {
-              openMenu();
-            }
-          });
-
-          search.addEventListener('input', function() {
-            renderList(search.value);
-          });
-
-          search.addEventListener('keydown', function(e) {
-            const items = list.querySelectorAll('.model-item');
-            if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              activeIndex = Math.min(activeIndex + 1, items.length - 1);
-              updateActive(items);
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              activeIndex = Math.max(activeIndex - 1, 0);
-              updateActive(items);
-            } else if (e.key === 'Enter') {
-              e.preventDefault();
-              if (activeIndex >= 0 && items[activeIndex]) {
-                items[activeIndex].click();
+          function renderPopupList(filter) {
+            if (!popupList) return;
+            let activeIdx = -1;
+            const q = (filter || '').toLowerCase();
+            const byProvider = {};
+            allModels.forEach(function(m) {
+              if (q) {
+                const name = (m.name || m.id || m.modelId || '').toLowerCase();
+                const prov = (m.provider || '').toLowerCase();
+                if (!name.includes(q) && !prov.includes(q)) return;
               }
-            } else if (e.key === 'Escape') {
-              menu.style.display = 'none';
-              toggle.focus();
-            }
-          });
-
-          function updateActive(items) {
-            items.forEach(function(el, i) {
-              el.classList.toggle('active', i === activeIndex);
+              const p = m.provider || 'unknown';
+              if (!byProvider[p]) byProvider[p] = [];
+              byProvider[p].push(m);
             });
-            if (activeIndex >= 0 && items[activeIndex]) {
-              items[activeIndex].scrollIntoView({ block: 'nearest' });
+            const providers = Object.keys(byProvider).sort();
+            let html = '';
+            if (providers.length === 0) {
+              html = '<div class="model-empty">No models match</div>';
+            } else {
+              providers.forEach(function(provider) {
+                html += `<div class="model-provider">${escapeHtml(provider)}</div>`;
+                byProvider[provider].forEach(function(m) {
+                  const id = m.id || m.modelId || '';
+                  const name = m.name || id;
+                  const scoped = isScoped(m) ? '<span class="model-scope-badge">scoped</span>' : '';
+                  const active = selectedModel && selectedModel.provider === provider && (selectedModel.id === id || selectedModel.modelId === id) ? ' selected' : '';
+                  html += `<button type="button" class="model-item${active}" data-provider="${escapeHtml(provider)}" data-model-id="${escapeHtml(id)}">${escapeHtml(name)}${scoped}</button>`;
+                });
+              });
             }
+            popupList.innerHTML = html;
+            activeIdx = -1;
           }
 
-          list.addEventListener('click', async function(e) {
-            const item = e.target.closest('.model-item');
-            if (!item) return;
-            const provider = item.dataset.provider;
-            const modelId = item.dataset.modelId;
-            if (!provider || !modelId) return;
+          function openPopup() {
+            if (!popup) return;
+            popup.style.display = 'flex';
+            if (popupSearch) { popupSearch.value = ''; popupSearch.focus(); }
+            renderPopupList('');
+          }
 
-            toggle.disabled = true;
-            try {
-              const res = await fetch('/api/set-model?id=' + encodeURIComponent(sessionId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider, modelId })
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error || 'set model failed');
-              const m = allModels.find(function(x) { return (x.provider || '') === provider && (x.id === modelId || x.modelId === modelId); });
-              setSelected(m || { provider, id: modelId, name: modelId });
-              setChatStatus('switched to ' + provider + '/' + modelId, 'ok');
-            } catch (err) {
-              setChatStatus(err.message || String(err), 'error');
-            } finally {
-              toggle.disabled = false;
-            }
-          });
+          function closePopup() {
+            if (popup) popup.style.display = 'none';
+          }
+
+          const modelLabelBtn = document.getElementById('pi-chat-model-label');
+          if (modelLabelBtn) {
+            modelLabelBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              if (popup && popup.style.display !== 'none') {
+                closePopup();
+              } else {
+                openPopup();
+              }
+            });
+          }
+
+          if (popupSearch) {
+            popupSearch.addEventListener('input', function() { renderPopupList(popupSearch.value); });
+            popupSearch.addEventListener('keydown', function(e) {
+              const items = popupList ? popupList.querySelectorAll('.model-item') : [];
+              let popupActive = parseInt(popupList && popupList.dataset.activeIndex || '-1', 10);
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                popupActive = Math.min(popupActive + 1, items.length - 1);
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                popupActive = Math.max(popupActive - 1, 0);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (popupActive >= 0 && items[popupActive]) items[popupActive].click();
+                return;
+              } else if (e.key === 'Escape') {
+                closePopup();
+                modelLabelBtn && modelLabelBtn.focus();
+                return;
+              }
+              if (popupList) popupList.dataset.activeIndex = popupActive;
+              items.forEach(function(it, i) { it.classList.toggle('active', i === popupActive); });
+              if (items[popupActive]) items[popupActive].scrollIntoView({ block: 'nearest' });
+            });
+          }
+
+          if (popupList) {
+            popupList.addEventListener('click', async function(e) {
+              const item = e.target.closest('.model-item');
+              if (!item) return;
+              const provider = item.dataset.provider;
+              const modelId = item.dataset.modelId;
+              if (!provider || !modelId) return;
+              closePopup();
+              try {
+                const res = await fetch('/api/set-model?id=' + encodeURIComponent(sessionId), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ provider, modelId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'set model failed');
+                const m = allModels.find(function(x) { return (x.provider || '') === provider && (x.id === modelId || x.modelId === modelId); });
+                setSelected(m || { provider, id: modelId, name: modelId });
+                const newLabel = (m ? (m.name || m.id || m.modelId || modelId) : modelId) + ' @ ' + provider;
+                knownModelLabel = newLabel;
+                setModelLabel(newLabel);
+                setChatStatus('switched', 'ok');
+              } catch (err) {
+                setChatStatus(err.message || String(err), 'error');
+              }
+            });
+          }
 
           document.addEventListener('click', function(e) {
-            if (!document.getElementById('model-dropdown').contains(e.target)) {
-              menu.style.display = 'none';
+            if (popup && popup.style.display !== 'none') {
+              const modelLabelBtnEl = document.getElementById('pi-chat-model-label');
+              if (!popup.contains(e.target) && e.target !== modelLabelBtnEl) closePopup();
             }
           });
 
-          // Try to detect current model from latest model_change entry
+
+          // Try to detect current model from latest model_change entry, then from last assistant message
           const modelChanges = entries.filter(function(e) { return e.type === 'model_change'; });
+          let detectedProvider = '', detectedModelId = '';
           if (modelChanges.length > 0) {
             const latest = modelChanges[modelChanges.length - 1];
+            detectedProvider = latest.provider || '';
+            detectedModelId = latest.modelId || '';
+          } else {
+            // Fallback: last assistant message with model info
+            for (let i = entries.length - 1; i >= 0; i--) {
+              const e = entries[i];
+              if (e.type === 'message' && e.message && e.message.role === 'assistant' && e.message.model) {
+                detectedProvider = e.message.provider || '';
+                detectedModelId = e.message.model || '';
+                break;
+              }
+            }
+          }
+          if (detectedModelId) {
             const m = allModels.find(function(x) {
-              return (x.provider || '') === (latest.provider || '') && ((x.id || '') === (latest.modelId || '') || (x.modelId || '') === (latest.modelId || ''));
+              return (x.provider || '') === detectedProvider && ((x.id || '') === detectedModelId || (x.modelId || '') === detectedModelId);
             });
-            if (m) setSelected(m);
+            if (m) {
+              setSelected(m);
+              // Seed knownModelLabel so refreshWorkerStatus preserves it
+              const detectedLabel = (m.name || m.id || m.modelId || '') + (m.provider ? ' @ ' + m.provider : '');
+              if (detectedLabel && !knownModelLabel) {
+                knownModelLabel = detectedLabel;
+                setModelLabel(detectedLabel);
+              }
+            }
           }
 
         } catch (e) {

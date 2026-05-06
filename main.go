@@ -172,6 +172,61 @@ const liveReloadJs = `
         var out = getResultText().trim();
         if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
       }
+    } else if (call.name === 'ask_user_question') {
+      var questions = Array.isArray(args.questions) ? args.questions : [];
+      var qaAnswers = result && result.details && result.details.answers ? result.details.answers : {};
+      var qaCancelled = result && result.details && result.details.cancelled === true;
+      var qaFailed = !!(result && result.isError);
+      var qaInteractive = !result || qaFailed || qaCancelled;
+      var qaMulti = questions.length > 1;
+      html = '<div class="tool-execution '+status+'">';
+      html += '<div class="ask-question-card" data-question-count="'+questions.length+'">';
+      html += '<div class="ask-question-title">Question for you</div>';
+      if (qaFailed) {
+        html += '<div class="ask-question-state error">question UI failed</div>';
+      } else if (qaCancelled) {
+        html += '<div class="ask-question-state error">cancelled</div>';
+      } else if (result) {
+        html += '<div class="ask-question-state answered">answered</div>';
+      } else {
+        html += '<div class="ask-question-state pending">waiting for response</div>';
+      }
+      questions.forEach(function(q, qi) {
+        var questionText = typeof q.question === 'string' ? q.question : 'Question '+(qi+1);
+        var answer = qaAnswers[questionText];
+        var options = Array.isArray(q.options) ? q.options : [];
+        html += '<div class="ask-question-block" data-question-text="'+escapeHtml(questionText)+'">';
+        if (q.header) html += '<div class="ask-question-header">'+escapeHtml(String(q.header))+'</div>';
+        html += '<div class="ask-question-text">'+escapeHtml(questionText)+'</div>';
+        if (options.length > 0) {
+          html += '<div class="ask-question-options">';
+          options.forEach(function(opt) {
+            var label = (opt && typeof opt.label === 'string') ? opt.label : String(opt||'');
+            var desc = (opt && typeof opt.description === 'string') ? opt.description : '';
+            var sel = answer === label || (typeof answer === 'string' && answer.split(', ').indexOf(label) >= 0);
+            var tag = qaInteractive ? 'button' : 'div';
+            var cls = 'ask-question-option'+(sel?' selected':'')+(qaInteractive?' ask-question-option-action':'');
+            var dAttrs = qaInteractive ? ' type="button" data-question="'+escapeHtml(questionText)+'" data-answer="'+escapeHtml(label)+'"' : '';
+            html += '<'+tag+' class="'+cls+'"'+dAttrs+'>';
+            html += '<div class="ask-question-option-label">'+(sel?'✓ ':'')+escapeHtml(label)+'</div>';
+            if (desc) html += '<div class="ask-question-option-desc">'+escapeHtml(desc)+'</div>';
+            html += '</'+tag+'>';
+          });
+          html += '</div>';
+        }
+        if (answer) html += '<div class="ask-question-answer"><span>Answer:</span> '+escapeHtml(String(answer))+'</div>';
+        html += '</div>';
+      });
+      if (qaInteractive) {
+        if (qaMulti) {
+          html += '<div class="ask-question-actions" style="display:none"><button type="button" class="ask-question-submit-btn">Send answers</button></div>';
+        } else if (qaFailed || qaCancelled) {
+          html += '<div class="ask-question-hint">Click an option to send your answer to pi.</div>';
+        } else {
+          html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
+        }
+      }
+      html += '</div>';
     } else {
       html += '<div class="tool-header"><span class="tool-name">'+escapeHtml(call.name)+'</span></div>';
       html += '<div class="tool-output"><pre>'+escapeHtml(JSON.stringify(args,null,2))+'</pre></div>';
@@ -1212,9 +1267,14 @@ func chatComposerHtml(sessionID string) string {
   <div class="pi-chat-shell">
     <textarea id="pi-chat-message" name="message" rows="2" placeholder="Continue this pi session…"></textarea>
     <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
+    <div id="pi-chat-model-popup" class="pi-chat-model-popup" style="display:none">
+      <input type="text" id="pi-chat-model-search" class="pi-chat-model-search" placeholder="Search models…" autocomplete="off">
+      <div id="pi-chat-model-list" class="pi-chat-model-list"></div>
+    </div>
     <div class="pi-chat-toolbar">
       <button type="button" id="pi-chat-attach" class="pi-chat-icon-button" title="Attach images" aria-label="Attach images">◉</button>
-      <div id="pi-chat-status" class="pi-chat-status">idle</div>
+      <span id="pi-chat-status" class="pi-chat-status">idle</span>
+      <button type="button" id="pi-chat-model-label" class="pi-chat-model-label" style="display:none" title="Switch model"></button>
       <button type="submit" id="pi-chat-send" class="pi-chat-send">Send</button>
     </div>
   </div>

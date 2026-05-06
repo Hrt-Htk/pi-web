@@ -800,6 +800,28 @@
       color: var(--muted);
     }
 
+    .ask-question-actions {
+      padding: 12px 0 4px;
+      border-top: 1px solid var(--dim);
+      margin-top: 4px;
+    }
+
+    .ask-question-submit-btn {
+      background: var(--accent);
+      color: var(--body-bg);
+      border: none;
+      border-radius: 3px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .ask-question-submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .ansi-line {
       white-space: pre-wrap;
     }
@@ -1290,11 +1312,43 @@
 
     .pi-chat-shell {
       width: 100%;
-      overflow: hidden;
+      overflow: visible;
       background: var(--body-bg);
       border: 1px solid var(--dim);
       border-radius: 6px;
       box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+      position: relative;
+    }
+
+    .pi-chat-model-popup {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--container-bg, #1e1e2e);
+      border: 1px solid var(--dim);
+      border-radius: 6px;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.3);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      max-height: 320px;
+    }
+    .pi-chat-model-search {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--dim);
+      color: var(--text);
+      font-size: 11px;
+      font-family: inherit;
+      padding: 8px 10px;
+      outline: none;
+      flex-shrink: 0;
+    }
+    .pi-chat-model-search::placeholder { color: var(--muted, #666); }
+    .pi-chat-model-list {
+      overflow-y: auto;
+      flex: 1;
     }
 
     #pi-chat-message {
@@ -1390,9 +1444,27 @@
     .pi-chat-status {
       color: var(--dim);
       font-size: 11px;
-      flex: 1;
-      min-width: 0;
+      white-space: nowrap;
     }
-
     .pi-chat-status.error { color: var(--error); }
     .pi-chat-status.running { color: var(--success); }
+
+    .pi-chat-model-label {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 1px 4px;
+      border-radius: 3px;
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .pi-chat-model-label::before { content: '· '; opacity: 0.5; }
+    .pi-chat-model-label:hover { background: var(--selected-bg, #3a3a4a); color: var(--text); }
