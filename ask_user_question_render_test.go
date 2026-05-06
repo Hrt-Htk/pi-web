@@ -33,3 +33,17 @@ func TestPendingAskUserQuestionOptionsSendImmediately(t *testing.T) {
 		}
 	}
 }
+
+func TestErroredAskUserQuestionKeepsFallbackOptionsClickable(t *testing.T) {
+	checks := []string{
+		"const questionToolFailed = result?.isError === true;",
+		"question UI failed",
+		"const canClick = !result || questionToolFailed;",
+		"Use these options as a fallback",
+	}
+	for _, check := range checks {
+		if !strings.Contains(templateJs, check) {
+			t.Fatalf("missing %q; errored multi-question cards should remain answerable", check)
+		}
+	}
+}

@@ -866,9 +866,12 @@
         const questions = Array.isArray(args.questions) ? args.questions : [];
         const answers = result?.details?.answers || {};
         const cancelled = result?.details?.cancelled === true;
+        const questionToolFailed = result?.isError === true;
         let html = '<div class="ask-question-card">';
         html += '<div class="ask-question-title">Question for you</div>';
-        if (cancelled) {
+        if (questionToolFailed) {
+          html += '<div class="ask-question-state error">question UI failed</div>';
+        } else if (cancelled) {
           html += '<div class="ask-question-state error">cancelled</div>';
         } else if (result) {
           html += '<div class="ask-question-state answered">answered</div>';
@@ -893,9 +896,10 @@
               const label = typeof option?.label === 'string' ? option.label : String(option || '');
               const description = typeof option?.description === 'string' ? option.description : '';
               const selected = answer === label || (typeof answer === 'string' && answer.split(', ').includes(label));
-              const tag = !result ? 'button' : 'div';
-              const actionClass = !result ? ' ask-question-option-action' : '';
-              const dataAttrs = !result ? ` type="button" data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
+              const canClick = !result || questionToolFailed;
+              const tag = canClick ? 'button' : 'div';
+              const actionClass = canClick ? ' ask-question-option-action' : '';
+              const dataAttrs = canClick ? ` type="button" data-question="${escapeHtml(questionText)}" data-answer="${escapeHtml(label)}"` : '';
               html += `<${tag} class="ask-question-option${selected ? ' selected' : ''}${actionClass}"${dataAttrs}>`;
               html += `<div class="ask-question-option-label">${selected ? '✓ ' : ''}${escapeHtml(label)}</div>`;
               if (description) html += `<div class="ask-question-option-desc">${escapeHtml(description)}</div>`;
@@ -905,6 +909,8 @@
           }
           if (answer) {
             html += `<div class="ask-question-answer"><span>Answer:</span> ${escapeHtml(String(answer))}</div>`;
+          } else if (questionToolFailed) {
+            html += '<div class="ask-question-hint">Use these options as a fallback. Each tap sends that answer to pi.</div>';
           } else if (!result) {
             html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
           }
