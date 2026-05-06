@@ -1827,6 +1827,8 @@
         }
       });
 
+      let onWorkerModelUpdate = null;
+
       function setupPiChatComposer() {
         const form = document.getElementById('pi-chat-composer');
         if (!form) return;
@@ -1942,9 +1944,13 @@
             const response = await fetch('/api/worker-status?id=' + encodeURIComponent(sessionId));
             if (!response.ok) return;
             const data = await response.json();
-            if (data.state === 'running') setStatus('running', 'running');
-            if (data.state === 'idle') setStatus('idle', '');
-            if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
+            const modelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
+            if (data.state === 'running') setStatus('running' + (modelLabel ? ' · ' + modelLabel : ''), 'running');
+            if (data.state === 'idle') setStatus('idle' + (modelLabel ? ' · ' + modelLabel : ''), '');
+            if (data.state === 'error') setStatus((data.error || 'worker error') + (modelLabel ? ' · ' + modelLabel : ''), 'error');
+            if (data.modelProvider && data.model && onWorkerModelUpdate) {
+              onWorkerModelUpdate(data.modelProvider, data.model);
+            }
           } catch {
             setStatus('status unavailable', 'error');
           }
@@ -2019,6 +2025,21 @@
             menu.style.display = 'none';
             renderList(search.value);
           }
+
+          function updateToggleFromStatus(provider, modelId) {
+            if (!provider || !modelId) return;
+            const m = allModels.find(function(x) {
+              return (x.provider || '') === provider && ((x.id || '') === modelId || (x.modelId || '') === modelId);
+            });
+            if (m && (!selectedModel || selectedModel.provider !== m.provider || (selectedModel.id !== m.id && selectedModel.modelId !== m.modelId))) {
+              selectedModel = m;
+              toggle.textContent = m.name || m.id || m.modelId || 'Model';
+              toggle.title = `Current: ${m.provider || '?'}/${m.id || m.modelId || '?'}`;
+              renderList(search.value);
+            }
+          }
+
+          onWorkerModelUpdate = updateToggleFromStatus;
 
           function openMenu() {
             menu.style.display = 'block';

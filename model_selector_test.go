@@ -47,6 +47,10 @@ func TestModelSelectorMarkupExists(t *testing.T) {
 		"model-scope-badge",
 		"isScoped",
 		"modelChanges",
+		"onWorkerModelUpdate",
+		"updateToggleFromStatus",
+		"data.model",
+		"data.modelProvider",
 	}
 	for _, check := range jsChecks {
 		if !strings.Contains(templateJs, check) {

@@ -16,6 +16,12 @@ type rpcResponse struct {
 	Error   string          `json:"error"`
 }
 
+type rpcModel struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Provider string `json:"provider"`
+}
+
 func readJSONLLines(r io.Reader) ([]string, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)

@@ -23,8 +23,11 @@ const (
 )
 
 type WorkerStatus struct {
-	State WorkerState `json:"state"`
-	Error string      `json:"error,omitempty"`
+	State         WorkerState `json:"state"`
+	Error         string      `json:"error,omitempty"`
+	Model         string      `json:"model,omitempty"`
+	ModelName     string      `json:"modelName,omitempty"`
+	ModelProvider string      `json:"modelProvider,omitempty"`
 }
 
 type ChatWorker interface {
@@ -111,14 +114,17 @@ func (m *WorkerManager) workerFor(sessionID, sessionPath string) (ChatWorker, er
 }
 
 type piRPCWorker struct {
-	mu          sync.Mutex
-	writeMu     sync.Mutex
-	sessionPath string
-	cmd         *exec.Cmd
-	stdin       io.WriteCloser
-	status      WorkerStatus
-	seq         atomic.Uint64
-	pending     map[string]chan rpcResponse
+	mu              sync.Mutex
+	writeMu         sync.Mutex
+	sessionPath     string
+	cmd             *exec.Cmd
+	stdin           io.WriteCloser
+	status          WorkerStatus
+	seq             atomic.Uint64
+	pending         map[string]chan rpcResponse
+	currentModel    string
+	currentProvider string
+	stderrBuf       *strings.Builder
 }
 
 func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
@@ -134,12 +140,15 @@ func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
 	if err != nil {
 		return nil, err
 	}
+	var stderrBuf strings.Builder
+	cmd.Stderr = &stderrBuf
 	worker := &piRPCWorker{
 		sessionPath: sessionPath,
 		cmd:         cmd,
 		stdin:       stdin,
 		status:      WorkerStatus{State: WorkerStateIdle},
 		pending:     make(map[string]chan rpcResponse),
+		stderrBuf:   &stderrBuf,
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -171,18 +180,69 @@ func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
 }
 
 func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) error {
-	return w.sendAndAwait(ctx, map[string]any{
-		"id":       w.nextID(),
+	id := w.nextID()
+	ch := make(chan rpcResponse, 1)
+	w.mu.Lock()
+	w.pending[id] = ch
+	w.mu.Unlock()
+
+	cmd := map[string]any{
+		"id":       id,
 		"type":     "set_model",
 		"provider": provider,
 		"modelId":  modelID,
-	})
+	}
+	w.writeMu.Lock()
+	err := writeRPCCommand(w.stdin, cmd)
+	w.writeMu.Unlock()
+	if err != nil {
+		w.removePending(id)
+		return err
+	}
+
+	select {
+	case res := <-ch:
+		if !res.Success {
+			if res.Error != "" {
+				return errors.New(res.Error)
+			}
+			return fmt.Errorf("rpc set_model rejected")
+		}
+		var m rpcModel
+		if err := json.Unmarshal(res.Data, &m); err != nil {
+			// Some responses wrap the model in a "model" field
+			var wrapper struct {
+				Model rpcModel `json:"model"`
+			}
+			if err2 := json.Unmarshal(res.Data, &wrapper); err2 == nil && wrapper.Model.ID != "" {
+				m = wrapper.Model
+			}
+		}
+		if m.ID == "" {
+			return fmt.Errorf("set_model returned empty model id")
+		}
+		if m.Provider != provider || m.ID != modelID {
+			return fmt.Errorf("set_model returned unexpected model: %s/%s (wanted %s/%s)", m.Provider, m.ID, provider, modelID)
+		}
+		w.mu.Lock()
+		w.currentModel = m.ID
+		w.currentProvider = m.Provider
+		w.status = WorkerStatus{State: WorkerStateIdle, Model: m.ID, ModelName: m.Name, ModelProvider: m.Provider}
+		w.mu.Unlock()
+		return nil
+	case <-ctx.Done():
+		w.removePending(id)
+		return ctx.Err()
+	}
 }
 
 func (w *piRPCWorker) Status() WorkerStatus {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.status
+	s := w.status
+	s.Model = w.currentModel
+	s.ModelProvider = w.currentProvider
+	return s
 }
 
 func (w *piRPCWorker) Close() error {
