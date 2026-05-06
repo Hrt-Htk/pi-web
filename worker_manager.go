@@ -80,13 +80,22 @@ func (m *WorkerManager) Close() error {
 
 func (m *WorkerManager) workerFor(sessionID, sessionPath string) (ChatWorker, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if worker := m.workers[sessionID]; worker != nil {
+		m.mu.Unlock()
 		return worker, nil
 	}
+	m.mu.Unlock()
+
 	worker, err := m.factory(sessionPath)
 	if err != nil {
 		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if existing := m.workers[sessionID]; existing != nil {
+		_ = worker.Close()
+		return existing, nil
 	}
 	m.workers[sessionID] = worker
 	return worker, nil
