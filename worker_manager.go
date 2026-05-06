@@ -29,6 +29,7 @@ type WorkerStatus struct {
 
 type ChatWorker interface {
 	Prompt(ctx context.Context, chat ChatRequest) error
+	SetModel(ctx context.Context, provider, modelID string) error
 	Status() WorkerStatus
 	Close() error
 }
@@ -61,6 +62,14 @@ func (m *WorkerManager) Status(sessionID string) WorkerStatus {
 		return WorkerStatus{State: WorkerStateIdle}
 	}
 	return worker.Status()
+}
+
+func (m *WorkerManager) SetModel(sessionID, sessionPath, provider, modelID string) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.SetModel(context.Background(), provider, modelID)
 }
 
 func (m *WorkerManager) Close() error {
@@ -159,6 +168,15 @@ func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
 		return err
 	}
 	return nil
+}
+
+func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) error {
+	return w.sendAndAwait(ctx, map[string]any{
+		"id":       w.nextID(),
+		"type":     "set_model",
+		"provider": provider,
+		"modelId":  modelID,
+	})
 }
 
 func (w *piRPCWorker) Status() WorkerStatus {

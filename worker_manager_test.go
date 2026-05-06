@@ -30,6 +30,8 @@ func (f *fakeChatWorker) Status() WorkerStatus {
 	return WorkerStatus{State: WorkerStateIdle}
 }
 
+func (f *fakeChatWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
+
 func (f *fakeChatWorker) Close() error { return nil }
 
 func TestWorkerManagerCreatesOneWorkerPerSession(t *testing.T) {

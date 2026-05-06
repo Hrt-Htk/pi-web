@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -568,6 +569,8 @@ func main() {
 	http.HandleFunc("/session", srv.handleSession)
 	http.HandleFunc("/api/session", srv.handleApiSession)
 	http.HandleFunc("/api/chat", srv.handleChat)
+	http.HandleFunc("/api/set-model", srv.handleSetModel)
+	http.HandleFunc("/api/models", handleAvailableModels)
 	http.HandleFunc("/api/worker-status", srv.handleWorkerStatus)
 	http.HandleFunc("/share", srv.handleShare)
 	http.HandleFunc("/events", srv.handleEvents)
@@ -923,6 +926,81 @@ func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func handleAvailableModels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if _, err := exec.LookPath("pi"); err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "pi executable not found")
+		return
+	}
+	cmd := exec.Command("pi", "--mode", "rpc", "--no-session")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer func() {
+		_ = stdin.Close()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	reqID := fmt.Sprintf("models-%d", time.Now().UnixNano())
+	if _, err := fmt.Fprintf(stdin, `{"id":"%s","type":"get_available_models"}`+"\n", reqID); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = stdin.Close()
+
+	type response struct {
+		Type    string `json:"type"`
+		ID      string `json:"id"`
+		Success bool   `json:"success"`
+		Data    struct {
+			Models []map[string]any `json:"models"`
+		} `json:"data"`
+		Error string `json:"error"`
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSuffix(scanner.Text(), "\r")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var res response
+		if err := json.Unmarshal([]byte(line), &res); err != nil {
+			continue
+		}
+		if res.Type == "response" && res.ID == reqID {
+			if !res.Success {
+				writeJSONError(w, http.StatusInternalServerError, res.Error)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"models": res.Data.Models})
+			return
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSONError(w, http.StatusGatewayTimeout, "timed out waiting for model list")
 }
 
 // ── Session data model ─────────────────────────────────────────────────────

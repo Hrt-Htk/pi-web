@@ -1372,6 +1372,9 @@
             <div class="help-bar">
               <span class="help-hint">T toggle thinking · O toggle tools</span>
               <div class="help-actions">
+                <select class="model-selector" id="model-selector" title="Switch model">
+                  <option value="">Model…</option>
+                </select>
                 <button type="button" class="header-toggle-btn" data-action="toggle-thinking" title="Toggle thinking (T)">Toggle thinking</button>
                 <button type="button" class="header-toggle-btn" data-action="toggle-tools" title="Toggle tools (O)">Toggle tools</button>
                 <button type="button" class="download-json-btn" onclick="downloadSessionJson()" title="Download session as JSONL">↓ JSONL</button>
@@ -1952,6 +1955,57 @@
       } else {
         setupPiChatComposer();
       }
+
+      // Model selector
+      async function loadModelSelector() {
+        try {
+          const res = await fetch('/api/models');
+          const data = await res.json();
+          if (!res.ok || !data.models) return;
+          const select = document.getElementById('model-selector');
+          if (!select) return;
+          // Group by provider
+          const byProvider = {};
+          for (const m of data.models) {
+            const p = m.provider || 'unknown';
+            if (!byProvider[p]) byProvider[p] = [];
+            byProvider[p].push(m);
+          }
+          let html = '<option value="">Model…</option>';
+          for (const provider of Object.keys(byProvider).sort()) {
+            html += `<optgroup label="${escapeHtml(provider)}">`;
+            for (const m of byProvider[provider]) {
+              const id = m.id || m.modelId || '';
+              const name = m.name || id;
+              html += `<option value="${escapeHtml(provider)}|${escapeHtml(id)}">${escapeHtml(name)}</option>`;
+            }
+            html += '</optgroup>';
+          }
+          select.innerHTML = html;
+          select.addEventListener('change', async function() {
+            if (!select.value) return;
+            const [provider, modelId] = select.value.split('|');
+            select.disabled = true;
+            try {
+              const res = await fetch('/api/set-model?id=' + encodeURIComponent(sessionId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, modelId })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'set model failed');
+              setStatus('switched to ' + provider + '/' + modelId, 'ok');
+            } catch (err) {
+              setStatus(err.message || String(err), 'error');
+            } finally {
+              select.disabled = false;
+            }
+          });
+        } catch (e) {
+          // silently ignore if pi is not available
+        }
+      }
+      loadModelSelector();
 
       // Initial render
       // If URL has targetId, scroll to that specific message; otherwise stay at top

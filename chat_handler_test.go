@@ -22,6 +22,10 @@ func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, ch
 	return nil
 }
 
+func (f *fakeSender) SetModel(sessionID, sessionPath, provider, modelID string) error {
+	return nil
+}
+
 func (f *fakeSender) Status(sessionID string) WorkerStatus {
 	return WorkerStatus{State: WorkerStateIdle}
 }
