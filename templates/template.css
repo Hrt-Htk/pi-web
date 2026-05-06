@@ -577,6 +577,90 @@
       display: block;
     }
 
+    .ask-question-card {
+      display: grid;
+      gap: 10px;
+      padding: 2px 0;
+    }
+
+    .ask-question-title {
+      color: var(--borderAccent);
+      font-weight: bold;
+      letter-spacing: 0.02em;
+    }
+
+    .ask-question-state {
+      width: fit-content;
+      padding: 1px 7px;
+      border: 1px solid var(--dim);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .ask-question-state.answered { color: var(--success); border-color: var(--success); }
+    .ask-question-state.error { color: var(--error); border-color: var(--error); }
+    .ask-question-state.pending { color: var(--warning); border-color: var(--warning); }
+
+    .ask-question-block {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--container-bg) 72%, transparent);
+      border: 1px solid var(--dim);
+      border-radius: 5px;
+    }
+
+    .ask-question-header {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .ask-question-text {
+      color: var(--text);
+      font-weight: bold;
+    }
+
+    .ask-question-options {
+      display: grid;
+      gap: 6px;
+    }
+
+    .ask-question-option {
+      padding: 7px 9px;
+      border: 1px solid var(--dim);
+      border-radius: 4px;
+      background: var(--body-bg);
+    }
+
+    .ask-question-option.selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 16%, var(--body-bg));
+    }
+
+    .ask-question-option-label {
+      color: var(--text);
+      font-weight: bold;
+    }
+
+    .ask-question-option-desc,
+    .ask-question-hint {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .ask-question-answer {
+      color: var(--success);
+      border-top: 1px solid var(--dim);
+      padding-top: 8px;
+    }
+
+    .ask-question-answer span {
+      color: var(--muted);
+    }
+
     .ansi-line {
       white-space: pre-wrap;
     }

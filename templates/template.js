@@ -862,6 +862,55 @@
         return out;
       }
 
+      function renderAskUserQuestionTool(args, result) {
+        const questions = Array.isArray(args.questions) ? args.questions : [];
+        const answers = result?.details?.answers || {};
+        const cancelled = result?.details?.cancelled === true;
+        let html = '<div class="ask-question-card">';
+        html += '<div class="ask-question-title">Question for you</div>';
+        if (cancelled) {
+          html += '<div class="ask-question-state error">cancelled</div>';
+        } else if (result) {
+          html += '<div class="ask-question-state answered">answered</div>';
+        } else {
+          html += '<div class="ask-question-state pending">waiting for response</div>';
+        }
+
+        if (questions.length === 0) {
+          html += '<div class="ask-question-text">No question payload provided.</div>';
+        }
+
+        questions.forEach((q, qIndex) => {
+          const questionText = typeof q.question === 'string' ? q.question : `Question ${qIndex + 1}`;
+          const answer = answers[questionText];
+          const options = Array.isArray(q.options) ? q.options : [];
+          html += '<div class="ask-question-block">';
+          if (q.header) html += `<div class="ask-question-header">${escapeHtml(String(q.header))}</div>`;
+          html += `<div class="ask-question-text">${escapeHtml(questionText)}</div>`;
+          if (options.length > 0) {
+            html += '<div class="ask-question-options">';
+            options.forEach((option) => {
+              const label = typeof option?.label === 'string' ? option.label : String(option || '');
+              const description = typeof option?.description === 'string' ? option.description : '';
+              const selected = answer === label || (typeof answer === 'string' && answer.split(', ').includes(label));
+              html += `<div class="ask-question-option${selected ? ' selected' : ''}">`;
+              html += `<div class="ask-question-option-label">${selected ? '✓ ' : ''}${escapeHtml(label)}</div>`;
+              if (description) html += `<div class="ask-question-option-desc">${escapeHtml(description)}</div>`;
+              html += '</div>';
+            });
+            html += '</div>';
+          }
+          if (answer) {
+            html += `<div class="ask-question-answer"><span>Answer:</span> ${escapeHtml(String(answer))}</div>`;
+          } else if (!result) {
+            html += '<div class="ask-question-hint">Use the chat composer below to answer this question.</div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+        return html;
+      }
+
       function renderToolCall(call) {
         const result = findToolResult(call.id);
         const isError = result?.isError || false;
@@ -979,6 +1028,10 @@
               const output = getResultText().trim();
               if (output) html += formatExpandableOutput(output, 20);
             }
+            break;
+          }
+          case 'ask_user_question': {
+            html += renderAskUserQuestionTool(args, result);
             break;
           }
           default: {
