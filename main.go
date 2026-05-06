@@ -1551,11 +1551,36 @@ body {
   max-width: 1200px;
   margin: 0 auto;
 }
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--line-height);
+}
+.new-session-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+.new-session-btn:hover {
+  background: var(--accent);
+  color: var(--body-bg);
+}
 .header h1 {
   font-size: 12px;
   font-weight: bold;
   color: var(--border-accent);
-  margin-bottom: var(--line-height);
 }
 .search-box {
   margin-bottom: var(--line-height);
@@ -1658,7 +1683,107 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-overlay.open {
+  display: flex;
+}
+.modal {
+  background: var(--container-bg);
+  border: 1px solid var(--dim);
+  border-radius: 6px;
+  padding: calc(var(--line-height) * 1.5);
+  width: 100%;
+  max-width: 480px;
+}
+.modal h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: var(--line-height);
+  color: var(--text);
+}
+.modal input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--body-bg);
+  color: var(--text);
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+  margin-bottom: var(--line-height);
+}
+.modal input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.recent-locations {
+  margin-bottom: var(--line-height);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.recent-chip {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--body-bg);
+  border: 1px solid var(--dim);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  overflow-wrap: anywhere;
+}
+.recent-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn-primary, .btn-secondary {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-family: inherit;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--body-bg);
+  border-color: var(--accent);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--dim);
+}
+.btn-secondary:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+.modal-error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #f85149;
+  min-height: 16px;
+}
 @media (max-width: 700px) {
+  .modal {
+    padding: var(--line-height) 16px;
+  }
+}
   .header, .content { padding: var(--line-height) 16px; }
   .session-grid { grid-template-columns: 1fr; }
 }
@@ -1667,7 +1792,10 @@ body {
 <body>
 <div class="header">
   <div class="header-inner">
-    <h1>🥧 Pi Sessions</h1>
+    <div class="header-top">
+      <h1>🥧 Pi Sessions</h1>
+      <button class="new-session-btn" id="newSessionBtn" title="Start new session">+</button>
+    </div>
     <div class="search-box">
       <input type="text" id="search" placeholder="Search sessions..." autofocus>
     </div>
@@ -1718,6 +1846,99 @@ cards.forEach(card => {
     window.location.href = '/session?id=' + encodeURIComponent(card.dataset.id);
   });
 });
+
+const modalOverlay = document.getElementById('modalOverlay');
+const newSessionBtn = document.getElementById('newSessionBtn');
+const sessionPath = document.getElementById('sessionPath');
+const createBtn = document.getElementById('createBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const modalError = document.getElementById('modalError');
+const recentLocations = document.getElementById('recentLocations');
+
+function openModal() {
+  modalOverlay.classList.add('open');
+  sessionPath.value = '';
+  modalError.textContent = '';
+  loadRecentLocations();
+  setTimeout(() => sessionPath.focus(), 10);
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('open');
+}
+
+function loadRecentLocations() {
+  fetch('/api/recent-locations')
+    .then(r => r.json())
+    .then(data => {
+      recentLocations.innerHTML = '';
+      if (!data.locations || data.locations.length === 0) return;
+      data.locations.slice(0, 10).forEach(loc => {
+        const chip = document.createElement('span');
+        chip.className = 'recent-chip';
+        chip.textContent = loc;
+        chip.addEventListener('click', () => {
+          sessionPath.value = loc;
+          sessionPath.focus();
+        });
+        recentLocations.appendChild(chip);
+      });
+    })
+    .catch(() => {});
+}
+
+function doCreate() {
+  const path = sessionPath.value.trim();
+  if (!path) {
+    modalError.textContent = 'Please enter a path';
+    return;
+  }
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating...';
+  fetch('/api/new-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path })
+  })
+    .then(r => r.json())
+    .then(data => {
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create';
+      if (data.ok && data.id) {
+        window.location.href = '/session?id=' + encodeURIComponent(data.id);
+      } else {
+        modalError.textContent = data.error || 'Failed to create session';
+      }
+    })
+    .catch(err => {
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create';
+      modalError.textContent = err.message || 'Network error';
+    });
+}
+
+newSessionBtn.addEventListener('click', openModal);
+cancelBtn.addEventListener('click', closeModal);
+createBtn.addEventListener('click', doCreate);
+sessionPath.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doCreate();
+  if (e.key === 'Escape') closeModal();
+});
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
 </script>
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>Start New Session</h2>
+    <div class="recent-locations" id="recentLocations"></div>
+    <input type="text" id="sessionPath" placeholder="/path/to/project or ~/project" autofocus>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelBtn">Cancel</button>
+      <button class="btn-primary" id="createBtn">Create</button>
+    </div>
+    <div class="modal-error" id="modalError"></div>
+  </div>
+</div>
 </body>
 </html>`))
