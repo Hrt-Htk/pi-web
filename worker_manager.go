@@ -3,22 +3,16 @@ package main
 import (
 	"bufio"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-//go:embed extensions/web_question.ts
-var webQuestionExtensionSource string
 
 type WorkerState string
 
@@ -119,25 +113,10 @@ type piRPCWorker struct {
 }
 
 func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
-	return newPiRPCWorkerWithQuestionDir(sessionPath, "")
-}
-
-func newPiRPCWorkerWithQuestionDir(sessionPath, questionDir string) (ChatWorker, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
-	args := []string{"--mode", "rpc"}
-	if questionDir != "" {
-		extensionPath, err := ensureWebQuestionExtensionFile()
-		if err != nil {
-			return nil, err
-		}
-		args = append([]string{"-e", extensionPath}, args...)
-	}
-	cmd := exec.Command("pi", args...)
-	if questionDir != "" {
-		cmd.Env = append(os.Environ(), "PI_WEB_QUESTION_DIR="+questionDir)
-	}
+	cmd := exec.Command("pi", "--mode", "rpc")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -165,18 +144,6 @@ func newPiRPCWorkerWithQuestionDir(sessionPath, questionDir string) (ChatWorker,
 		return nil, err
 	}
 	return worker, nil
-}
-
-func ensureWebQuestionExtensionFile() (string, error) {
-	dir := filepath.Join(os.TempDir(), "pi-sessions-viewer-ext")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	path := filepath.Join(dir, "web_question.ts")
-	if err := os.WriteFile(path, []byte(webQuestionExtensionSource), 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
 }
 
 func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
