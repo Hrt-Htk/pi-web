@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExecOptions } from "@mariozechner/pi-coding-agent";
+import { Container, Image, Text } from "@mariozechner/pi-tui";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -215,17 +216,38 @@ export default function (pi: ExtensionAPI) {
       // Ensure qrcode is available (auto-install on first use)
       const hasQr = await ensureQrCode(pi, ctx);
 
-      if (hasQr) {
+      if (hasQr && ctx.hasUI) {
         const QRCode = await import("qrcode");
-        const qrText = await QRCode.toString(url, { type: "utf8", margin: 2 });
-        pi.sendMessage({
-          customType: "pi-web-mobile",
-          content: `Scan this QR code to open the session on your mobile device:\n\n${qrText}\n\n${url}`,
-          display: true,
-        });
+        const dataUrl = await QRCode.toDataURL(url, { type: "image/png", margin: 2, scale: 8 });
+        const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+        ctx.ui.setWidget(
+          "pi-web-mobile-qr",
+          (_tui, theme) => {
+            const container = new Container();
+            container.addChild(
+              new Text(
+                `Mobile access via Tailscale\n\nMake sure your phone is connected to Tailscale, then scan this QR code.\n\n${url}`,
+                1,
+                1
+              )
+            );
+            container.addChild(
+              new Image(
+                base64,
+                "image/png",
+                { fallbackColor: (str: string) => theme.fg("muted", str) },
+                { maxWidthCells: 64, maxHeightCells: 32, filename: "pi-web-mobile-qr.png" }
+              )
+            );
+            return container;
+          },
+          { placement: "belowEditor" }
+        );
+        ctx.ui.notify("QR code shown below the editor. Make sure your phone is connected to Tailscale.", "info");
       } else {
         ctx.ui.notify(
-          `QR code unavailable. Open this URL on your mobile: ${url}`,
+          `QR code unavailable. Make sure your phone is connected to Tailscale, then open this URL: ${url}`,
           "warning"
         );
       }
