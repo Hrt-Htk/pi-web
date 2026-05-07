@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExecOptions } from "@mariozechner/pi-coding-agent";
-import { Container, Image, Text } from "@mariozechner/pi-tui";
+import { Container, Text } from "@mariozechner/pi-tui";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -218,26 +218,17 @@ export default function (pi: ExtensionAPI) {
 
       if (hasQr && ctx.hasUI) {
         const QRCode = await import("qrcode");
-        const dataUrl = await QRCode.toDataURL(url, { type: "image/png", margin: 2, scale: 8 });
-        const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+        const qrText = await QRCode.toString(url, { type: "utf8", margin: 2 });
 
         ctx.ui.setWidget(
           "pi-web-mobile-qr",
-          (_tui, theme) => {
+          (_tui, _theme) => {
             const container = new Container();
             container.addChild(
               new Text(
-                `Mobile access via Tailscale\n\nMake sure your phone is connected to Tailscale, then scan this QR code.\n\n${url}`,
+                `Mobile access via Tailscale\n\nMake sure your phone is connected to Tailscale, then scan this QR code.\n\n${qrText}\n\n${url}`,
                 1,
                 1
-              )
-            );
-            container.addChild(
-              new Image(
-                base64,
-                "image/png",
-                { fallbackColor: (str: string) => theme.fg("muted", str) },
-                { maxWidthCells: 64, maxHeightCells: 32, filename: "pi-web-mobile-qr.png" }
               )
             );
             return container;
