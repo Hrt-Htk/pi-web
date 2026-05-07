@@ -1527,7 +1527,7 @@ var indexTmpl = template.Must(template.New("index").Funcs(funcMap).Parse(`<!DOCT
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pi Sessions</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgODAwIj48cmVjdCBmaWxsPSIjMTgxODFlIiB3aWR0aD0iODAwIiBoZWlnaHQ9IjgwMCIvPjxwYXRoIGZpbGw9IiNmZmYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTE2NS4yOSAxNjUuMjkgSDUxNy4zNiBWNDAwIEg0MDAgVjUxNy4zNiBIMjgyLjY1IFY2MzQuNzIgSDE2NS4yOSBaIE0yODIuNjUgMjgyLjY1IFY0MDAgSDQwMCBWMjgyLjY1IFoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNTE3LjM2IDQwMCBINjM0LjcyIFY2MzQuNzIgSDUxNy4zNiBaIi8+PC9zdmc+">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgODAwIj48cGF0aCBmaWxsPSIjMDBkN2ZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNjUuMjkgMTY1LjI5IEg1MTcuMzYgVjQwMCBINDAwIFY1MTcuMzYgSDI4Mi42NSBWNjM0LjcyIEgxNjUuMjkgWiBNMjgyLjY1IDI4Mi42NSBWNDAwIEg0MDAgVjI4Mi42NSBaIi8+PHBhdGggZmlsbD0iIzAwZDdmZiIgZD0iTTUxNy4zNiA0MDAgSDYzNC43MiBWNjM0LjcyIEg1MTcuMzYgWiIvPjwvc3ZnPg==">
 <style>
 :root {
   --body-bg: #18181e;
