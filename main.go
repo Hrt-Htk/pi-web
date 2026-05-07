@@ -203,36 +203,28 @@ type sseClient struct {
 	sessID string
 }
 
-type statusClient struct {
-	ch     chan struct{}
-	sessID string
-}
-
 type server struct {
-	sessionsDir     string
-	clients         []*sseClient
-	clientsMu       sync.RWMutex
-	statusClients   []*statusClient
-	statusClientsMu sync.RWMutex
-	fileMod         map[string]time.Time
-	fileModMu       sync.RWMutex
-	chatSender      ChatSender
-	cache           *sessions.Cache
-	auth            *auth.Middleware
-	shareRunner     shareCmdRunner
-	now             func() time.Time
+	sessionsDir string
+	clients     []*sseClient
+	clientsMu   sync.RWMutex
+	fileMod     map[string]time.Time
+	fileModMu   sync.RWMutex
+	chatSender  ChatSender
+	cache       *sessions.Cache
+	auth        *auth.Middleware
+	shareRunner shareCmdRunner
+	now         func() time.Time
 }
 
 func newServer(sessionsDir string, auth *auth.Middleware) *server {
 	s := &server{
-		sessionsDir:   sessionsDir,
-		clients:       make([]*sseClient, 0),
-		statusClients: make([]*statusClient, 0),
-		fileMod:       make(map[string]time.Time),
-		chatSender:    workers.NewManager(rpc.NewPiWorker),
-		cache:         sessions.NewCache(),
-		auth:          auth,
-		now:           time.Now,
+		sessionsDir: sessionsDir,
+		clients:     make([]*sseClient, 0),
+		fileMod:     make(map[string]time.Time),
+		chatSender:  workers.NewManager(rpc.NewPiWorker),
+		cache:       sessions.NewCache(),
+		auth:        auth,
+		now:         time.Now,
 	}
 	go s.watchFiles()
 	return s
@@ -273,40 +265,6 @@ func (s *server) broadcast(sessID, msg string) {
 		if c.sessID == sessID {
 			select {
 			case c.ch <- msg:
-			default:
-			}
-		}
-	}
-}
-
-func (s *server) addStatusClient(sessID string) *statusClient {
-	c := &statusClient{ch: make(chan struct{}, 1), sessID: sessID}
-	s.statusClientsMu.Lock()
-	s.statusClients = append(s.statusClients, c)
-	s.statusClientsMu.Unlock()
-	return c
-}
-
-func (s *server) removeStatusClient(target *statusClient) {
-	s.statusClientsMu.Lock()
-	filtered := s.statusClients[:0]
-	for _, c := range s.statusClients {
-		if c != target {
-			filtered = append(filtered, c)
-		}
-	}
-	s.statusClients = filtered
-	s.statusClientsMu.Unlock()
-	close(target.ch)
-}
-
-func (s *server) broadcastStatusChange(sessID string) {
-	s.statusClientsMu.RLock()
-	defer s.statusClientsMu.RUnlock()
-	for _, c := range s.statusClients {
-		if c.sessID == sessID {
-			select {
-			case c.ch <- struct{}{}:
 			default:
 			}
 		}
@@ -380,11 +338,9 @@ func (s *server) handleApiSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	singleID := r.URL.Query().Get("id")
-	multiIDs := r.URL.Query().Get("ids")
-
-	if singleID == "" && multiIDs == "" {
-		http.Error(w, "missing id or ids", 400)
+	sessID := r.URL.Query().Get("id")
+	if sessID == "" {
+		http.Error(w, "missing id", 400)
 		return
 	}
 
@@ -399,93 +355,24 @@ func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Single-session mode (existing)
-	if singleID != "" {
-		client := s.addClient(singleID)
-		defer s.removeClient(client)
+	client := s.addClient(sessID)
+	defer s.removeClient(client)
 
-		fmt.Fprintf(w, ":ok\n\n")
-		flusher.Flush()
-
-		for {
-			select {
-			case msg, open := <-client.ch:
-				if !open {
-					return
-				}
-				fmt.Fprintf(w, "data: %s\n\n", msg)
-				flusher.Flush()
-			case <-r.Context().Done():
-				return
-			}
-		}
-	}
-
-	// Multi-session mode (batch status)
-	ids := strings.Split(multiIDs, ",")
-	if len(ids) == 0 {
-		return
-	}
-
-	clients := make([]*statusClient, len(ids))
-	for i, id := range ids {
-		clients[i] = s.addStatusClient(id)
-	}
-	defer func() {
-		for _, c := range clients {
-			s.removeStatusClient(c)
-		}
-	}()
-
-	lastSent := make(map[string]string, len(ids))
-	s.sendStatusMapIfChanged(w, flusher, r.Context(), ids, lastSent)
-
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
+	fmt.Fprintf(w, ":ok\n\n")
+	flusher.Flush()
 
 	for {
 		select {
+		case msg, open := <-client.ch:
+			if !open {
+				return
+			}
+			fmt.Fprintf(w, "data: %s\n\n", msg)
+			flusher.Flush()
 		case <-r.Context().Done():
 			return
-		case <-ticker.C:
-			fmt.Fprintf(w, ":hb\n\n")
-			flusher.Flush()
-		default:
-			changed := false
-			for _, c := range clients {
-				select {
-				case <-c.ch:
-					changed = true
-				default:
-				}
-			}
-			if changed {
-				s.sendStatusMapIfChanged(w, flusher, r.Context(), ids, lastSent)
-			} else {
-				time.Sleep(50 * time.Millisecond)
-			}
 		}
 	}
-}
-
-func (s *server) sendStatusMapIfChanged(w http.ResponseWriter, flusher http.Flusher, ctx context.Context, ids []string, lastSent map[string]string) {
-	result := make(map[string]*workers.WorkerStatus, len(ids))
-	changed := false
-	for _, id := range ids {
-		status := s.computeWorkerStatus(ctx, id)
-		result[id] = status
-		stateStr := string(status.State)
-		if lastSent[id] != stateStr {
-			lastSent[id] = stateStr
-			changed = true
-		}
-	}
-	if !changed {
-		return
-	}
-	data, _ := json.Marshal(result)
-	fmt.Fprintf(w, "data: %s\n\n", string(data))
-	flusher.Flush()
 }
 
 func (s *server) handleNewSession(w http.ResponseWriter, r *http.Request) {

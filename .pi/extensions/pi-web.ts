@@ -1,5 +1,5 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExecOptions } from "@mariozechner/pi-coding-agent";
-import { Container, Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI, ExtensionCommandContext, ExecOptions } from "@earendil-works/pi-coding-agent";
+import { Container, Text } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";

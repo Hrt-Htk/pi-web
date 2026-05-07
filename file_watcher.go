@@ -69,7 +69,6 @@ func (s *server) recordModTime(sessID string, mod time.Time) {
 	s.fileModMu.Unlock()
 	if known && mod.After(lastMod) {
 		s.broadcast(sessID, "reload")
-		s.broadcastStatusChange(sessID)
 	}
 }
 
