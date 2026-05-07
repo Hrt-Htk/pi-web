@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadIndexScriptValidManifest(t *testing.T) {
@@ -70,5 +71,39 @@ func TestLoadIndexScriptPathTraversal(t *testing.T) {
 	_, _, err := loadIndexScript(tmpDir)
 	if err == nil {
 		t.Fatal("expected error for path traversal")
+	}
+}
+
+func TestBroadcastStatusChangeNotifiesSubscribers(t *testing.T) {
+	root := t.TempDir()
+	srv := newServer(filepath.Join(root, "sessions"), nil)
+
+	client := srv.addStatusClient("s1.jsonl")
+	defer srv.removeStatusClient(client)
+
+	srv.broadcastStatusChange("s1.jsonl")
+
+	select {
+	case <-client.ch:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected status broadcast")
+	}
+}
+
+func TestBroadcastStatusChangeIgnoresOtherSessions(t *testing.T) {
+	root := t.TempDir()
+	srv := newServer(filepath.Join(root, "sessions"), nil)
+
+	client := srv.addStatusClient("s1.jsonl")
+	defer srv.removeStatusClient(client)
+
+	srv.broadcastStatusChange("s2.jsonl")
+
+	select {
+	case <-client.ch:
+		t.Fatal("should not receive broadcast for different session")
+	case <-time.After(200 * time.Millisecond):
+		// success
 	}
 }

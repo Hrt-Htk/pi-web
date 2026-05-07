@@ -203,28 +203,36 @@ type sseClient struct {
 	sessID string
 }
 
+type statusClient struct {
+	ch     chan struct{}
+	sessID string
+}
+
 type server struct {
-	sessionsDir string
-	clients     []*sseClient
-	clientsMu   sync.RWMutex
-	fileMod     map[string]time.Time
-	fileModMu   sync.RWMutex
-	chatSender  ChatSender
-	cache       *sessions.Cache
-	auth        *auth.Middleware
-	shareRunner shareCmdRunner
-	now         func() time.Time
+	sessionsDir     string
+	clients         []*sseClient
+	clientsMu       sync.RWMutex
+	statusClients   []*statusClient
+	statusClientsMu sync.RWMutex
+	fileMod         map[string]time.Time
+	fileModMu       sync.RWMutex
+	chatSender      ChatSender
+	cache           *sessions.Cache
+	auth            *auth.Middleware
+	shareRunner     shareCmdRunner
+	now             func() time.Time
 }
 
 func newServer(sessionsDir string, auth *auth.Middleware) *server {
 	s := &server{
-		sessionsDir: sessionsDir,
-		clients:     make([]*sseClient, 0),
-		fileMod:     make(map[string]time.Time),
-		chatSender:  workers.NewManager(rpc.NewPiWorker),
-		cache:       sessions.NewCache(),
-		auth:        auth,
-		now:         time.Now,
+		sessionsDir:   sessionsDir,
+		clients:       make([]*sseClient, 0),
+		statusClients: make([]*statusClient, 0),
+		fileMod:       make(map[string]time.Time),
+		chatSender:    workers.NewManager(rpc.NewPiWorker),
+		cache:         sessions.NewCache(),
+		auth:          auth,
+		now:           time.Now,
 	}
 	go s.watchFiles()
 	return s
@@ -265,6 +273,40 @@ func (s *server) broadcast(sessID, msg string) {
 		if c.sessID == sessID {
 			select {
 			case c.ch <- msg:
+			default:
+			}
+		}
+	}
+}
+
+func (s *server) addStatusClient(sessID string) *statusClient {
+	c := &statusClient{ch: make(chan struct{}, 1), sessID: sessID}
+	s.statusClientsMu.Lock()
+	s.statusClients = append(s.statusClients, c)
+	s.statusClientsMu.Unlock()
+	return c
+}
+
+func (s *server) removeStatusClient(target *statusClient) {
+	s.statusClientsMu.Lock()
+	filtered := s.statusClients[:0]
+	for _, c := range s.statusClients {
+		if c != target {
+			filtered = append(filtered, c)
+		}
+	}
+	s.statusClients = filtered
+	s.statusClientsMu.Unlock()
+	close(target.ch)
+}
+
+func (s *server) broadcastStatusChange(sessID string) {
+	s.statusClientsMu.RLock()
+	defer s.statusClientsMu.RUnlock()
+	for _, c := range s.statusClients {
+		if c.sessID == sessID {
+			select {
+			case c.ch <- struct{}{}:
 			default:
 			}
 		}
