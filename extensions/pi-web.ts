@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExecOptions } from "@mariozechner/pi-coding-agent";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -74,6 +74,50 @@ async function healthCheck(host: string, port: string): Promise<boolean> {
   try {
     const res = await fetch(`http://${host}:${port}`, { signal: AbortSignal.timeout(1000) });
     return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureQrCode(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<boolean> {
+  // Already available?
+  try {
+    await import("qrcode");
+    return true;
+  } catch {
+    // Not available, try to install
+  }
+
+  // Find the extension directory with a package.json that depends on qrcode
+  const candidates = [
+    `${homedir()}/.pi/agent/extensions/pi-web/`,
+    `${homedir()}/.pi/agent/extensions/`,
+    `${ctx.sessionManager.getCwd()}/.pi/extensions/`,
+  ];
+
+  let extDir: string | null = null;
+  for (const dir of candidates) {
+    try {
+      const pkg = JSON.parse(readFileSync(`${dir}package.json`, "utf-8"));
+      if (pkg.dependencies?.qrcode || pkg.devDependencies?.qrcode) {
+        extDir = dir;
+        break;
+      }
+    } catch {
+      // continue
+    }
+  }
+
+  if (!extDir) {
+    return false;
+  }
+
+  ctx.ui.notify("Installing qrcode dependency...", "info");
+  try {
+    await pi.exec("npm", ["install"], { cwd: extDir } as ExecOptions);
+    // Verify it works now
+    await import("qrcode");
+    return true;
   } catch {
     return false;
   }
@@ -168,16 +212,12 @@ export default function (pi: ExtensionAPI) {
       const sessionId = basename(sessionFile);
       const url = `http://${host}:${port}/session?id=${encodeURIComponent(sessionId)}`;
 
-      // Try QR code
-      let qrText = "";
-      try {
-        const QRCode = await import("qrcode");
-        qrText = await QRCode.toString(url, { type: "terminal", small: true });
-      } catch {
-        // qrcode not available — will show URL only
-      }
+      // Ensure qrcode is available (auto-install on first use)
+      const hasQr = await ensureQrCode(pi, ctx);
 
-      if (qrText) {
+      if (hasQr) {
+        const QRCode = await import("qrcode");
+        const qrText = await QRCode.toString(url, { type: "terminal", small: true });
         ctx.sendMessage({
           customType: "pi-web-mobile",
           content: `Scan this QR code to open the session on your mobile device:\n\n${qrText}\n\n${url}`,
@@ -185,7 +225,7 @@ export default function (pi: ExtensionAPI) {
         });
       } else {
         ctx.ui.notify(
-          `QR code unavailable (install 'qrcode' package). Open this URL on your mobile: ${url}`,
+          `QR code unavailable. Open this URL on your mobile: ${url}`,
           "warning"
         );
       }
