@@ -7,8 +7,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -75,6 +77,9 @@ func New(deps Deps) *Server {
 		lastKnown:     make(map[string]struct{}),
 	}
 	go s.watchFiles()
+	if err := s.startSessionStatusWatcher(); err != nil {
+		fmt.Fprintf(os.Stderr, "session-status watcher unavailable: %v\n", err)
+	}
 	return s
 }
 
