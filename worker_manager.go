@@ -46,10 +46,81 @@ type WorkerManager struct {
 	mu      sync.Mutex
 	workers map[string]ChatWorker
 	factory WorkerFactory
+
+	idleTTL    time.Duration
+	reaperStop chan struct{}
+	reaperDone chan struct{}
 }
 
+const defaultWorkerIdleTTL = 30 * time.Minute
+
 func NewWorkerManager(factory WorkerFactory) *WorkerManager {
-	return &WorkerManager{workers: make(map[string]ChatWorker), factory: factory}
+	return NewWorkerManagerWithTTL(factory, defaultWorkerIdleTTL)
+}
+
+// NewWorkerManagerWithTTL is the same as NewWorkerManager but lets callers
+// (notably tests) override the idle TTL. A non-positive ttl disables reaping.
+func NewWorkerManagerWithTTL(factory WorkerFactory, ttl time.Duration) *WorkerManager {
+	m := &WorkerManager{
+		workers:    make(map[string]ChatWorker),
+		factory:    factory,
+		idleTTL:    ttl,
+		reaperStop: make(chan struct{}),
+		reaperDone: make(chan struct{}),
+	}
+	if ttl > 0 {
+		go m.reapLoop()
+	} else {
+		close(m.reaperDone)
+	}
+	return m
+}
+
+// reapLoop runs in the background and closes idle workers older than idleTTL.
+// It wakes 5x per TTL window so the upper bound on actual idle time before
+// eviction is roughly 1.2 * idleTTL.
+func (m *WorkerManager) reapLoop() {
+	defer close(m.reaperDone)
+	interval := m.idleTTL / 5
+	if interval < time.Second {
+		interval = time.Second
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-m.reaperStop:
+			return
+		case now := <-t.C:
+			m.reapOnce(now)
+		}
+	}
+}
+
+// reapOnce closes any worker that implements idleReportable, is idle, and has
+// been idle longer than idleTTL. Workers in error state are left to the
+// existing eviction-on-access path in workerFor.
+func (m *WorkerManager) reapOnce(now time.Time) {
+	m.mu.Lock()
+	var dead []ChatWorker
+	for id, w := range m.workers {
+		reaper, ok := w.(idleReportable)
+		if !ok {
+			continue
+		}
+		if w.Status().State != WorkerStateIdle {
+			continue
+		}
+		if reaper.IdleSince(now) <= m.idleTTL {
+			continue
+		}
+		dead = append(dead, w)
+		delete(m.workers, id)
+	}
+	m.mu.Unlock()
+	for _, w := range dead {
+		_ = w.Close()
+	}
 }
 
 func (m *WorkerManager) Send(ctx context.Context, sessionID, sessionPath string, chat ChatRequest) error {
@@ -97,6 +168,14 @@ func (m *WorkerManager) GetState(ctx context.Context, sessionID string) (WorkerS
 }
 
 func (m *WorkerManager) Close() error {
+	select {
+	case <-m.reaperStop:
+		// already closed
+	default:
+		close(m.reaperStop)
+	}
+	<-m.reaperDone
+
 	m.mu.Lock()
 	workers := make([]ChatWorker, 0, len(m.workers))
 	for _, worker := range m.workers {
@@ -154,6 +233,27 @@ type piRPCWorker struct {
 	currentProvider      string
 	currentThinkingLevel string
 	stderrBuf            *strings.Builder
+	lastActive           atomic.Int64 // unix nanos; only user-initiated actions update this
+}
+
+// idleReportable is implemented by workers that can report when they were last
+// touched by a user-initiated action. The reaper uses it to decide which idle
+// workers to close. Workers that don't implement it (e.g. test fakes) are not
+// reaped.
+type idleReportable interface {
+	IdleSince(now time.Time) time.Duration
+}
+
+func (w *piRPCWorker) touch() {
+	w.lastActive.Store(time.Now().UnixNano())
+}
+
+func (w *piRPCWorker) IdleSince(now time.Time) time.Duration {
+	last := w.lastActive.Load()
+	if last == 0 {
+		return 0
+	}
+	return now.Sub(time.Unix(0, last))
 }
 
 func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
@@ -190,10 +290,17 @@ func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
 		_ = worker.Close()
 		return nil, err
 	}
+	// Best-effort: refresh model/thinking-level from pi so a respawned worker
+	// doesn't show stale defaults after the in-memory cache was lost on reap.
+	stateCtx, stateCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, _ = worker.GetState(stateCtx)
+	stateCancel()
+	worker.touch()
 	return worker, nil
 }
 
 func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
+	w.touch()
 	w.mu.Lock()
 	streaming := w.status.State == WorkerStateRunning
 	w.status = WorkerStatus{State: WorkerStateRunning}
@@ -209,6 +316,7 @@ func (w *piRPCWorker) Prompt(ctx context.Context, chat ChatRequest) error {
 }
 
 func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) error {
+	w.touch()
 	id := w.nextID()
 	ch := make(chan rpcResponse, 1)
 	w.mu.Lock()
@@ -268,6 +376,7 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 }
 
 func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error {
+	w.touch()
 	return w.sendAndAwait(ctx, buildSetThinkingLevelCommand(w.nextID(), level))
 }
 
@@ -295,11 +404,19 @@ func (w *piRPCWorker) GetState(ctx context.Context) (WorkerStatus, error) {
 			return WorkerStatus{}, fmt.Errorf("rpc get_state rejected")
 		}
 		var state struct {
-			ThinkingLevel string `json:"thinkingLevel"`
+			ThinkingLevel string   `json:"thinkingLevel"`
+			Model         rpcModel `json:"model"`
 		}
 		_ = json.Unmarshal(res.Data, &state)
 		w.mu.Lock()
 		w.currentThinkingLevel = state.ThinkingLevel
+		if state.Model.ID != "" {
+			w.currentModel = state.Model.ID
+			w.currentProvider = state.Model.Provider
+			w.status.Model = state.Model.ID
+			w.status.ModelName = state.Model.Name
+			w.status.ModelProvider = state.Model.Provider
+		}
 		s := w.status
 		s.ThinkingLevel = state.ThinkingLevel
 		w.mu.Unlock()

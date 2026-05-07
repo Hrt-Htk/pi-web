@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeChatWorker struct {
@@ -99,6 +100,83 @@ func TestWorkerManagerEvictsErroredWorker(t *testing.T) {
 		t.Fatalf("created workers = %d, want 2 (errored worker should be replaced)", created)
 	}
 }
+
+// reapableWorker implements idleReportable so the reaper will evict it once
+// it has been idle longer than the manager's TTL.
+type reapableWorker struct {
+	idleFor time.Duration
+	closed  bool
+}
+
+func (r *reapableWorker) Prompt(ctx context.Context, chat ChatRequest) error             { return nil }
+func (r *reapableWorker) SetModel(ctx context.Context, provider, modelID string) error   { return nil }
+func (r *reapableWorker) SetThinkingLevel(ctx context.Context, level string) error       { return nil }
+func (r *reapableWorker) GetState(ctx context.Context) (WorkerStatus, error)             { return r.Status(), nil }
+func (r *reapableWorker) Status() WorkerStatus                                           { return WorkerStatus{State: WorkerStateIdle} }
+func (r *reapableWorker) Close() error                                                   { r.closed = true; return nil }
+func (r *reapableWorker) IdleSince(now time.Time) time.Duration                          { return r.idleFor }
+
+func TestWorkerManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
+	w := &reapableWorker{idleFor: time.Hour}
+	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	defer manager.Close()
+	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", ChatRequest{Message: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	manager.reapOnce(time.Now())
+	manager.mu.Lock()
+	_, present := manager.workers["a.jsonl"]
+	manager.mu.Unlock()
+	if present {
+		t.Fatalf("worker should have been reaped")
+	}
+	if !w.closed {
+		t.Fatalf("reaped worker should have been Closed")
+	}
+}
+
+func TestWorkerManagerKeepsFreshWorker(t *testing.T) {
+	w := &reapableWorker{idleFor: time.Second}
+	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	defer manager.Close()
+	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", ChatRequest{Message: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	manager.reapOnce(time.Now())
+	manager.mu.Lock()
+	_, present := manager.workers["a.jsonl"]
+	manager.mu.Unlock()
+	if !present {
+		t.Fatalf("fresh worker should not be reaped")
+	}
+}
+
+func TestWorkerManagerDoesNotReapRunningWorker(t *testing.T) {
+	// streaming=true → Status reports running, so reap should skip even if idle for > TTL.
+	w := &runningReapable{}
+	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	defer manager.Close()
+	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", ChatRequest{Message: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	manager.reapOnce(time.Now())
+	manager.mu.Lock()
+	_, present := manager.workers["a.jsonl"]
+	manager.mu.Unlock()
+	if !present {
+		t.Fatalf("running worker should not be reaped")
+	}
+}
+
+type runningReapable struct{}
+
+func (runningReapable) Prompt(ctx context.Context, chat ChatRequest) error             { return nil }
+func (runningReapable) SetModel(ctx context.Context, provider, modelID string) error   { return nil }
+func (runningReapable) SetThinkingLevel(ctx context.Context, level string) error       { return nil }
+func (runningReapable) GetState(ctx context.Context) (WorkerStatus, error)             { return WorkerStatus{State: WorkerStateRunning}, nil }
+func (runningReapable) Status() WorkerStatus                                           { return WorkerStatus{State: WorkerStateRunning} }
+func (runningReapable) Close() error                                                   { return nil }
+func (runningReapable) IdleSince(now time.Time) time.Duration                          { return time.Hour }
 
 type erroredWorker struct{}
 
