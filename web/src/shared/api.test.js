@@ -32,4 +32,9 @@ describe('api helpers', () => {
       body: JSON.stringify({ path: '/tmp/project' })
     });
   });
+
+  it('throws the JSON error message for failed POST responses', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ error: 'failed' }), { status: 500 }));
+    await expect(postJSON('/api/new-session', { path: '/nope' }, { fetchImpl })).rejects.toThrow('failed');
+  });
 });
