@@ -52,6 +52,8 @@ type Server struct {
 	renderIndex   func(w io.Writer, sessions []sessions.Session) error
 	renderSession func(s sessions.Session, showButtons bool) string
 	models        func(ctx context.Context) (json.RawMessage, error)
+	lastKnown     map[string]struct{} // session ids currently broadcast as running
+	lastKnownMu   sync.Mutex
 }
 
 func New(deps Deps) *Server {
@@ -70,6 +72,7 @@ func New(deps Deps) *Server {
 		renderIndex:   deps.RenderIndex,
 		renderSession: deps.RenderSession,
 		models:        deps.Models,
+		lastKnown:     make(map[string]struct{}),
 	}
 	go s.watchFiles()
 	return s

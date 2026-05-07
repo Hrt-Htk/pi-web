@@ -67,3 +67,76 @@ func TestComputeRunningStatusEmptyID(t *testing.T) {
 		t.Fatalf("empty id must be idle")
 	}
 }
+
+func TestRecomputeAndBroadcastStatusEmitsDeltaOnFlip(t *testing.T) {
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	s := &Server{
+		sessionsDir: t.TempDir(),
+		chatSender:  &fakeSender{},
+		clients:     make([]*sseClient, 0),
+		lastKnown:   make(map[string]struct{}),
+		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-1 * time.Second)},
+		now:         func() time.Time { return now },
+	}
+	c := s.addClient(globalSessID)
+	defer s.removeClient(c)
+
+	s.recomputeAndBroadcastStatus("a.jsonl")
+
+	want := "event: status-delta\ndata: {\"id\":\"a.jsonl\",\"running\":true}"
+	select {
+	case msg := <-c.ch:
+		if msg != want {
+			t.Fatalf("msg = %q want %q", msg, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("expected status-delta broadcast")
+	}
+}
+
+func TestRecomputeAndBroadcastStatusNoBroadcastWhenUnchanged(t *testing.T) {
+	s := &Server{
+		sessionsDir: t.TempDir(),
+		chatSender:  &fakeSender{},
+		clients:     make([]*sseClient, 0),
+		lastKnown:   make(map[string]struct{}),
+	}
+	c := s.addClient(globalSessID)
+	defer s.removeClient(c)
+
+	// First call on an idle session: idle was never recorded, computeRunning
+	// returns false → was==false, now==false → no broadcast.
+	s.recomputeAndBroadcastStatus("a.jsonl")
+
+	select {
+	case msg := <-c.ch:
+		t.Fatalf("unexpected broadcast: %q", msg)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestRecomputeAndBroadcastStatusFlipsBackToIdle(t *testing.T) {
+	s := &Server{
+		sessionsDir: t.TempDir(),
+		chatSender:  &fakeSender{},
+		clients:     make([]*sseClient, 0),
+		lastKnown:   map[string]struct{}{"a.jsonl": {}},
+	}
+	c := s.addClient(globalSessID)
+	defer s.removeClient(c)
+
+	s.recomputeAndBroadcastStatus("a.jsonl")
+
+	want := "event: status-delta\ndata: {\"id\":\"a.jsonl\",\"running\":false}"
+	select {
+	case msg := <-c.ch:
+		if msg != want {
+			t.Fatalf("msg = %q want %q", msg, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("expected idle delta")
+	}
+	if _, ok := s.lastKnown["a.jsonl"]; ok {
+		t.Fatalf("lastKnown should no longer contain a.jsonl")
+	}
+}
