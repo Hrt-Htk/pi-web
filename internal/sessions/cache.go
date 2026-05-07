@@ -1,4 +1,4 @@
-package main
+package sessions
 
 import (
 	"os"
@@ -8,28 +8,28 @@ import (
 	"time"
 )
 
-type sessionCacheEntry struct {
+type cacheEntry struct {
 	modTime time.Time
 	dirName string
 	session Session
 }
 
-type sessionCache struct {
+type Cache struct {
 	mu      sync.Mutex
-	entries map[string]sessionCacheEntry // keyed by full file path
+	entries map[string]cacheEntry // keyed by full file path
 
-	parses int // diagnostic: number of parseSession calls
+	parses int // diagnostic: number of ParseFile calls
 	hits   int // diagnostic: number of cache hits
 }
 
-func newSessionCache() *sessionCache {
-	return &sessionCache{entries: make(map[string]sessionCacheEntry)}
+func NewCache() *Cache {
+	return &Cache{entries: make(map[string]cacheEntry)}
 }
 
-// loadAll returns all sessions under dir. Files whose modtime hasn't changed
+// LoadAll returns all sessions under dir. Files whose modtime hasn't changed
 // since the previous call are returned from the cache; files that are new or
 // modified are re-parsed; files that have disappeared are evicted.
-func (c *sessionCache) loadAll(dir string) ([]Session, error) {
+func (c *Cache) LoadAll(dir string) ([]Session, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -64,12 +64,12 @@ func (c *sessionCache) loadAll(dir string) ([]Session, error) {
 				sessions = append(sessions, cached.session)
 				continue
 			}
-			sess, err := parseSession(path, e.Name(), f.Name())
+			sess, err := ParseFile(path, e.Name(), f.Name())
 			if err != nil {
 				continue
 			}
 			c.parses++
-			c.entries[path] = sessionCacheEntry{modTime: info.ModTime(), dirName: e.Name(), session: sess}
+			c.entries[path] = cacheEntry{modTime: info.ModTime(), dirName: e.Name(), session: sess}
 			sessions = append(sessions, sess)
 		}
 	}
@@ -81,11 +81,11 @@ func (c *sessionCache) loadAll(dir string) ([]Session, error) {
 		}
 	}
 
-	sortSessionsByActivity(sessions)
+	SortByActivity(sessions)
 	return sessions, nil
 }
 
-func (c *sessionCache) stats() (parses, hits, size int) {
+func (c *Cache) stats() (parses, hits, size int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.parses, c.hits, len(c.entries)

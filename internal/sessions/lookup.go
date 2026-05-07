@@ -1,4 +1,4 @@
-package main
+package sessions
 
 import (
 	"errors"
@@ -12,21 +12,21 @@ type ResolvedSession struct {
 	Path    string
 }
 
-var errSessionNotFound = errors.New("session not found")
-var errInvalidSessionID = errors.New("invalid session id")
+var ErrSessionNotFound = errors.New("session not found")
+var ErrInvalidSessionID = errors.New("invalid session id")
 
-func resolveSessionByID(sessionsDir, id string) (ResolvedSession, error) {
+func ResolveByID(sessionsDir, id string) (ResolvedSession, error) {
 	if id == "" || filepath.Base(id) != id || filepath.Ext(id) != ".jsonl" {
-		return ResolvedSession{}, errInvalidSessionID
+		return ResolvedSession{}, ErrInvalidSessionID
 	}
-	path, err := findSessionPathByFilename(sessionsDir, id)
+	path, err := findPathByFilename(sessionsDir, id)
 	if err != nil {
 		return ResolvedSession{}, err
 	}
 	return ResolvedSession{Session: Session{ID: id, Filename: id}, Path: path}, nil
 }
 
-func findSessionPathByFilename(sessionsDir, id string) (string, error) {
+func findPathByFilename(sessionsDir, id string) (string, error) {
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
 		return "", err
@@ -46,5 +46,5 @@ func findSessionPathByFilename(sessionsDir, id string) (string, error) {
 			}
 		}
 	}
-	return "", errSessionNotFound
+	return "", ErrSessionNotFound
 }

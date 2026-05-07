@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"pi-web/internal/sessions"
 )
 
 func TestLiveReloadJsIsEmbeddedAndWrapped(t *testing.T) {
@@ -67,7 +69,7 @@ func TestIndexTemplateLoadedFromEmbeddedFile(t *testing.T) {
 
 func TestIndexTemplateUsesViteModuleNotStandaloneAlpine(t *testing.T) {
 	var buf bytes.Buffer
-	if err := indexTmpl.Execute(&buf, []Session{}); err != nil {
+	if err := indexTmpl.Execute(&buf, []sessions.Session{}); err != nil {
 		t.Fatalf("failed to render index template: %v", err)
 	}
 	rendered := buf.String()

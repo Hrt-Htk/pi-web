@@ -18,6 +18,7 @@ import (
 
 	"pi-web/internal/auth"
 	"pi-web/internal/render"
+	"pi-web/internal/sessions"
 )
 
 const defaultPort = "31483"
@@ -174,7 +175,7 @@ type server struct {
 	fileMod     map[string]time.Time
 	fileModMu   sync.RWMutex
 	chatSender  ChatSender
-	cache       *sessionCache
+	cache       *sessions.Cache
 	auth        *auth.Middleware
 	shareRunner shareCmdRunner
 }
@@ -185,18 +186,18 @@ func newServer(sessionsDir string, auth *auth.Middleware) *server {
 		clients:     make([]*sseClient, 0),
 		fileMod:     make(map[string]time.Time),
 		chatSender:  NewWorkerManager(newPiRPCWorker),
-		cache:       newSessionCache(),
+		cache:       sessions.NewCache(),
 		auth:        auth,
 	}
 	go s.watchFiles()
 	return s
 }
 
-func (s *server) loadSessions() ([]Session, error) {
+func (s *server) loadSessions() ([]sessions.Session, error) {
 	if s.cache != nil {
-		return s.cache.loadAll(s.sessionsDir)
+		return s.cache.LoadAll(s.sessionsDir)
 	}
-	return loadAllSessions(s.sessionsDir)
+	return sessions.LoadAll(s.sessionsDir)
 }
 
 func (s *server) addClient(sessID string) *sseClient {
@@ -354,7 +355,7 @@ func (s *server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := createSessionFile(s.sessionsDir, body.Path)
+	id, err := sessions.CreateSessionFile(s.sessionsDir, body.Path)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -365,7 +366,7 @@ func (s *server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleRecentLocations(w http.ResponseWriter, r *http.Request) {
-	locations, err := listRecentLocations(s.sessionsDir)
+	locations, err := sessions.ListRecentLocations(s.sessionsDir)
 	if err != nil {
 		locations = []string{}
 	}

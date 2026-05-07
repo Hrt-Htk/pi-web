@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"pi-web/internal/sessions"
 )
 
 func TestMobileSidebarClosesWhenNavigatingTree(t *testing.T) {
@@ -25,7 +27,7 @@ func TestMobileSessionActionsStayAtTopAndHideBehindSidebar(t *testing.T) {
 		"@media (max-width: 900px)",
 		"top: calc(10px + env(safe-area-inset-top));",
 	}
-	combined := templateCss + templateHtml + liveReloadJs + templateJs + chatComposerHtml("s.jsonl") + generateExportHtml(Session{ID: "s.jsonl"}, true)
+	combined := templateCss + templateHtml + liveReloadJs + templateJs + chatComposerHtml("s.jsonl") + generateExportHtml(sessions.Session{ID: "s.jsonl"}, true)
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("mobile action UI missing %q", check)

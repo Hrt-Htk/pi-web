@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"pi-web/internal/chat"
+	"pi-web/internal/sessions"
 )
 
 type ChatSender interface {
@@ -22,13 +23,13 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	resolved, err := resolveSessionByID(s.sessionsDir, r.URL.Query().Get("id"))
+	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {
-		if errors.Is(err, errInvalidSessionID) {
+		if errors.Is(err, sessions.ErrInvalidSessionID) {
 			writeJSONError(w, http.StatusBadRequest, "invalid session id")
 			return
 		}
-		if errors.Is(err, errSessionNotFound) {
+		if errors.Is(err, sessions.ErrSessionNotFound) {
 			writeJSONError(w, http.StatusNotFound, "session not found")
 			return
 		}
@@ -74,13 +75,13 @@ func (s *server) handleSetModel(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	resolved, err := resolveSessionByID(s.sessionsDir, r.URL.Query().Get("id"))
+	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {
-		if errors.Is(err, errInvalidSessionID) {
+		if errors.Is(err, sessions.ErrInvalidSessionID) {
 			writeJSONError(w, http.StatusBadRequest, "invalid session id")
 			return
 		}
-		if errors.Is(err, errSessionNotFound) {
+		if errors.Is(err, sessions.ErrSessionNotFound) {
 			writeJSONError(w, http.StatusNotFound, "session not found")
 			return
 		}
@@ -112,13 +113,13 @@ func (s *server) handleSetThinkingLevel(w http.ResponseWriter, r *http.Request) 
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	resolved, err := resolveSessionByID(s.sessionsDir, r.URL.Query().Get("id"))
+	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {
-		if errors.Is(err, errInvalidSessionID) {
+		if errors.Is(err, sessions.ErrInvalidSessionID) {
 			writeJSONError(w, http.StatusBadRequest, "invalid session id")
 			return
 		}
-		if errors.Is(err, errSessionNotFound) {
+		if errors.Is(err, sessions.ErrSessionNotFound) {
 			writeJSONError(w, http.StatusNotFound, "session not found")
 			return
 		}

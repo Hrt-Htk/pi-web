@@ -1,4 +1,4 @@
-package main
+package sessions
 
 import (
 	"os"
@@ -11,9 +11,9 @@ func TestSessionCacheReusesParsedSessions(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
 
-	c := newSessionCache()
+	c := NewCache()
 
-	first, err := c.loadAll(root)
+	first, err := c.LoadAll(root)
 	if err != nil {
 		t.Fatalf("first loadAll: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestSessionCacheReusesParsedSessions(t *testing.T) {
 		t.Fatalf("after first call: parses=%d hits=%d, want 1/0", parses1, hits1)
 	}
 
-	second, err := c.loadAll(root)
+	second, err := c.LoadAll(root)
 	if err != nil {
 		t.Fatalf("second loadAll: %v", err)
 	}
@@ -45,8 +45,8 @@ func TestSessionCacheReparsesOnModTimeChange(t *testing.T) {
 	root := t.TempDir()
 	path := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
 
-	c := newSessionCache()
-	if _, err := c.loadAll(root); err != nil {
+	c := NewCache()
+	if _, err := c.LoadAll(root); err != nil {
 		t.Fatalf("first loadAll: %v", err)
 	}
 
@@ -56,7 +56,7 @@ func TestSessionCacheReparsesOnModTimeChange(t *testing.T) {
 		t.Fatalf("chtimes: %v", err)
 	}
 
-	if _, err := c.loadAll(root); err != nil {
+	if _, err := c.LoadAll(root); err != nil {
 		t.Fatalf("second loadAll: %v", err)
 	}
 	parses, hits, _ := c.stats()
@@ -72,8 +72,8 @@ func TestSessionCacheEvictsRemovedFiles(t *testing.T) {
 	root := t.TempDir()
 	path := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
 
-	c := newSessionCache()
-	if _, err := c.loadAll(root); err != nil {
+	c := NewCache()
+	if _, err := c.LoadAll(root); err != nil {
 		t.Fatalf("first loadAll: %v", err)
 	}
 	if _, _, size := c.stats(); size != 1 {
@@ -84,7 +84,7 @@ func TestSessionCacheEvictsRemovedFiles(t *testing.T) {
 		t.Fatalf("remove: %v", err)
 	}
 
-	got, err := c.loadAll(root)
+	got, err := c.LoadAll(root)
 	if err != nil {
 		t.Fatalf("after remove: %v", err)
 	}
@@ -100,14 +100,14 @@ func TestSessionCachePicksUpNewFiles(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "--tmp--project--", "first.jsonl")
 
-	c := newSessionCache()
-	if _, err := c.loadAll(root); err != nil {
+	c := NewCache()
+	if _, err := c.LoadAll(root); err != nil {
 		t.Fatalf("first loadAll: %v", err)
 	}
 
 	writeSessionFile(t, root, "--tmp--project--", "second.jsonl")
 
-	got, err := c.loadAll(root)
+	got, err := c.LoadAll(root)
 	if err != nil {
 		t.Fatalf("second loadAll: %v", err)
 	}
@@ -133,8 +133,8 @@ func TestSessionCacheIgnoresNonJsonl(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := newSessionCache()
-	got, err := c.loadAll(root)
+	c := NewCache()
+	got, err := c.LoadAll(root)
 	if err != nil {
 		t.Fatalf("loadAll: %v", err)
 	}

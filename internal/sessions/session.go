@@ -1,21 +1,16 @@
-package main
+package sessions
 
 import (
 	"crypto/rand"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 )
-
-//go:embed templates/index.html
-var indexTmplStr string
 
 type Session struct {
 	ID           string
@@ -29,7 +24,7 @@ type Session struct {
 	Entries      []map[string]any
 }
 
-func loadAllSessions(dir string) ([]Session, error) {
+func LoadAll(dir string) ([]Session, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -50,7 +45,7 @@ func loadAllSessions(dir string) ([]Session, error) {
 				continue
 			}
 			path := filepath.Join(subDir, f.Name())
-			sess, err := parseSession(path, e.Name(), f.Name())
+			sess, err := ParseFile(path, e.Name(), f.Name())
 			if err != nil {
 				continue
 			}
@@ -58,11 +53,11 @@ func loadAllSessions(dir string) ([]Session, error) {
 		}
 	}
 
-	sortSessionsByActivity(sessions)
+	SortByActivity(sessions)
 	return sessions, nil
 }
 
-func sortSessionsByActivity(sessions []Session) {
+func SortByActivity(sessions []Session) {
 	sort.Slice(sessions, func(i, j int) bool {
 		ti, _ := time.Parse(time.RFC3339, sessions[i].LastActivity)
 		tj, _ := time.Parse(time.RFC3339, sessions[j].LastActivity)
@@ -70,7 +65,7 @@ func sortSessionsByActivity(sessions []Session) {
 	})
 }
 
-func parseSession(path, dirName, fileName string) (Session, error) {
+func ParseFile(path, dirName, fileName string) (Session, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Session{}, err
@@ -139,14 +134,14 @@ func cleanProjectName(dirName string) string {
 	return s
 }
 
-func encodeProjectName(path string) string {
+func EncodeProjectName(path string) string {
 	s := strings.TrimSpace(path)
 	s = strings.Trim(s, "/")
 	s = strings.ReplaceAll(s, "/", "-")
 	return "--" + s + "--"
 }
 
-func decodeProjectName(dirName string) string {
+func DecodeProjectName(dirName string) string {
 	s := strings.TrimPrefix(dirName, "--")
 	s = strings.TrimSuffix(s, "--")
 	s = strings.ReplaceAll(s, "-", "/")
@@ -156,7 +151,7 @@ func decodeProjectName(dirName string) string {
 	return s
 }
 
-func listRecentLocations(sessionsDir string) ([]string, error) {
+func ListRecentLocations(sessionsDir string) ([]string, error) {
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
 		return nil, err
@@ -167,7 +162,7 @@ func listRecentLocations(sessionsDir string) ([]string, error) {
 		if !e.IsDir() {
 			continue
 		}
-		loc := decodeProjectName(e.Name())
+		loc := DecodeProjectName(e.Name())
 		if loc != "" && !seen[loc] {
 			seen[loc] = true
 			locations = append(locations, loc)
@@ -176,7 +171,7 @@ func listRecentLocations(sessionsDir string) ([]string, error) {
 	return locations, nil
 }
 
-func createSessionFile(sessionsDir, path string) (string, error) {
+func CreateSessionFile(sessionsDir, path string) (string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return "", errors.New("path is required")
@@ -198,7 +193,7 @@ func createSessionFile(sessionsDir, path string) (string, error) {
 		}
 	}
 
-	projectDir := filepath.Join(sessionsDir, encodeProjectName(path))
+	projectDir := filepath.Join(sessionsDir, EncodeProjectName(path))
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return "", err
 	}
@@ -234,74 +229,3 @@ func randomUUID() string {
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
-
-func fmtTime(ts string) string {
-	t, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return ts
-	}
-	return t.Format("Jan 2, 2006 3:04 PM")
-}
-
-func fmtTokens(n int) string {
-	if n >= 1_000_000 {
-		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
-	}
-	if n >= 1_000 {
-		return fmt.Sprintf("%.1fk", float64(n)/1_000)
-	}
-	return fmt.Sprintf("%d", n)
-}
-
-func fmtCost(n float64) string {
-	if n == 0 {
-		return "—"
-	}
-	return fmt.Sprintf("$%.4f", n)
-}
-
-func sessionName(s Session) string {
-	if s.Header != nil {
-		if name, ok := s.Header["name"].(string); ok && name != "" {
-			return name
-		}
-	}
-	for _, e := range s.Entries {
-		if e["type"] == "message" {
-			msg, ok := e["message"].(map[string]any)
-			if ok {
-				if role, _ := msg["role"].(string); role == "user" {
-					content := msg["content"]
-					var text string
-					switch v := content.(type) {
-					case string:
-						text = v
-					case []any:
-						for _, item := range v {
-							if block, ok := item.(map[string]any); ok {
-								if t, _ := block["type"].(string); t == "text" {
-									text += fmt.Sprintf("%v", block["text"])
-								}
-							}
-						}
-					}
-					if len(text) > 80 {
-						text = text[:80] + "…"
-					}
-					return text
-				}
-			}
-		}
-	}
-	return s.Filename
-}
-
-var funcMap = template.FuncMap{
-	"fmtTime":     fmtTime,
-	"fmtTokens":   fmtTokens,
-	"fmtCost":     fmtCost,
-	"sessionName": sessionName,
-	"indexScript": func() string { return indexScriptPath },
-}
-
-var indexTmpl = template.Must(template.New("index").Funcs(funcMap).Parse(indexTmplStr))

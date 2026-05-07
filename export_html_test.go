@@ -3,10 +3,12 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"pi-web/internal/sessions"
 )
 
 func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
-	session := Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	session := sessions.Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, true)
 	if !strings.Contains(html, `id="pi-chat-composer"`) {
 		t.Fatalf("chat composer missing from local session page")
@@ -17,7 +19,7 @@ func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
 }
 
 func TestGenerateExportHtmlOmitsChatComposerForShare(t *testing.T) {
-	session := Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	session := sessions.Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, false)
 	if strings.Contains(html, `id="pi-chat-composer"`) {
 		t.Fatalf("chat composer should not be included in share export")

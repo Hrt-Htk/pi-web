@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+
+	"pi-web/internal/sessions"
 )
 
 //go:embed templates/app/*.js
@@ -83,7 +85,7 @@ var chatComposerTmpl = template.Must(template.New("chat_composer").Parse(chatCom
 
 var precomputedThemeVars = computeThemeVars()
 
-func generateExportHtml(session Session, showButtons bool) string {
+func generateExportHtml(session sessions.Session, showButtons bool) string {
 	leafID := ""
 	if len(session.Entries) > 0 {
 		if id, ok := session.Entries[len(session.Entries)-1]["id"].(string); ok {

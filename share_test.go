@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"pi-web/internal/auth"
+	"pi-web/internal/sessions"
 )
 
 type fakeShareRunner struct {
@@ -30,7 +31,7 @@ func newShareTestServer(t *testing.T, runner shareCmdRunner) (*server, string) {
 	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
 	s := &server{
 		sessionsDir: root,
-		cache:       newSessionCache(),
+		cache:       sessions.NewCache(),
 		shareRunner: runner,
 	}
 	return s, root

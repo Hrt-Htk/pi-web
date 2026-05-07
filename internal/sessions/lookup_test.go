@@ -1,4 +1,4 @@
-package main
+package sessions
 
 import (
 	"os"
@@ -24,9 +24,9 @@ func writeSessionFile(t *testing.T, root, project, name string) string {
 func TestResolveSessionByIDReturnsKnownPath(t *testing.T) {
 	root := t.TempDir()
 	wantPath := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
-	resolved, err := resolveSessionByID(root, "session.jsonl")
+	resolved, err := ResolveByID(root, "session.jsonl")
 	if err != nil {
-		t.Fatalf("resolveSessionByID returned error: %v", err)
+		t.Fatalf("ResolveByID returned error: %v", err)
 	}
 	if resolved.Session.ID != "session.jsonl" {
 		t.Fatalf("ID = %q, want session.jsonl", resolved.Session.ID)
@@ -39,17 +39,17 @@ func TestResolveSessionByIDReturnsKnownPath(t *testing.T) {
 func TestResolveSessionByIDRejectsTraversal(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
-	_, err := resolveSessionByID(root, "../session.jsonl")
+	_, err := ResolveByID(root, "../session.jsonl")
 	if err == nil {
-		t.Fatalf("resolveSessionByID accepted traversal id")
+		t.Fatalf("ResolveByID accepted traversal id")
 	}
 }
 
 func TestResolveSessionByIDRejectsUnknown(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
-	_, err := resolveSessionByID(root, "missing.jsonl")
+	_, err := ResolveByID(root, "missing.jsonl")
 	if err == nil {
-		t.Fatalf("resolveSessionByID accepted unknown id")
+		t.Fatalf("ResolveByID accepted unknown id")
 	}
 }
