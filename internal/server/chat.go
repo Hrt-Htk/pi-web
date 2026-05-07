@@ -106,20 +106,15 @@ func (s *Server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 func (s *Server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
 
-	if status := s.readSessionStatus(sessionID); status != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(status)
-		return
-	}
-
-	status := s.chatSender.Status(sessionID)
-	if status.State != workers.WorkerStateRunning {
+	status := workers.WorkerStatus{State: workers.WorkerStateIdle}
+	if s.computeRunningStatus(sessionID) {
+		status.State = workers.WorkerStateRunning
+	} else if s.chatSender != nil {
+		// Preserve the existing behaviour: when not running, fetch GetState
+		// to populate ThinkingLevel for the session page.
 		if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
 			status.ThinkingLevel = state.ThinkingLevel
 		}
-	}
-	if status.State == workers.WorkerStateIdle && s.hasRecentSessionActivity(sessionID) {
-		status.State = workers.WorkerStateRunning
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
