@@ -70,6 +70,8 @@ func main() {
 		}()
 	}
 
+	warmModelsCache()
+
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)
@@ -315,7 +317,7 @@ func handleAvailableModels(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	data, err := oneShotRPC(ctx, "get_available_models", nil)
+	data, err := defaultModelsCache.get(ctx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			writeJSONError(w, http.StatusGatewayTimeout, "timed out waiting for model list")
