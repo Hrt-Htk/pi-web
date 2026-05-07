@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
@@ -75,5 +76,25 @@ func TestIndexTemplateUsesViteModuleNotStandaloneAlpine(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "/static/assets/index.js") {
 		t.Fatal("rendered index page missing Vite module script /static/assets/index.js")
+	}
+}
+
+func TestIndexJsSourceReferencesAPINewSession(t *testing.T) {
+	data, err := os.ReadFile("web/src/index/index.js")
+	if err != nil {
+		t.Fatalf("read web/src/index/index.js: %v", err)
+	}
+	if !strings.Contains(string(data), "/api/new-session") {
+		t.Fatal("web/src/index/index.js missing /api/new-session reference")
+	}
+}
+
+func TestIndexJsSourceReferencesAPIRecentLocations(t *testing.T) {
+	data, err := os.ReadFile("web/src/index/index.js")
+	if err != nil {
+		t.Fatalf("read web/src/index/index.js: %v", err)
+	}
+	if !strings.Contains(string(data), "/api/recent-locations") {
+		t.Fatal("web/src/index/index.js missing /api/recent-locations reference")
 	}
 }

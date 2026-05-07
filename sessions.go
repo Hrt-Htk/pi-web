@@ -301,7 +301,7 @@ var funcMap = template.FuncMap{
 	"fmtTokens":   fmtTokens,
 	"fmtCost":     fmtCost,
 	"sessionName": sessionName,
-	"indexScript": func() string { return "/static/assets/index.js" },
+	"indexScript": func() string { return indexScriptPath },
 }
 
 var indexTmpl = template.Must(template.New("index").Funcs(funcMap).Parse(indexTmplStr))

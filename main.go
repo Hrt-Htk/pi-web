@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +26,11 @@ const tokenEnvVar = "PI_WEB_TOKEN"
 // specific session — e.g. a new session file appearing on disk. The index
 // page subscribes to this so it can refresh when new sessions show up.
 const globalSessID = "__all__"
+
+// indexScriptPath is the URL path at which the index page's Vite module is
+// served. It defaults to a stable path and is overwritten at startup if a
+// hashed asset is found in the Vite manifest.
+var indexScriptPath = "/static/assets/index.js"
 
 func main() {
 	port := flag.String("p", defaultPort, "port to listen on")
@@ -56,8 +62,11 @@ func main() {
 	mux.HandleFunc("/api/new-session", auth.wrap(srv.handleNewSession))
 	mux.HandleFunc("/api/recent-locations", auth.wrap(srv.handleRecentLocations))
 	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
-	if indexJs := loadViteIndexJs(); indexJs != "" {
-		mux.HandleFunc("/static/assets/index.js", serveStaticJS(indexJs))
+	if scriptPath, js, err := loadIndexScript("web/dist"); err == nil {
+		indexScriptPath = scriptPath
+		mux.HandleFunc(scriptPath, serveIndexJS(js, scriptPath != "/static/assets/index.js"))
+	} else {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to load Vite index script: %v (index page JS will be unavailable)\n", err)
 	}
 
 	addr := net.JoinHostPort(bindHost, *port)
@@ -105,24 +114,49 @@ func openBrowser(url string) {
 	exec.Command(cmd, args...).Start()
 }
 
-func loadViteIndexJs() string {
-	data, err := os.ReadFile("web/dist/.vite/manifest.json")
+func loadIndexScript(distDir string) (scriptPath string, js string, err error) {
+	data, err := os.ReadFile(filepath.Join(distDir, ".vite/manifest.json"))
 	if err != nil {
-		return ""
+		return "", "", fmt.Errorf("read manifest: %w", err)
 	}
 	var manifest render.Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return ""
+		return "", "", fmt.Errorf("parse manifest: %w", err)
 	}
 	entry, ok := manifest["src/index/index.js"]
-	if !ok || entry.File == "" {
-		return ""
+	if !ok {
+		return "", "", fmt.Errorf("manifest missing src/index/index.js entry")
 	}
-	content, err := os.ReadFile(filepath.Join("web/dist", entry.File))
+	if entry.File == "" {
+		return "", "", fmt.Errorf("manifest entry file is empty")
+	}
+	if strings.HasPrefix(entry.File, "/") {
+		return "", "", fmt.Errorf("manifest entry file is absolute: %s", entry.File)
+	}
+	if strings.Contains(entry.File, "..") {
+		return "", "", fmt.Errorf("manifest entry file contains path traversal: %s", entry.File)
+	}
+	scriptPath, ok = manifest.ScriptPath("src/index/index.js")
+	if !ok {
+		return "", "", fmt.Errorf("manifest script path not found")
+	}
+	content, err := os.ReadFile(filepath.Join(distDir, entry.File))
 	if err != nil {
-		return ""
+		return "", "", fmt.Errorf("read index js: %w", err)
 	}
-	return string(content)
+	return scriptPath, string(content), nil
+}
+
+func serveIndexJS(js string, immutable bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		if immutable {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		_, _ = w.Write([]byte(js))
+	}
 }
 
 // ── Server with live-reload SSE ────────────────────────────────────────────
