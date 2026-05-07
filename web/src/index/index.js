@@ -9,14 +9,27 @@ export function createSessionsPage() {
     recent: [],
     creating: false,
     error: '',
+    _es: null,
 
     subscribe() {
       try {
+        if (this._es) {
+          this._es.close();
+          this._es = null;
+        }
         const es = new EventSource('/events?id=__all__');
+        this._es = es;
         es.onmessage = (e) => {
           if (e.data === 'new-session') window.location.reload();
         };
-      } catch {}
+        const onUnload = () => {
+          es.close();
+          window.removeEventListener('beforeunload', onUnload);
+        };
+        window.addEventListener('beforeunload', onUnload);
+      } catch {
+        // Intentional no-op: background best-effort subscription.
+      }
     },
 
     filter() {
@@ -40,7 +53,9 @@ export function createSessionsPage() {
       try {
         const response = await getJSON('/api/recent-locations');
         this.recent = (response.locations || []).slice(0, 10);
-      } catch {}
+      } catch {
+        // Intentional no-op: recent locations are optional.
+      }
     },
 
     async create() {
@@ -67,6 +82,10 @@ export function createSessionsPage() {
   };
 }
 
-window.sessionsPage = createSessionsPage;
-window.Alpine = Alpine;
-Alpine.start();
+if (typeof window !== 'undefined') {
+  window.sessionsPage = createSessionsPage;
+  if (!window.Alpine) {
+    window.Alpine = Alpine;
+    Alpine.start();
+  }
+}
