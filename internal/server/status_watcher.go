@@ -42,7 +42,7 @@ func (s *Server) startSessionStatusWatcher() error {
 				if !ok {
 					return
 				}
-				if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+				if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) == 0 {
 					continue
 				}
 				s.recomputeAndBroadcastStatus(filepath.Base(ev.Name))
