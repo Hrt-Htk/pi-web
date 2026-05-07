@@ -40,8 +40,6 @@ func TestNewSessionModalExists(t *testing.T) {
 		`id="sessionPath"`,
 		`id="createBtn"`,
 		`id="cancelBtn"`,
-		`/api/new-session`,
-		`/api/recent-locations`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(indexTmpl.Tree.Root.String(), check) {

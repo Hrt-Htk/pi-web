@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"pi-web/internal/render"
 )
 
 const defaultPort = "31483"
@@ -54,6 +56,9 @@ func main() {
 	mux.HandleFunc("/api/new-session", auth.wrap(srv.handleNewSession))
 	mux.HandleFunc("/api/recent-locations", auth.wrap(srv.handleRecentLocations))
 	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
+	if indexJs := loadViteIndexJs(); indexJs != "" {
+		mux.HandleFunc("/static/assets/index.js", serveStaticJS(indexJs))
+	}
 
 	addr := net.JoinHostPort(bindHost, *port)
 	url := "http://" + addr
@@ -98,6 +103,26 @@ func openBrowser(url string) {
 		args = []string{url}
 	}
 	exec.Command(cmd, args...).Start()
+}
+
+func loadViteIndexJs() string {
+	data, err := os.ReadFile("web/dist/.vite/manifest.json")
+	if err != nil {
+		return ""
+	}
+	var manifest render.Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return ""
+	}
+	entry, ok := manifest["src/index/index.js"]
+	if !ok || entry.File == "" {
+		return ""
+	}
+	content, err := os.ReadFile(filepath.Join("web/dist", entry.File))
+	if err != nil {
+		return ""
+	}
+	return string(content)
 }
 
 // ── Server with live-reload SSE ────────────────────────────────────────────

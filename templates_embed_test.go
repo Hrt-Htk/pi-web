@@ -56,7 +56,6 @@ func TestIndexTemplateLoadedFromEmbeddedFile(t *testing.T) {
 	for _, marker := range []string{
 		`id="newSessionBtn"`,
 		`id="modalOverlay"`,
-		`/api/new-session`,
 	} {
 		if !strings.Contains(rendered, marker) {
 			t.Fatalf("rendered index template missing %q", marker)
