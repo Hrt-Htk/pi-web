@@ -70,6 +70,10 @@ func (s *Server) recordModTime(sessID string, mod time.Time) {
 	if known && mod.After(lastMod) {
 		s.broadcast(sessID, "reload")
 	}
+	// Always recompute status for this session — the running state depends
+	// on the live mtime regardless of whether reload was emitted (e.g. the
+	// first observation of a brand-new session file).
+	s.recomputeAndBroadcastStatus(sessID)
 }
 
 // watchFilesFsnotify uses kqueue/inotify to react to writes. Project subdirs

@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,7 +29,7 @@ func TestFsnotifyWatcherBroadcastsOnAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time)}
+	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time), lastKnown: make(map[string]struct{}), now: time.Now}
 	if err := s.watchFilesFsnotify(); err != nil {
 		t.Skipf("fsnotify unavailable on this platform: %v", err)
 	}
@@ -65,7 +66,7 @@ func TestPollingFallbackBroadcastsOnAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time)}
+	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time), lastKnown: make(map[string]struct{}), now: time.Now}
 	s.scanForChanges()
 
 	client := s.addClient("session.jsonl")
@@ -80,5 +81,34 @@ func TestPollingFallbackBroadcastsOnAppend(t *testing.T) {
 
 	if !drainBroadcast(t, client, 100*time.Millisecond) {
 		t.Fatalf("expected reload broadcast after scanForChanges")
+	}
+}
+
+func TestRecordModTimeBroadcastsStatusDelta(t *testing.T) {
+	root := t.TempDir()
+	now := time.Now()
+	s := &Server{
+		sessionsDir: root,
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-10 * time.Second)},
+		clients:     make([]*sseClient, 0),
+		lastKnown:   make(map[string]struct{}),
+		chatSender:  &fakeSender{},
+		now:         time.Now,
+	}
+	c := s.addClient(globalSessID)
+	defer s.removeClient(c)
+
+	// Advance modtime to "now"; this is a recent-activity flip from idle to running.
+	s.recordModTime("session.jsonl", time.Now())
+
+	// __all__ subscriber should receive a status-delta. (recordModTime also
+	// broadcasts "reload" but to sessID="session.jsonl", a different topic.)
+	select {
+	case msg := <-c.ch:
+		if !strings.Contains(msg, "status-delta") || !strings.Contains(msg, "session.jsonl") || !strings.Contains(msg, "true") {
+			t.Fatalf("unexpected first msg: %q", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("expected status-delta on __all__")
 	}
 }
