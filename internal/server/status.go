@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"pi-web/internal/workers"
@@ -56,6 +57,7 @@ func (s *Server) recomputeAndBroadcastStatus(sessionID string) {
 	}
 	s.lastKnownMu.Unlock()
 
-	payload := fmt.Sprintf(`{"id":%q,"running":%t}`, sessionID, now)
+	idJSON, _ := json.Marshal(sessionID)
+	payload := fmt.Sprintf(`{"id":%s,"running":%t}`, idJSON, now)
 	s.broadcast(globalSessID, "event: status-delta\ndata: "+payload)
 }
