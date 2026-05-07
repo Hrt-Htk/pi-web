@@ -23,7 +23,7 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 - Deep links to individual messages
 - Download a session as JSONL
 - Share static snapshots as secret GitHub Gists
-- `/view` pi extension to open the current session in the browser from inside pi
+- `/web`, `/mobile`, `/refresh` pi extensions for browser, mobile QR, and session sync
 
 ## Requirements
 
@@ -100,6 +100,25 @@ cp view-sessions.ts ~/.pi/agent/extensions/
 
 Restart pi (or run `/reload`), then use `/view` inside a session.
 
+### `/web`, `/mobile`, `/refresh` commands
+
+```bash
+mkdir -p ~/.pi/agent/extensions
+cp extensions/pi-web.ts ~/.pi/agent/extensions/
+```
+
+Restart pi (or run `/reload`), then:
+
+- `/web` — open the current session in your default browser
+- `/mobile` — show a QR code for mobile access over Tailscale (requires `qrcode` npm package)
+- `/refresh` — pull new messages written from mobile back into the terminal session
+
+Optional: install `qrcode` for QR code generation:
+
+```bash
+npm install -g qrcode
+```
+
 ### Skill
 
 ```bash
@@ -143,13 +162,9 @@ A single binary, no database, no daemon — just a Go HTTP server reading the sa
 The sessions index uses a Vite-built browser bundle. Rebuild it after frontend changes before running the Go server from source:
 
 ```bash
-cd web
-npm install
-npm run test
-npm run build
-cd ..
-go test ./...
-go build -o pi-web .
+make setup   # install frontend deps and download Go modules
+make check   # frontend test/build + Go test/vet
+make build   # setup if needed, build frontend, then build ./pi-web
 ```
 
 ## License
