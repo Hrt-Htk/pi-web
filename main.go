@@ -213,6 +213,7 @@ type server struct {
 	cache       *sessions.Cache
 	auth        *auth.Middleware
 	shareRunner shareCmdRunner
+	now         func() time.Time
 }
 
 func newServer(sessionsDir string, auth *auth.Middleware) *server {
@@ -223,6 +224,7 @@ func newServer(sessionsDir string, auth *auth.Middleware) *server {
 		chatSender:  workers.NewManager(rpc.NewPiWorker),
 		cache:       sessions.NewCache(),
 		auth:        auth,
+		now:         time.Now,
 	}
 	go s.watchFiles()
 	return s

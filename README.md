@@ -91,20 +91,11 @@ Open a session page and use the composer at the bottom to continue that exact se
 
 ## Pi integration
 
-### `/view` command
-
-```bash
-mkdir -p ~/.pi/agent/extensions
-cp view-sessions.ts ~/.pi/agent/extensions/
-```
-
-Restart pi (or run `/reload`), then use `/view` inside a session.
-
 ### `/web`, `/mobile`, `/refresh` commands
 
 **Project-local** (auto-discovered when you run `pi` inside this repo):
 
-Already included at `.pi/extensions/`. Just install deps:
+Already included at `.pi/extensions/pi-web.ts`. Install the extension deps:
 
 ```bash
 cd .pi/extensions && npm install && cd ../..

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Show a subtle animated dashed border around homepage session cards whose worker status is currently `running`.
+**Goal:** Show a subtle Pi-themed animated dashed border around homepage session cards whose worker status is currently `running`, including activity started from another browser tab.
 
-**Architecture:** Keep the change homepage-local. Extend the index page Alpine state in `web/src/index/index.js` to track per-session running state, poll `/api/worker-status?id=...` for visible cards, and toggle a `session-card--running` class on matching DOM nodes. Render the visual treatment in `templates/index.html` with a pseudo-element overlay and a reduced-motion fallback.
+**Architecture:** Keep the change homepage-local. Extend the index page Alpine state in `web/src/index/index.js` to track per-session running state, poll `/api/worker-status?id=...` for visible cards near-real-time while `/` is open, and toggle a `session-card--running` class on matching DOM nodes. Render the visual treatment in `templates/index.html` with a refined cyan/teal pseudo-element overlay and a reduced-motion fallback.
 
 **Tech Stack:** Go HTML templates, Alpine.js, Vite frontend bundle, Vitest, existing `/api/worker-status` JSON endpoint.
 
@@ -139,6 +139,8 @@ git commit -m "test: cover homepage running session cards"
 
 ### Task 2: Implement homepage running-state polling and DOM class syncing
 
+Note: use near-real-time polling (~1–2 seconds) for visible cards so `/` reflects activity from another tab without relying on the detail page.
+
 **Files:**
 - Modify: `web/src/index/index.js`
 - Test: `web/src/index/index.test.js`
@@ -264,6 +266,8 @@ git commit -m "feat: track running sessions on homepage"
 ```
 
 ### Task 3: Add the animated dashed border treatment to homepage cards
+
+Note: use Pi-aligned cyan/teal accents and finer dash/motion styling; do not reuse the earlier warm red treatment.
 
 **Files:**
 - Modify: `templates/index.html`

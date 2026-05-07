@@ -122,6 +122,8 @@ body {
   min-width: 0;
 }
 .session-card {
+  position: relative;
+  overflow: hidden;
   background: var(--container-bg);
   border: 1px solid var(--dim);
   border-radius: 4px;
@@ -129,6 +131,29 @@ body {
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   min-width: 0;
+}
+.session-card--running::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0.9;
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--border-accent) 88%, white 12%) 0 10px, transparent 10px 18px) top / 180% 2px repeat-x,
+    repeating-linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, var(--border-accent) 20%) 0 10px, transparent 10px 18px) right / 2px 180% repeat-y,
+    repeating-linear-gradient(270deg, color-mix(in srgb, var(--border-accent) 88%, white 12%) 0 10px, transparent 10px 18px) bottom / 180% 2px repeat-x,
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 80%, var(--border-accent) 20%) 0 10px, transparent 10px 18px) left / 2px 180% repeat-y;
+  animation: session-running-border 1.25s linear infinite;
+}
+@keyframes session-running-border {
+  from { background-position: 0 0, 0 0, 0 100%, 0 0; }
+  to { background-position: 18px 0, 0 18px, -18px 100%, 0 -18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-card--running::before {
+    animation: none;
+  }
 }
 .session-card:hover {
   border-color: var(--accent);
@@ -306,7 +331,7 @@ body {
         <div class="session-grid">
       {{ $currentProject = .Project }}
     {{ end }}
-    <div class="session-card" data-id="{{ .ID }}" data-search="{{ sessionName . | html }} {{ .Project | html }}" @click="window.location='/session?id={{ .ID }}'">
+    <div class="session-card" data-id="{{ .ID }}" data-session-id="{{ .ID }}" data-search="{{ sessionName . | html }} {{ .Project | html }}" @click="window.location='/session?id={{ .ID }}'">
       <div class="session-title">{{ sessionName . | html }}</div>
       <div class="session-project">{{ .Project | html }}</div>
       <div class="session-meta">

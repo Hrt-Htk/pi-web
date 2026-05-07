@@ -47,3 +47,9 @@ func TestNewSessionModalExists(t *testing.T) {
 		}
 	}
 }
+
+func TestHomePageSessionCardsExposeRunningStatusHook(t *testing.T) {
+	if !strings.Contains(indexTmplStr, `data-session-id="{{ .ID }}"`) {
+		t.Fatal("homepage should expose session ids for running-status cards")
+	}
+}

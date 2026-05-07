@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"pi-web/internal/chat"
 	"pi-web/internal/sessions"
@@ -61,14 +62,38 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": "accepted"})
 }
 
+const recentSessionActivityWindow = 3 * time.Second
+
 func (s *server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
 	status := s.chatSender.Status(sessionID)
 	if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
 		status.ThinkingLevel = state.ThinkingLevel
 	}
+	if status.State == workers.WorkerStateIdle && s.hasRecentSessionActivity(sessionID) {
+		status.State = workers.WorkerStateRunning
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+func (s *server) hasRecentSessionActivity(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+	var now time.Time
+	if s.now != nil {
+		now = s.now()
+	} else {
+		now = time.Now()
+	}
+	s.fileModMu.RLock()
+	mod, ok := s.fileMod[sessionID]
+	s.fileModMu.RUnlock()
+	if !ok {
+		return false
+	}
+	return !mod.IsZero() && now.Sub(mod) <= recentSessionActivityWindow
 }
 
 func (s *server) handleSetModel(w http.ResponseWriter, r *http.Request) {

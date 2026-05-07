@@ -1,7 +1,7 @@
 import Alpine from 'alpinejs';
 import { getJSON, postJSON } from '../shared/api.js';
 
-export function createSessionsPage() {
+export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalThis), pollIntervalMs = 1500 } = {}) {
   return {
     query: '',
     modal: false,
@@ -9,32 +9,94 @@ export function createSessionsPage() {
     recent: [],
     creating: false,
     error: '',
+    runningSessionIds: new Set(),
     _es: null,
+    _pollTimer: null,
     _unloadHandler: null,
+
+    sessionCards() {
+      return Array.from(document.querySelectorAll('.session-card[data-session-id]'));
+    },
+
+    visibleSessionCards() {
+      return this.sessionCards().filter((card) => !card.classList.contains('hidden'));
+    },
+
+    syncRunningCardClasses() {
+      this.sessionCards().forEach((card) => {
+        const id = card.dataset.sessionId;
+        card.classList.toggle('session-card--running', !!id && this.runningSessionIds.has(id));
+      });
+    },
+
+    async refreshRunningStatuses() {
+      const cards = this.visibleSessionCards();
+      const nextRunning = new Set();
+      if (typeof fetchImpl !== 'function' || cards.length === 0) {
+        this.runningSessionIds = nextRunning;
+        this.syncRunningCardClasses();
+        return;
+      }
+
+      await Promise.all(cards.map(async (card) => {
+        const id = card.dataset.sessionId;
+        if (!id) return;
+        try {
+          const response = await fetchImpl('/api/worker-status?id=' + encodeURIComponent(id));
+          if (!response.ok) return;
+          const payload = await response.json();
+          if (payload && payload.state === 'running') nextRunning.add(id);
+        } catch {
+          // Intentional no-op: unavailable status falls back to non-running.
+        }
+      }));
+
+      this.runningSessionIds = nextRunning;
+      this.syncRunningCardClasses();
+    },
+
+    startStatusPolling() {
+      this.stopStatusPolling();
+      const refresh = () => {
+        if (document.visibilityState === 'hidden') return;
+        void this.refreshRunningStatuses();
+      };
+      refresh();
+      this._pollTimer = window.setInterval(refresh, pollIntervalMs);
+    },
+
+    stopStatusPolling() {
+      if (this._pollTimer) {
+        window.clearInterval(this._pollTimer);
+        this._pollTimer = null;
+      }
+    },
+
+    cleanup() {
+      this.stopStatusPolling();
+      if (this._es) {
+        this._es.close();
+        this._es = null;
+      }
+      if (this._unloadHandler) {
+        window.removeEventListener('beforeunload', this._unloadHandler);
+        this._unloadHandler = null;
+      }
+    },
 
     subscribe() {
       try {
-        if (this._es) {
-          this._es.close();
-          this._es = null;
-        }
-        if (this._unloadHandler) {
-          window.removeEventListener('beforeunload', this._unloadHandler);
-          this._unloadHandler = null;
-        }
+        this.cleanup();
         const es = new EventSource('/events?id=__all__');
         this._es = es;
         es.onmessage = (e) => {
           if (e.data === 'new-session') window.location.reload();
         };
-        this._unloadHandler = () => {
-          es.close();
-          window.removeEventListener('beforeunload', this._unloadHandler);
-          this._unloadHandler = null;
-        };
+        this._unloadHandler = () => this.cleanup();
         window.addEventListener('beforeunload', this._unloadHandler);
+        this.startStatusPolling();
       } catch {
-        // Intentional no-op: background best-effort subscription.
+        this.stopStatusPolling();
       }
     },
 

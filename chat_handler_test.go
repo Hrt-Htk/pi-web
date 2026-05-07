@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"pi-web/internal/chat"
 	"pi-web/internal/workers"
@@ -83,6 +84,52 @@ func TestHandleWorkerStatusDefaultsIdle(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
 	w := httptest.NewRecorder()
 	s.handleWorkerStatus(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"idle\"}\n" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleWorkerStatusUsesRecentSessionFileActivity(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
+	s := &server{
+		sessionsDir: root,
+		chatSender:  &fakeSender{},
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-1500 * time.Millisecond)},
+		now:         func() time.Time { return now },
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"running\"}\n" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleWorkerStatusIgnoresStaleSessionFileActivity(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
+	s := &server{
+		sessionsDir: root,
+		chatSender:  &fakeSender{},
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-10 * time.Second)},
+		now:         func() time.Time { return now },
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+
+	s.handleWorkerStatus(w, req)
+
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d", w.Code)
 	}

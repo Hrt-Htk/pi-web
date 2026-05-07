@@ -13,6 +13,7 @@ Only change the homepage session list UI at `/`. Do not change the session detai
 - The effect is border-only: no glow, no background tint, no content movement.
 - When the session leaves `running`, the card returns to its normal appearance.
 - If live status cannot be determined, the card should fall back to the normal non-running style.
+- The homepage must detect running state even when activity starts in another browser tab, without requiring the user to open the session detail page first.
 
 ## UI Design
 ### Recommended approach: pseudo-element overlay
@@ -25,9 +26,10 @@ Why this approach:
 - keeps the running treatment isolated from the default card styles.
 
 ### Visual details
-- dashed border color: warm red/orange accent similar to the user mockup,
+- dashed border color: Pi-aligned cyan/teal accent, not warm red,
 - rounded corners matching the existing card radius,
 - slight inset so the animated border sits cleanly inside the card,
+- finer dash spacing and smoother motion so the effect feels polished rather than loud,
 - slow, subtle motion to avoid visual noise when multiple sessions are running.
 
 ## Data / State Flow
@@ -35,11 +37,16 @@ The homepage needs to know which sessions are currently running.
 
 Recommended implementation shape:
 - extend the homepage data model to track running state per session id,
-- populate initial state from existing rendered markup or a lightweight fetch path,
-- subscribe to live updates so cards can enter/leave running state without a full page reload,
+- populate initial state from a lightweight fetch path,
+- refresh visible card statuses while the homepage is open so another tab’s chat activity appears here automatically,
 - toggle the `session-card--running` class based on that state.
 
-If the current homepage already has enough live events to infer running state, reuse them. Otherwise add the smallest possible client-side status refresh path needed to keep the indicator accurate.
+Recommended refresh behavior:
+- check visible cards on initial load,
+- continue polling visible cards near-real-time (about every 1–2 seconds) while the homepage is open,
+- clear stale running state immediately when a poll reports non-running or fails.
+
+If the current homepage already has enough live events to infer running state, reuse them. Otherwise client-side polling is acceptable and preferred over adding unnecessary backend event complexity for this feature.
 
 ## Accessibility and UX
 - Running state must not rely only on hover.
