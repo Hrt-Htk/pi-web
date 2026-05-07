@@ -7,3 +7,5 @@ pi-web
 web/node_modules/
 web/dist/
 .pi/extensions/node_modules/
+
+node_modules/
