@@ -10,6 +10,7 @@ export function createSessionsPage() {
     creating: false,
     error: '',
     _es: null,
+    _unloadHandler: null,
 
     subscribe() {
       try {
@@ -17,16 +18,21 @@ export function createSessionsPage() {
           this._es.close();
           this._es = null;
         }
+        if (this._unloadHandler) {
+          window.removeEventListener('beforeunload', this._unloadHandler);
+          this._unloadHandler = null;
+        }
         const es = new EventSource('/events?id=__all__');
         this._es = es;
         es.onmessage = (e) => {
           if (e.data === 'new-session') window.location.reload();
         };
-        const onUnload = () => {
+        this._unloadHandler = () => {
           es.close();
-          window.removeEventListener('beforeunload', onUnload);
+          window.removeEventListener('beforeunload', this._unloadHandler);
+          this._unloadHandler = null;
         };
-        window.addEventListener('beforeunload', onUnload);
+        window.addEventListener('beforeunload', this._unloadHandler);
       } catch {
         // Intentional no-op: background best-effort subscription.
       }

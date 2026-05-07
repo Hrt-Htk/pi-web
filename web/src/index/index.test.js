@@ -47,5 +47,20 @@ describe('createSessionsPage', () => {
       expect(first.close).toHaveBeenCalled();
       expect(page._es).toBe(mockInstances[1]);
     });
+
+    it('removes the old beforeunload listener when called twice', () => {
+      const addSpy = vi.spyOn(window, 'addEventListener');
+      const removeSpy = vi.spyOn(window, 'removeEventListener');
+      const page = createSessionsPage();
+      page.subscribe();
+      expect(addSpy).toHaveBeenCalledTimes(1);
+      expect(addSpy).toHaveBeenLastCalledWith('beforeunload', expect.any(Function));
+      const firstHandler = addSpy.mock.calls[0][1];
+      page.subscribe();
+      expect(removeSpy).toHaveBeenCalledWith('beforeunload', firstHandler);
+      expect(addSpy).toHaveBeenCalledTimes(2);
+      addSpy.mockRestore();
+      removeSpy.mockRestore();
+    });
   });
 });
