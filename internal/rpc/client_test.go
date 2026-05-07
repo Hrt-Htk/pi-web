@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"bytes"
@@ -20,14 +20,14 @@ func TestSplitJSONLLinesHandlesCRLF(t *testing.T) {
 }
 
 func TestBuildPromptCommandUsesSteerWhenStreaming(t *testing.T) {
-	cmd := buildPromptCommand("req-1", chat.Request{Message: "hello"}, true)
+	cmd := BuildPromptCommand("req-1", chat.Request{Message: "hello"}, true)
 	if cmd["id"] != "req-1" || cmd["type"] != "prompt" || cmd["streamingBehavior"] != "steer" {
 		t.Fatalf("cmd = %#v", cmd)
 	}
 }
 
 func TestBuildPromptCommandOmitsSteerWhenIdle(t *testing.T) {
-	cmd := buildPromptCommand("req-1", chat.Request{Message: "hello"}, false)
+	cmd := BuildPromptCommand("req-1", chat.Request{Message: "hello"}, false)
 	if _, ok := cmd["streamingBehavior"]; ok {
 		t.Fatalf("streamingBehavior present for idle command")
 	}
@@ -35,8 +35,8 @@ func TestBuildPromptCommandOmitsSteerWhenIdle(t *testing.T) {
 
 func TestWriteRPCCommandWritesJSONLine(t *testing.T) {
 	var buf bytes.Buffer
-	if err := writeRPCCommand(&buf, map[string]any{"type": "get_state"}); err != nil {
-		t.Fatalf("writeRPCCommand error: %v", err)
+	if err := WriteCommand(&buf, map[string]any{"type": "get_state"}); err != nil {
+		t.Fatalf("WriteCommand error: %v", err)
 	}
 	if got := buf.String(); got != "{\"type\":\"get_state\"}\n" {
 		t.Fatalf("output = %q", got)

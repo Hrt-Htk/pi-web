@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"bufio"
@@ -14,213 +14,8 @@ import (
 	"time"
 
 	"pi-web/internal/chat"
+	"pi-web/internal/workers"
 )
-
-type WorkerState string
-
-const (
-	WorkerStateIdle    WorkerState = "idle"
-	WorkerStateRunning WorkerState = "running"
-	WorkerStateError   WorkerState = "error"
-)
-
-type WorkerStatus struct {
-	State         WorkerState `json:"state"`
-	Error         string      `json:"error,omitempty"`
-	Model         string      `json:"model,omitempty"`
-	ModelName     string      `json:"modelName,omitempty"`
-	ModelProvider string      `json:"modelProvider,omitempty"`
-	ThinkingLevel string      `json:"thinkingLevel,omitempty"`
-}
-
-type ChatWorker interface {
-	Prompt(ctx context.Context, chat chat.Request) error
-	SetModel(ctx context.Context, provider, modelID string) error
-	SetThinkingLevel(ctx context.Context, level string) error
-	GetState(ctx context.Context) (WorkerStatus, error)
-	Status() WorkerStatus
-	Close() error
-}
-
-type WorkerFactory func(sessionPath string) (ChatWorker, error)
-
-type WorkerManager struct {
-	mu      sync.Mutex
-	workers map[string]ChatWorker
-	factory WorkerFactory
-
-	idleTTL    time.Duration
-	reaperStop chan struct{}
-	reaperDone chan struct{}
-}
-
-const defaultWorkerIdleTTL = 30 * time.Minute
-
-func NewWorkerManager(factory WorkerFactory) *WorkerManager {
-	return NewWorkerManagerWithTTL(factory, defaultWorkerIdleTTL)
-}
-
-// NewWorkerManagerWithTTL is the same as NewWorkerManager but lets callers
-// (notably tests) override the idle TTL. A non-positive ttl disables reaping.
-func NewWorkerManagerWithTTL(factory WorkerFactory, ttl time.Duration) *WorkerManager {
-	m := &WorkerManager{
-		workers:    make(map[string]ChatWorker),
-		factory:    factory,
-		idleTTL:    ttl,
-		reaperStop: make(chan struct{}),
-		reaperDone: make(chan struct{}),
-	}
-	if ttl > 0 {
-		go m.reapLoop()
-	} else {
-		close(m.reaperDone)
-	}
-	return m
-}
-
-// reapLoop runs in the background and closes idle workers older than idleTTL.
-// It wakes 5x per TTL window so the upper bound on actual idle time before
-// eviction is roughly 1.2 * idleTTL.
-func (m *WorkerManager) reapLoop() {
-	defer close(m.reaperDone)
-	interval := m.idleTTL / 5
-	if interval < time.Second {
-		interval = time.Second
-	}
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		select {
-		case <-m.reaperStop:
-			return
-		case now := <-t.C:
-			m.reapOnce(now)
-		}
-	}
-}
-
-// reapOnce closes any worker that implements idleReportable, is idle, and has
-// been idle longer than idleTTL. Workers in error state are left to the
-// existing eviction-on-access path in workerFor.
-func (m *WorkerManager) reapOnce(now time.Time) {
-	m.mu.Lock()
-	var dead []ChatWorker
-	for id, w := range m.workers {
-		reaper, ok := w.(idleReportable)
-		if !ok {
-			continue
-		}
-		if w.Status().State != WorkerStateIdle {
-			continue
-		}
-		if reaper.IdleSince(now) <= m.idleTTL {
-			continue
-		}
-		dead = append(dead, w)
-		delete(m.workers, id)
-	}
-	m.mu.Unlock()
-	for _, w := range dead {
-		_ = w.Close()
-	}
-}
-
-func (m *WorkerManager) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
-	worker, err := m.workerFor(sessionID, sessionPath)
-	if err != nil {
-		return err
-	}
-	return worker.Prompt(ctx, chat)
-}
-
-func (m *WorkerManager) Status(sessionID string) WorkerStatus {
-	m.mu.Lock()
-	worker := m.workers[sessionID]
-	m.mu.Unlock()
-	if worker == nil {
-		return WorkerStatus{State: WorkerStateIdle}
-	}
-	return worker.Status()
-}
-
-func (m *WorkerManager) SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error {
-	worker, err := m.workerFor(sessionID, sessionPath)
-	if err != nil {
-		return err
-	}
-	return worker.SetModel(ctx, provider, modelID)
-}
-
-func (m *WorkerManager) SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error {
-	worker, err := m.workerFor(sessionID, sessionPath)
-	if err != nil {
-		return err
-	}
-	return worker.SetThinkingLevel(ctx, level)
-}
-
-func (m *WorkerManager) GetState(ctx context.Context, sessionID string) (WorkerStatus, error) {
-	m.mu.Lock()
-	worker := m.workers[sessionID]
-	m.mu.Unlock()
-	if worker == nil {
-		return WorkerStatus{State: WorkerStateIdle}, nil
-	}
-	return worker.GetState(ctx)
-}
-
-func (m *WorkerManager) Close() error {
-	select {
-	case <-m.reaperStop:
-		// already closed
-	default:
-		close(m.reaperStop)
-	}
-	<-m.reaperDone
-
-	m.mu.Lock()
-	workers := make([]ChatWorker, 0, len(m.workers))
-	for _, worker := range m.workers {
-		workers = append(workers, worker)
-	}
-	m.workers = make(map[string]ChatWorker)
-	m.mu.Unlock()
-	var result error
-	for _, worker := range workers {
-		result = errors.Join(result, worker.Close())
-	}
-	return result
-}
-
-func (m *WorkerManager) workerFor(sessionID, sessionPath string) (ChatWorker, error) {
-	m.mu.Lock()
-	if worker := m.workers[sessionID]; worker != nil {
-		if worker.Status().State != WorkerStateError {
-			m.mu.Unlock()
-			return worker, nil
-		}
-		// Worker is in error state — evict and recreate so callers don't get a dead process.
-		delete(m.workers, sessionID)
-		m.mu.Unlock()
-		_ = worker.Close()
-	} else {
-		m.mu.Unlock()
-	}
-
-	worker, err := m.factory(sessionPath)
-	if err != nil {
-		return nil, err
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if existing := m.workers[sessionID]; existing != nil && existing.Status().State != WorkerStateError {
-		_ = worker.Close()
-		return existing, nil
-	}
-	m.workers[sessionID] = worker
-	return worker, nil
-}
 
 type piRPCWorker struct {
 	mu                   sync.Mutex
@@ -228,9 +23,9 @@ type piRPCWorker struct {
 	sessionPath          string
 	cmd                  *exec.Cmd
 	stdin                io.WriteCloser
-	status               WorkerStatus
+	status               workers.WorkerStatus
 	seq                  atomic.Uint64
-	pending              map[string]chan rpcResponse
+	pending              map[string]chan response
 	currentModel         string
 	currentProvider      string
 	currentThinkingLevel string
@@ -258,7 +53,7 @@ func (w *piRPCWorker) IdleSince(now time.Time) time.Duration {
 	return now.Sub(time.Unix(0, last))
 }
 
-func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
+func NewPiWorker(sessionPath string) (workers.ChatWorker, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
@@ -277,8 +72,8 @@ func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
 		sessionPath: sessionPath,
 		cmd:         cmd,
 		stdin:       stdin,
-		status:      WorkerStatus{State: WorkerStateIdle},
-		pending:     make(map[string]chan rpcResponse),
+		status:      workers.WorkerStatus{State: workers.WorkerStateIdle},
+		pending:     make(map[string]chan response),
 		stderrBuf:   &stderrBuf,
 	}
 	if err := cmd.Start(); err != nil {
@@ -304,13 +99,13 @@ func newPiRPCWorker(sessionPath string) (ChatWorker, error) {
 func (w *piRPCWorker) Prompt(ctx context.Context, chat chat.Request) error {
 	w.touch()
 	w.mu.Lock()
-	streaming := w.status.State == WorkerStateRunning
-	w.status = WorkerStatus{State: WorkerStateRunning}
+	streaming := w.status.State == workers.WorkerStateRunning
+	w.status = workers.WorkerStatus{State: workers.WorkerStateRunning}
 	w.mu.Unlock()
 	id := w.nextID()
-	if err := w.sendAndAwait(ctx, buildPromptCommand(id, chat, streaming)); err != nil {
+	if err := w.sendAndAwait(ctx, BuildPromptCommand(id, chat, streaming)); err != nil {
 		w.mu.Lock()
-		w.status = WorkerStatus{State: WorkerStateError, Error: err.Error()}
+		w.status = workers.WorkerStatus{State: workers.WorkerStateError, Error: err.Error()}
 		w.mu.Unlock()
 		return err
 	}
@@ -320,7 +115,7 @@ func (w *piRPCWorker) Prompt(ctx context.Context, chat chat.Request) error {
 func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) error {
 	w.touch()
 	id := w.nextID()
-	ch := make(chan rpcResponse, 1)
+	ch := make(chan response, 1)
 	w.mu.Lock()
 	w.pending[id] = ch
 	w.mu.Unlock()
@@ -332,7 +127,7 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 		"modelId":  modelID,
 	}
 	w.writeMu.Lock()
-	err := writeRPCCommand(w.stdin, cmd)
+	err := WriteCommand(w.stdin, cmd)
 	w.writeMu.Unlock()
 	if err != nil {
 		w.removePending(id)
@@ -347,11 +142,11 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 			}
 			return fmt.Errorf("rpc set_model rejected")
 		}
-		var m rpcModel
+		var m model
 		if err := json.Unmarshal(res.Data, &m); err != nil {
 			// Some responses wrap the model in a "model" field
 			var wrapper struct {
-				Model rpcModel `json:"model"`
+				Model model `json:"model"`
 			}
 			if err2 := json.Unmarshal(res.Data, &wrapper); err2 == nil && wrapper.Model.ID != "" {
 				m = wrapper.Model
@@ -366,7 +161,7 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 		w.mu.Lock()
 		w.currentModel = m.ID
 		w.currentProvider = m.Provider
-		w.status = WorkerStatus{State: WorkerStateIdle, Model: m.ID, ModelName: m.Name, ModelProvider: m.Provider}
+		w.status = workers.WorkerStatus{State: workers.WorkerStateIdle, Model: m.ID, ModelName: m.Name, ModelProvider: m.Provider}
 		w.mu.Unlock()
 		// Refresh thinking level after model switch
 		go w.refreshThinkingLevel()
@@ -379,35 +174,35 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 
 func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error {
 	w.touch()
-	return w.sendAndAwait(ctx, buildSetThinkingLevelCommand(w.nextID(), level))
+	return w.sendAndAwait(ctx, BuildSetThinkingLevelCommand(w.nextID(), level))
 }
 
-func (w *piRPCWorker) GetState(ctx context.Context) (WorkerStatus, error) {
+func (w *piRPCWorker) GetState(ctx context.Context) (workers.WorkerStatus, error) {
 	id := w.nextID()
-	ch := make(chan rpcResponse, 1)
+	ch := make(chan response, 1)
 	w.mu.Lock()
 	w.pending[id] = ch
 	w.mu.Unlock()
 
 	w.writeMu.Lock()
-	err := writeRPCCommand(w.stdin, buildGetStateCommand(id))
+	err := WriteCommand(w.stdin, BuildGetStateCommand(id))
 	w.writeMu.Unlock()
 	if err != nil {
 		w.removePending(id)
-		return WorkerStatus{}, err
+		return workers.WorkerStatus{}, err
 	}
 
 	select {
 	case res := <-ch:
 		if !res.Success {
 			if res.Error != "" {
-				return WorkerStatus{}, errors.New(res.Error)
+				return workers.WorkerStatus{}, errors.New(res.Error)
 			}
-			return WorkerStatus{}, fmt.Errorf("rpc get_state rejected")
+			return workers.WorkerStatus{}, fmt.Errorf("rpc get_state rejected")
 		}
 		var state struct {
-			ThinkingLevel string   `json:"thinkingLevel"`
-			Model         rpcModel `json:"model"`
+			ThinkingLevel string `json:"thinkingLevel"`
+			Model         model  `json:"model"`
 		}
 		_ = json.Unmarshal(res.Data, &state)
 		w.mu.Lock()
@@ -425,7 +220,7 @@ func (w *piRPCWorker) GetState(ctx context.Context) (WorkerStatus, error) {
 		return s, nil
 	case <-ctx.Done():
 		w.removePending(id)
-		return WorkerStatus{}, ctx.Err()
+		return workers.WorkerStatus{}, ctx.Err()
 	}
 }
 
@@ -435,7 +230,7 @@ func (w *piRPCWorker) refreshThinkingLevel() {
 	_, _ = w.GetState(ctx)
 }
 
-func (w *piRPCWorker) Status() WorkerStatus {
+func (w *piRPCWorker) Status() workers.WorkerStatus {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	s := w.status
@@ -468,13 +263,13 @@ func (w *piRPCWorker) sendAndAwait(ctx context.Context, cmd map[string]any) erro
 	if id == "" {
 		return errors.New("rpc command missing id")
 	}
-	ch := make(chan rpcResponse, 1)
+	ch := make(chan response, 1)
 	w.mu.Lock()
 	w.pending[id] = ch
 	w.mu.Unlock()
 
 	w.writeMu.Lock()
-	err := writeRPCCommand(w.stdin, cmd)
+	err := WriteCommand(w.stdin, cmd)
 	w.writeMu.Unlock()
 	if err != nil {
 		w.removePending(id)
@@ -523,7 +318,7 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 		return
 	}
 	if raw["type"] == "response" {
-		var res rpcResponse
+		var res response
 		if err := json.Unmarshal([]byte(line), &res); err != nil {
 			return
 		}
@@ -538,7 +333,7 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 	}
 	if raw["type"] == "agent_end" {
 		w.mu.Lock()
-		w.status = WorkerStatus{State: WorkerStateIdle}
+		w.status = workers.WorkerStatus{State: workers.WorkerStateIdle}
 		w.mu.Unlock()
 	}
 	if raw["type"] == "thinking_level_changed" {
@@ -559,11 +354,11 @@ func (w *piRPCWorker) wait() {
 func (w *piRPCWorker) setError(err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.status.State != WorkerStateError {
-		w.status = WorkerStatus{State: WorkerStateError, Error: err.Error()}
+	if w.status.State != workers.WorkerStateError {
+		w.status = workers.WorkerStatus{State: workers.WorkerStateError, Error: err.Error()}
 	}
 	for id, ch := range w.pending {
 		delete(w.pending, id)
-		ch <- rpcResponse{ID: id, Type: "response", Success: false, Error: err.Error()}
+		ch <- response{ID: id, Type: "response", Success: false, Error: err.Error()}
 	}
 }

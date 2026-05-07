@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"sync"
 	"time"
+
+	"pi-web/internal/rpc"
 )
 
 // Spawning `pi --mode rpc` to enumerate models takes seconds, but the list
@@ -55,7 +57,7 @@ func (c *modelsCache) get(ctx context.Context) (json.RawMessage, error) {
 	// Use a background context so a cancelled caller doesn't kill the shared
 	// subprocess for everyone else; cap it ourselves.
 	fetchCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	data, err := oneShotRPC(fetchCtx, "get_available_models", nil)
+	data, err := rpc.OneShot(fetchCtx, "get_available_models", nil)
 	cancel()
 
 	c.mu.Lock()

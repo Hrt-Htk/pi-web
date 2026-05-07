@@ -8,14 +8,15 @@ import (
 
 	"pi-web/internal/chat"
 	"pi-web/internal/sessions"
+	"pi-web/internal/workers"
 )
 
 type ChatSender interface {
 	Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error
 	SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error
 	SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error
-	GetState(ctx context.Context, sessionID string) (WorkerStatus, error)
-	Status(sessionID string) WorkerStatus
+	GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error)
+	Status(sessionID string) workers.WorkerStatus
 }
 
 func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {

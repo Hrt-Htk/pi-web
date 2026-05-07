@@ -1,0 +1,213 @@
+package workers
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"time"
+
+	"pi-web/internal/chat"
+)
+
+type State string
+
+const (
+	WorkerStateIdle    State = "idle"
+	WorkerStateRunning State = "running"
+	WorkerStateError   State = "error"
+)
+
+type WorkerStatus struct {
+	State         State  `json:"state"`
+	Error         string `json:"error,omitempty"`
+	Model         string `json:"model,omitempty"`
+	ModelName     string `json:"modelName,omitempty"`
+	ModelProvider string `json:"modelProvider,omitempty"`
+	ThinkingLevel string `json:"thinkingLevel,omitempty"`
+}
+
+type ChatWorker interface {
+	Prompt(ctx context.Context, chat chat.Request) error
+	SetModel(ctx context.Context, provider, modelID string) error
+	SetThinkingLevel(ctx context.Context, level string) error
+	GetState(ctx context.Context) (WorkerStatus, error)
+	Status() WorkerStatus
+	Close() error
+}
+
+type Factory func(sessionPath string) (ChatWorker, error)
+
+type Manager struct {
+	mu      sync.Mutex
+	workers map[string]ChatWorker
+	factory Factory
+
+	idleTTL    time.Duration
+	reaperStop chan struct{}
+	reaperDone chan struct{}
+}
+
+const defaultIdleTTL = 30 * time.Minute
+
+func NewManager(factory Factory) *Manager {
+	return NewManagerWithTTL(factory, defaultIdleTTL)
+}
+
+// NewManagerWithTTL is the same as NewManager but lets callers override the
+// idle TTL. A non-positive ttl disables reaping.
+func NewManagerWithTTL(factory Factory, ttl time.Duration) *Manager {
+	m := &Manager{
+		workers:    make(map[string]ChatWorker),
+		factory:    factory,
+		idleTTL:    ttl,
+		reaperStop: make(chan struct{}),
+		reaperDone: make(chan struct{}),
+	}
+	if ttl > 0 {
+		go m.reapLoop()
+	} else {
+		close(m.reaperDone)
+	}
+	return m
+}
+
+func (m *Manager) reapLoop() {
+	defer close(m.reaperDone)
+	interval := m.idleTTL / 5
+	if interval < time.Second {
+		interval = time.Second
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-m.reaperStop:
+			return
+		case now := <-t.C:
+			m.reapOnce(now)
+		}
+	}
+}
+
+func (m *Manager) reapOnce(now time.Time) {
+	m.mu.Lock()
+	var dead []ChatWorker
+	for id, w := range m.workers {
+		reaper, ok := w.(idleReportable)
+		if !ok {
+			continue
+		}
+		if w.Status().State != WorkerStateIdle {
+			continue
+		}
+		if reaper.IdleSince(now) <= m.idleTTL {
+			continue
+		}
+		dead = append(dead, w)
+		delete(m.workers, id)
+	}
+	m.mu.Unlock()
+	for _, w := range dead {
+		_ = w.Close()
+	}
+}
+
+func (m *Manager) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.Prompt(ctx, chat)
+}
+
+func (m *Manager) Status(sessionID string) WorkerStatus {
+	m.mu.Lock()
+	worker := m.workers[sessionID]
+	m.mu.Unlock()
+	if worker == nil {
+		return WorkerStatus{State: WorkerStateIdle}
+	}
+	return worker.Status()
+}
+
+func (m *Manager) SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.SetModel(ctx, provider, modelID)
+}
+
+func (m *Manager) SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.SetThinkingLevel(ctx, level)
+}
+
+func (m *Manager) GetState(ctx context.Context, sessionID string) (WorkerStatus, error) {
+	m.mu.Lock()
+	worker := m.workers[sessionID]
+	m.mu.Unlock()
+	if worker == nil {
+		return WorkerStatus{State: WorkerStateIdle}, nil
+	}
+	return worker.GetState(ctx)
+}
+
+func (m *Manager) Close() error {
+	select {
+	case <-m.reaperStop:
+		// already closed
+	default:
+		close(m.reaperStop)
+	}
+	<-m.reaperDone
+
+	m.mu.Lock()
+	workers := make([]ChatWorker, 0, len(m.workers))
+	for _, worker := range m.workers {
+		workers = append(workers, worker)
+	}
+	m.workers = make(map[string]ChatWorker)
+	m.mu.Unlock()
+	var result error
+	for _, worker := range workers {
+		result = errors.Join(result, worker.Close())
+	}
+	return result
+}
+
+func (m *Manager) workerFor(sessionID, sessionPath string) (ChatWorker, error) {
+	m.mu.Lock()
+	if worker := m.workers[sessionID]; worker != nil {
+		if worker.Status().State != WorkerStateError {
+			m.mu.Unlock()
+			return worker, nil
+		}
+		delete(m.workers, sessionID)
+		m.mu.Unlock()
+		_ = worker.Close()
+	} else {
+		m.mu.Unlock()
+	}
+
+	worker, err := m.factory(sessionPath)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if existing := m.workers[sessionID]; existing != nil && existing.Status().State != WorkerStateError {
+		_ = worker.Close()
+		return existing, nil
+	}
+	m.workers[sessionID] = worker
+	return worker, nil
+}
+
+type idleReportable interface {
+	IdleSince(now time.Time) time.Duration
+}

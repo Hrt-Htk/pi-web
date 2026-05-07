@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"bufio"
@@ -9,7 +9,7 @@ import (
 	"pi-web/internal/chat"
 )
 
-type rpcResponse struct {
+type response struct {
 	ID      string          `json:"id"`
 	Type    string          `json:"type"`
 	Command string          `json:"command"`
@@ -18,7 +18,7 @@ type rpcResponse struct {
 	Error   string          `json:"error"`
 }
 
-type rpcModel struct {
+type model struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
@@ -40,7 +40,7 @@ func readJSONLLines(r io.Reader) ([]string, error) {
 	return lines, nil
 }
 
-func writeRPCCommand(w io.Writer, cmd map[string]any) error {
+func WriteCommand(w io.Writer, cmd map[string]any) error {
 	data, err := json.Marshal(cmd)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func buildSwitchSessionCommand(id, sessionPath string) map[string]any {
 	return map[string]any{"id": id, "type": "switch_session", "sessionPath": sessionPath}
 }
 
-func buildPromptCommand(id string, chat chat.Request, streaming bool) map[string]any {
+func BuildPromptCommand(id string, chat chat.Request, streaming bool) map[string]any {
 	cmd := map[string]any{"id": id, "type": "prompt", "message": chat.Message}
 	if len(chat.Images) > 0 {
 		cmd["images"] = chat.Images
@@ -64,10 +64,10 @@ func buildPromptCommand(id string, chat chat.Request, streaming bool) map[string
 	return cmd
 }
 
-func buildGetStateCommand(id string) map[string]any {
+func BuildGetStateCommand(id string) map[string]any {
 	return map[string]any{"id": id, "type": "get_state"}
 }
 
-func buildSetThinkingLevelCommand(id, level string) map[string]any {
+func BuildSetThinkingLevelCommand(id, level string) map[string]any {
 	return map[string]any{"id": id, "type": "set_thinking_level", "level": level}
 }

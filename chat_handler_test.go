@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"pi-web/internal/chat"
+	"pi-web/internal/workers"
 )
 
 type fakeSender struct {
@@ -33,12 +34,12 @@ func (f *fakeSender) SetThinkingLevel(ctx context.Context, sessionID, sessionPat
 	return nil
 }
 
-func (f *fakeSender) GetState(ctx context.Context, sessionID string) (WorkerStatus, error) {
-	return WorkerStatus{State: WorkerStateIdle}, nil
+func (f *fakeSender) GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error) {
+	return workers.WorkerStatus{State: workers.WorkerStateIdle}, nil
 }
 
-func (f *fakeSender) Status(sessionID string) WorkerStatus {
-	return WorkerStatus{State: WorkerStateIdle}
+func (f *fakeSender) Status(sessionID string) workers.WorkerStatus {
+	return workers.WorkerStatus{State: workers.WorkerStateIdle}
 }
 
 func TestHandleChatSendsResolvedSession(t *testing.T) {

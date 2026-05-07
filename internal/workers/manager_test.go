@@ -1,4 +1,4 @@
-package main
+package workers
 
 import (
 	"context"
@@ -18,7 +18,10 @@ type fakeChatWorker struct {
 func (f *fakeChatWorker) Prompt(ctx context.Context, chat chat.Request) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	cmd := buildPromptCommand("test", chat, f.streaming)
+	cmd := map[string]any{"id": "test", "type": "prompt", "message": chat.Message}
+	if f.streaming {
+		cmd["streamingBehavior"] = "steer"
+	}
 	f.prompts = append(f.prompts, cmd)
 	f.streaming = true
 	return nil
@@ -43,9 +46,9 @@ func (f *fakeChatWorker) GetState(ctx context.Context) (WorkerStatus, error) {
 
 func (f *fakeChatWorker) Close() error { return nil }
 
-func TestWorkerManagerCreatesOneWorkerPerSession(t *testing.T) {
+func TestManagerCreatesOneWorkerPerSession(t *testing.T) {
 	created := 0
-	manager := NewWorkerManager(func(sessionPath string) (ChatWorker, error) {
+	manager := NewManager(func(sessionPath string) (ChatWorker, error) {
 		created++
 		return &fakeChatWorker{}, nil
 	})
@@ -64,21 +67,21 @@ func TestWorkerManagerCreatesOneWorkerPerSession(t *testing.T) {
 	}
 }
 
-func TestWorkerManagerReportsMissingWorkerIdle(t *testing.T) {
-	manager := NewWorkerManager(func(sessionPath string) (ChatWorker, error) { return &fakeChatWorker{}, nil })
+func TestManagerReportsMissingWorkerIdle(t *testing.T) {
+	manager := NewManager(func(sessionPath string) (ChatWorker, error) { return &fakeChatWorker{}, nil })
 	status := manager.Status("missing.jsonl")
 	if status.State != WorkerStateIdle {
 		t.Fatalf("status = %q, want idle", status.State)
 	}
 }
 
-func TestWorkerManagerEvictsErroredWorker(t *testing.T) {
+func TestManagerEvictsErroredWorker(t *testing.T) {
 	created := 0
 	factory := func(sessionPath string) (ChatWorker, error) {
 		created++
 		return &fakeChatWorker{}, nil
 	}
-	manager := NewWorkerManager(factory)
+	manager := NewManager(factory)
 	ctx := context.Background()
 	if err := manager.Send(ctx, "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "a"}); err != nil {
 		t.Fatal(err)
@@ -110,17 +113,17 @@ type reapableWorker struct {
 	closed  bool
 }
 
-func (r *reapableWorker) Prompt(ctx context.Context, chat chat.Request) error             { return nil }
-func (r *reapableWorker) SetModel(ctx context.Context, provider, modelID string) error   { return nil }
-func (r *reapableWorker) SetThinkingLevel(ctx context.Context, level string) error       { return nil }
-func (r *reapableWorker) GetState(ctx context.Context) (WorkerStatus, error)             { return r.Status(), nil }
-func (r *reapableWorker) Status() WorkerStatus                                           { return WorkerStatus{State: WorkerStateIdle} }
-func (r *reapableWorker) Close() error                                                   { r.closed = true; return nil }
-func (r *reapableWorker) IdleSince(now time.Time) time.Duration                          { return r.idleFor }
+func (r *reapableWorker) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
+func (r *reapableWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
+func (r *reapableWorker) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (r *reapableWorker) GetState(ctx context.Context) (WorkerStatus, error)           { return r.Status(), nil }
+func (r *reapableWorker) Status() WorkerStatus                                         { return WorkerStatus{State: WorkerStateIdle} }
+func (r *reapableWorker) Close() error                                                 { r.closed = true; return nil }
+func (r *reapableWorker) IdleSince(now time.Time) time.Duration                        { return r.idleFor }
 
-func TestWorkerManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
+func TestManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
 	w := &reapableWorker{idleFor: time.Hour}
-	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -137,9 +140,9 @@ func TestWorkerManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
 	}
 }
 
-func TestWorkerManagerKeepsFreshWorker(t *testing.T) {
+func TestManagerKeepsFreshWorker(t *testing.T) {
 	w := &reapableWorker{idleFor: time.Second}
-	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -153,10 +156,10 @@ func TestWorkerManagerKeepsFreshWorker(t *testing.T) {
 	}
 }
 
-func TestWorkerManagerDoesNotReapRunningWorker(t *testing.T) {
+func TestManagerDoesNotReapRunningWorker(t *testing.T) {
 	// streaming=true → Status reports running, so reap should skip even if idle for > TTL.
 	w := &runningReapable{}
-	manager := NewWorkerManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -172,26 +175,32 @@ func TestWorkerManagerDoesNotReapRunningWorker(t *testing.T) {
 
 type runningReapable struct{}
 
-func (runningReapable) Prompt(ctx context.Context, chat chat.Request) error             { return nil }
-func (runningReapable) SetModel(ctx context.Context, provider, modelID string) error   { return nil }
-func (runningReapable) SetThinkingLevel(ctx context.Context, level string) error       { return nil }
-func (runningReapable) GetState(ctx context.Context) (WorkerStatus, error)             { return WorkerStatus{State: WorkerStateRunning}, nil }
-func (runningReapable) Status() WorkerStatus                                           { return WorkerStatus{State: WorkerStateRunning} }
-func (runningReapable) Close() error                                                   { return nil }
-func (runningReapable) IdleSince(now time.Time) time.Duration                          { return time.Hour }
+func (runningReapable) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
+func (runningReapable) SetModel(ctx context.Context, provider, modelID string) error { return nil }
+func (runningReapable) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (runningReapable) GetState(ctx context.Context) (WorkerStatus, error) {
+	return WorkerStatus{State: WorkerStateRunning}, nil
+}
+func (runningReapable) Status() WorkerStatus                  { return WorkerStatus{State: WorkerStateRunning} }
+func (runningReapable) Close() error                          { return nil }
+func (runningReapable) IdleSince(now time.Time) time.Duration { return time.Hour }
 
 type erroredWorker struct{}
 
-func (erroredWorker) Prompt(ctx context.Context, chat chat.Request) error               { return nil }
-func (erroredWorker) SetModel(ctx context.Context, provider, modelID string) error     { return nil }
-func (erroredWorker) SetThinkingLevel(ctx context.Context, level string) error         { return nil }
-func (erroredWorker) GetState(ctx context.Context) (WorkerStatus, error)               { return WorkerStatus{State: WorkerStateError}, nil }
-func (erroredWorker) Status() WorkerStatus                                             { return WorkerStatus{State: WorkerStateError, Error: "dead"} }
-func (erroredWorker) Close() error                                                     { return nil }
+func (erroredWorker) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
+func (erroredWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
+func (erroredWorker) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (erroredWorker) GetState(ctx context.Context) (WorkerStatus, error) {
+	return WorkerStatus{State: WorkerStateError}, nil
+}
+func (erroredWorker) Status() WorkerStatus {
+	return WorkerStatus{State: WorkerStateError, Error: "dead"}
+}
+func (erroredWorker) Close() error { return nil }
 
 func TestBusyWorkerUsesSteeringCommand(t *testing.T) {
 	worker := &fakeChatWorker{streaming: true}
-	manager := NewWorkerManager(func(sessionPath string) (ChatWorker, error) { return worker, nil })
+	manager := NewManager(func(sessionPath string) (ChatWorker, error) { return worker, nil })
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "steer"}); err != nil {
 		t.Fatal(err)
 	}

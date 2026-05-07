@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"bufio"
@@ -11,14 +11,10 @@ import (
 	"time"
 )
 
-// oneShotRPC spawns `pi --mode rpc`, sends a single command, awaits the
-// matching response, and tears the subprocess down. It exists so sessionless
-// RPCs (e.g. get_available_models) don't reimplement the spawn/scan/timeout
-// machinery that piRPCWorker already has.
-//
-// The request id is generated internally; callers supply only the command
-// type and any extra fields.
-func oneShotRPC(ctx context.Context, command string, extraFields map[string]any) (json.RawMessage, error) {
+// OneShot spawns `pi --mode rpc`, sends a single command, awaits the matching
+// response, and tears the subprocess down. It exists so sessionless RPCs (e.g.
+// get_available_models) don't reimplement spawn/scan/timeout machinery.
+func OneShot(ctx context.Context, command string, extraFields map[string]any) (json.RawMessage, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
@@ -51,7 +47,7 @@ func oneShotRPC(ctx context.Context, command string, extraFields map[string]any)
 	for k, v := range extraFields {
 		req[k] = v
 	}
-	if err := writeRPCCommand(stdin, req); err != nil {
+	if err := WriteCommand(stdin, req); err != nil {
 		return nil, err
 	}
 
@@ -68,7 +64,7 @@ func oneShotRPC(ctx context.Context, command string, extraFields map[string]any)
 			if strings.TrimSpace(line) == "" {
 				continue
 			}
-			var res rpcResponse
+			var res response
 			if err := json.Unmarshal([]byte(line), &res); err != nil {
 				continue
 			}

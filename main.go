@@ -18,7 +18,9 @@ import (
 
 	"pi-web/internal/auth"
 	"pi-web/internal/render"
+	"pi-web/internal/rpc"
 	"pi-web/internal/sessions"
+	"pi-web/internal/workers"
 )
 
 const defaultPort = "31483"
@@ -185,7 +187,7 @@ func newServer(sessionsDir string, auth *auth.Middleware) *server {
 		sessionsDir: sessionsDir,
 		clients:     make([]*sseClient, 0),
 		fileMod:     make(map[string]time.Time),
-		chatSender:  NewWorkerManager(newPiRPCWorker),
+		chatSender:  workers.NewManager(rpc.NewPiWorker),
 		cache:       sessions.NewCache(),
 		auth:        auth,
 	}
