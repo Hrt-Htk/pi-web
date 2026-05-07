@@ -1,5 +1,6 @@
 (function() {
   var SEEN = new Set();
+  var LIVE_RENDERED = new Set();
   document.querySelectorAll('[id^="entry-"]').forEach(function(el) {
     SEEN.add(el.id.replace('entry-', ''));
   });
@@ -50,6 +51,14 @@
   function safeMarked(text) {
     try { return marked.parse(text); } catch(e) { return escapeHtml(text); }
   }
+  function renderToolOutput(text) {
+    text = String(text || '');
+    if (!text) return '';
+    var lines = text.split('\n');
+    var preview = lines.slice(0, 12).join('\n');
+    if (lines.length > 12) preview += '\n…';
+    return '<div class="tool-output expandable" onclick="if(window.getSelection().toString())return;this.classList.toggle(\'expanded\')"><div class="output-preview"><pre>'+escapeHtml(preview)+'</pre></div><div class="output-full"><pre>'+escapeHtml(text)+'</pre></div></div>';
+  }
 
   var TOOL_RESULT_CACHE = {};
   function cacheToolResults(entries) {
@@ -81,7 +90,7 @@
       html += '<div class="tool-command">$ '+cmd+'</div>';
       if (result) {
         var out = getResultText().trim();
-        if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
+        if (out) html += renderToolOutput(out);
       }
     } else if (call.name === 'read') {
       var fp = typeof (args.file_path || args.path) === 'string' ? shortenPath(String(args.file_path || args.path || '')) : invalid;
@@ -92,19 +101,19 @@
           html += '<img src="data:'+escapeHtml(img.mimeType||'image/png')+';base64,'+img.data+'" class="tool-image" />';
         });
         var out = getResultText();
-        if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
+        if (out) html += renderToolOutput(out);
       }
     } else if (call.name === 'write') {
       var fp = typeof (args.file_path || args.path) === 'string' ? escapeHtml(shortenPath(String(args.file_path || args.path || ''))) : invalid;
       html += '<div class="tool-header"><span class="tool-name">write</span> <span class="tool-path">'+fp+'</span></div>';
       if (typeof args.content === 'string') {
-        html += '<div class="tool-output"><pre>'+escapeHtml(args.content)+'</pre></div>';
+        html += renderToolOutput(args.content);
       } else if (args.content !== undefined) {
         html += '<div class="tool-error">[invalid content arg - expected string]</div>';
       }
       if (result) {
         var out = getResultText().trim();
-        if (out) html += '<div class="tool-output"><div>'+escapeHtml(out)+'</div></div>';
+        if (out) html += renderToolOutput(out);
       }
     } else if (call.name === 'edit') {
       var fp = typeof (args.file_path || args.path) === 'string' ? escapeHtml(shortenPath(String(args.file_path || args.path || ''))) : invalid;
@@ -119,14 +128,14 @@
         html += '</div>';
       } else if (result) {
         var out = getResultText().trim();
-        if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
+        if (out) html += renderToolOutput(out);
       }
     } else if (call.name === 'ls') {
       var dp = typeof args.path === 'string' ? escapeHtml(shortenPath(String(args.path || '.'))) : invalid;
       html += '<div class="tool-header"><span class="tool-name">ls</span> <span class="tool-path">'+dp+'</span></div>';
       if (result) {
         var out = getResultText().trim();
-        if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
+        if (out) html += renderToolOutput(out);
       }
     } else if (call.name === 'ask_user_question') {
       var questions = Array.isArray(args.questions) ? args.questions : [];
@@ -185,10 +194,10 @@
       html += '</div>';
     } else {
       html += '<div class="tool-header"><span class="tool-name">'+escapeHtml(call.name)+'</span></div>';
-      html += '<div class="tool-output"><pre>'+escapeHtml(JSON.stringify(args,null,2))+'</pre></div>';
+      html += renderToolOutput(JSON.stringify(args,null,2));
       if (result) {
         var out = getResultText();
-        if (out) html += '<div class="tool-output"><pre>'+escapeHtml(out)+'</pre></div>';
+        if (out) html += renderToolOutput(out);
       }
     }
     html += '</div>';
@@ -228,7 +237,7 @@
           if (block.type === 'text' && block.text.trim()) {
             html += '<div class="assistant-text markdown-content">'+safeMarked(block.text)+'</div>';
           } else if (block.type === 'thinking' && block.thinking.trim()) {
-            html += '<div class="thinking-block"><div class="thinking-text">'+escapeHtml(block.thinking)+'</div></div>';
+            html += '<div class="thinking-block"><div class="thinking-text">'+escapeHtml(block.thinking)+'</div><div class="thinking-collapsed">Thinking ...</div></div>';
           }
         });
         content.forEach(function(block) {
@@ -246,7 +255,7 @@
         var isErr = msg.cancelled || (msg.exitCode !== 0 && msg.exitCode !== null);
         var html = '<div class="tool-execution '+(isErr?'error':'success')+'" id="'+eid+'">'+tsHtml;
         html += '<div class="tool-command">$ '+escapeHtml(msg.command)+'</div>';
-        if (msg.output) html += '<div class="tool-output"><pre>'+escapeHtml(msg.output)+'</pre></div>';
+        if (msg.output) html += renderToolOutput(msg.output);
         if (msg.cancelled) html += '<div style="color:var(--warning)">(cancelled)</div>';
         else if (msg.exitCode !== 0 && msg.exitCode !== null) html += '<div style="color:var(--error)">(exit '+msg.exitCode+')</div>';
         html += '</div>';
@@ -342,28 +351,65 @@
   if (contentEl) contentEl.addEventListener('scroll', onScroll, { passive: true });
   scrollToBottom(false);
 
-  function appendEntry(entry, allEntries) {
-    if (SEEN.has(entry.id)) return;
+  function buildEntryNode(entry, allEntries) {
     var html = renderEntry(entry, allEntries);
-    if (!html) { SEEN.add(entry.id); return; }
-    var container = document.getElementById('messages');
-    if (!container) return;
+    if (!html) return null;
     var wrap = document.createElement('div');
     wrap.innerHTML = html;
     var node = wrap.firstElementChild;
-    if (!node) return;
-    container.appendChild(node);
-    SEEN.add(entry.id);
+    if (!node) return null;
+    if (typeof window.applyToggleStateToNode === 'function') {
+      window.applyToggleStateToNode(node);
+    }
+    return node;
+  }
+
+  function replaceEntryNode(existing, node) {
+    if (!existing || !node) return;
+    existing.replaceWith(node);
+  }
+
+  function highlightNewEntry(node) {
     node.style.transition = 'box-shadow 0.8s ease-out';
     node.style.boxShadow = '0 0 0 2px var(--accent)';
     setTimeout(function() { node.style.boxShadow = ''; }, 1500);
+  }
 
-    if (FOLLOW) {
-      scrollToBottom(true);
-    } else {
-      pendingCount++;
-      showFollowButton();
-    }
+  function appendEntry(entry, allEntries) {
+    if (SEEN.has(entry.id)) return false;
+    var container = document.getElementById('messages');
+    if (!container) return false;
+    var node = buildEntryNode(entry, allEntries);
+    SEEN.add(entry.id);
+    if (!node) return false;
+    container.appendChild(node);
+    LIVE_RENDERED.add(entry.id);
+    highlightNewEntry(node);
+    return true;
+  }
+
+  function upsertEntry(entry, allEntries) {
+    if (!entry.id) return false;
+    var existing = document.getElementById('entry-' + entry.id);
+    if (!existing) return appendEntry(entry, allEntries);
+    var node = buildEntryNode(entry, allEntries);
+    if (!node) return false;
+    replaceEntryNode(existing, node);
+    LIVE_RENDERED.add(entry.id);
+    return false;
+  }
+
+  function refreshEntriesAffectedByToolResult(toolResultEntry, allEntries) {
+    if (!toolResultEntry.message || !toolResultEntry.message.toolCallId) return;
+    allEntries.forEach(function(candidate) {
+      if (!candidate.id || !candidate.message || candidate.message.role !== 'assistant') return;
+      var content = candidate.message.content || [];
+      var usesToolResult = content.some(function(block) {
+        if (block.type === 'toolCall' && block.id === toolResultEntry.message.toolCallId) return true;
+        return false;
+      });
+      if (usesToolResult) upsertEntry(candidate, allEntries);
+    });
   }
 
   function updateStats(entries) {
@@ -460,9 +506,19 @@
         var entries = data.entries || [];
         var newCount = 0;
         entries.forEach(function(entry) {
-          if (entry.id && !SEEN.has(entry.id)) {
-            appendEntry(entry, entries);
-            newCount++;
+          if (!entry.id) return;
+          if (!SEEN.has(entry.id)) {
+            if (appendEntry(entry, entries)) newCount++;
+            if (entry.message && entry.message.role === 'toolResult') {
+              refreshEntriesAffectedByToolResult(entry, entries);
+            }
+          } else if (LIVE_RENDERED.has(entry.id)) {
+            upsertEntry(entry, entries);
+            if (entry.message && entry.message.role === 'toolResult') {
+              refreshEntriesAffectedByToolResult(entry, entries);
+            }
+          } else if (entry.message && entry.message.role === 'toolResult') {
+            refreshEntriesAffectedByToolResult(entry, entries);
           }
         });
         if (newCount > 0) {

@@ -66,10 +66,11 @@ function renderHeader() {
     <div class="header">
       <h1>Session: ${escapeHtml(header?.id || 'unknown')}</h1>
       <div class="help-bar">
-        <span class="help-hint">T toggle thinking · O toggle tools</span>
+        <span class="help-hint">T thinking · O tools · P tool output</span>
         <div class="help-actions">
-          <button type="button" class="header-toggle-btn" data-action="toggle-thinking" title="Toggle thinking (T)">Toggle thinking</button>
-          <button type="button" class="header-toggle-btn" data-action="toggle-tools" title="Toggle tools (O)">Toggle tools</button>
+          <button type="button" class="header-toggle-btn" data-action="toggle-thinking" title="Show/hide thinking (T)">Thinking</button>
+          <button type="button" class="header-toggle-btn" data-action="toggle-tools" title="Show/hide tools (O)">Tools</button>
+          <button type="button" class="header-toggle-btn" data-action="toggle-tool-output" title="Expand/collapse tool output (P)">Tool output</button>
           <button type="button" class="download-json-btn" onclick="downloadSessionJson()" title="Download session as JSONL">↓ JSONL</button>
         </div>
       </div>

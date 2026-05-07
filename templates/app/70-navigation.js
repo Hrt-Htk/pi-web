@@ -49,6 +49,7 @@ function navigateTo(targetId, scrollMode = 'target', scrollToEntryId = null) {
 
   messagesEl.innerHTML = '';
   messagesEl.appendChild(fragment);
+  window.sessionToggleState?.applyToNode(messagesEl);
 
   // Attach click handlers for copy-link buttons
   messagesEl.querySelectorAll('.copy-link-btn').forEach(btn => {

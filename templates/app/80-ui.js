@@ -236,32 +236,101 @@ overlay.addEventListener('click', closeSidebar);
 document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
 
 // Toggle states
-let thinkingExpanded = true;
-let toolOutputsExpanded = false;
+const TOGGLE_STATE_STORAGE_KEY = 'pi.sessionDetail.toggleState';
+const toggleStateDefaults = { thinkingExpanded: true, toolsVisible: true, toolOutputsExpanded: false };
+let toggleState = { ...toggleStateDefaults };
+
+try {
+  const savedToggleState = JSON.parse(localStorage.getItem(TOGGLE_STATE_STORAGE_KEY) || '{}');
+  if (typeof savedToggleState.thinkingExpanded === 'boolean') toggleState.thinkingExpanded = savedToggleState.thinkingExpanded;
+  if (typeof savedToggleState.toolsVisible === 'boolean') toggleState.toolsVisible = savedToggleState.toolsVisible;
+  if (typeof savedToggleState.toolOutputsExpanded === 'boolean') toggleState.toolOutputsExpanded = savedToggleState.toolOutputsExpanded;
+} catch (_) {}
+
+const saveToggleState = () => {
+  try {
+    localStorage.setItem(TOGGLE_STATE_STORAGE_KEY, JSON.stringify(toggleState));
+  } catch (_) {}
+};
+
+const applyThinkingState = (root) => {
+  root.querySelectorAll('.thinking-text').forEach(el => {
+    el.style.display = toggleState.thinkingExpanded ? '' : 'none';
+  });
+  root.querySelectorAll('.thinking-collapsed').forEach(el => {
+    el.style.display = toggleState.thinkingExpanded ? 'none' : 'block';
+  });
+};
+
+const applyToolsVisibilityState = (root) => {
+  root.querySelectorAll('.tool-execution, .compaction').forEach(el => {
+    el.style.display = toggleState.toolsVisible ? '' : 'none';
+  });
+};
+
+const applyToolOutputState = (root) => {
+  root.querySelectorAll('.tool-output.expandable').forEach(el => {
+    el.classList.toggle('expanded', toggleState.toolOutputsExpanded);
+  });
+  root.querySelectorAll('.compaction').forEach(el => {
+    el.classList.toggle('expanded', toggleState.toolOutputsExpanded);
+  });
+};
+
+const syncToggleButtons = () => {
+  const buttons = [
+    [document.querySelector('[data-action="toggle-thinking"]'), toggleState.thinkingExpanded],
+    [document.querySelector('[data-action="toggle-tools"]'), toggleState.toolsVisible],
+    [document.querySelector('[data-action="toggle-tool-output"]'), toggleState.toolOutputsExpanded],
+  ];
+  buttons.forEach(([btn, isActive]) => {
+    if (!btn) return;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+};
+
+window.sessionToggleState = {
+  get thinkingExpanded() { return toggleState.thinkingExpanded; },
+  get toolsVisible() { return toggleState.toolsVisible; },
+  get toolOutputsExpanded() { return toggleState.toolOutputsExpanded; },
+  applyToNode(node) {
+    if (!node) return;
+    applyThinkingState(node);
+    applyToolsVisibilityState(node);
+    applyToolOutputState(node);
+  },
+  syncButtons: syncToggleButtons,
+};
 
 const toggleThinking = () => {
-  thinkingExpanded = !thinkingExpanded;
-  document.querySelectorAll('.thinking-text').forEach(el => {
-    el.style.display = thinkingExpanded ? '' : 'none';
-  });
-  document.querySelectorAll('.thinking-collapsed').forEach(el => {
-    el.style.display = thinkingExpanded ? 'none' : 'block';
-  });
+  toggleState.thinkingExpanded = !toggleState.thinkingExpanded;
+  saveToggleState();
+  window.sessionToggleState.applyToNode(document);
+  syncToggleButtons();
+};
+
+const toggleToolsVisibility = () => {
+  toggleState.toolsVisible = !toggleState.toolsVisible;
+  saveToggleState();
+  window.sessionToggleState.applyToNode(document);
+  syncToggleButtons();
 };
 
 const toggleToolOutputs = () => {
-  toolOutputsExpanded = !toolOutputsExpanded;
-  document.querySelectorAll('.tool-output.expandable').forEach(el => {
-    el.classList.toggle('expanded', toolOutputsExpanded);
-  });
-  document.querySelectorAll('.compaction').forEach(el => {
-    el.classList.toggle('expanded', toolOutputsExpanded);
-  });
+  toggleState.toolOutputsExpanded = !toggleState.toolOutputsExpanded;
+  saveToggleState();
+  window.sessionToggleState.applyToNode(document);
+  syncToggleButtons();
 };
+
+window.applyToggleStateToNode = (node) => window.sessionToggleState.applyToNode(node);
 
 const attachHeaderHandlers = () => {
   document.querySelector('[data-action="toggle-thinking"]')?.addEventListener('click', toggleThinking);
-  document.querySelector('[data-action="toggle-tools"]')?.addEventListener('click', toggleToolOutputs);
+  document.querySelector('[data-action="toggle-tools"]')?.addEventListener('click', toggleToolsVisibility);
+  document.querySelector('[data-action="toggle-tool-output"]')?.addEventListener('click', toggleToolOutputs);
+  syncToggleButtons();
 };
 
 const isEditableTarget = (element) => {
@@ -290,6 +359,9 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     toggleThinking();
   } else if (key === 'o') {
+    e.preventDefault();
+    toggleToolsVisibility();
+  } else if (key === 'p') {
     e.preventDefault();
     toggleToolOutputs();
   }

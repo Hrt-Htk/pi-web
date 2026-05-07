@@ -296,6 +296,12 @@
       border-color: var(--borderAccent);
     }
 
+    .header-toggle-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--body-bg);
+    }
+
     .model-dropdown {
       position: relative;
       display: inline-block;
