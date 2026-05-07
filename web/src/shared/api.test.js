@@ -18,6 +18,11 @@ describe('api helpers', () => {
     await expect(getJSON('/api/fail', { fetchImpl })).rejects.toThrow('HTTP 500');
   });
 
+  it('rejects with invalid json response for successful non-JSON responses', async () => {
+    const fetchImpl = vi.fn(async () => new Response('not json', { status: 200 }));
+    await expect(getJSON('/api/not-json', { fetchImpl })).rejects.toThrow('invalid json response');
+  });
+
   it('propagates fetchImpl rejections', async () => {
     const fetchImpl = vi.fn(async () => { throw new Error('network error'); });
     await expect(getJSON('/api/network', { fetchImpl })).rejects.toThrow('network error');

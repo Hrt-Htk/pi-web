@@ -1,9 +1,12 @@
 async function parseJSONResponse(response) {
-  let payload = null;
+  let payload;
   try {
     payload = await response.json();
   } catch {
-    payload = null;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    throw new Error('invalid json response');
   }
   if (!response.ok) {
     const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
