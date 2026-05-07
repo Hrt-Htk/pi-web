@@ -12,4 +12,14 @@ describe('escapeHtml', () => {
     expect(escapeHtml(null)).toBe('');
     expect(escapeHtml(undefined)).toBe('');
   });
+
+  it('handles edge values correctly', () => {
+    expect(escapeHtml(0)).toBe('0');
+    expect(escapeHtml(false)).toBe('false');
+    expect(escapeHtml('')).toBe('');
+  });
+
+  it('does not escape single quotes', () => {
+    expect(escapeHtml("'")).toBe("'");
+  });
 });
