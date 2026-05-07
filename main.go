@@ -48,6 +48,7 @@ func main() {
 	mux.HandleFunc("/events", auth.wrap(srv.handleEvents))
 	mux.HandleFunc("/api/new-session", auth.wrap(srv.handleNewSession))
 	mux.HandleFunc("/api/recent-locations", auth.wrap(srv.handleRecentLocations))
+	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
 
 	addr := net.JoinHostPort(bindHost, *port)
 	url := "http://" + addr

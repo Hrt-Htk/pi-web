@@ -18,6 +18,7 @@
   --line-height: 18px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+[x-cloak] { display: none !important; }
 body {
   font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
   font-size: 12px;
@@ -281,16 +282,17 @@ body {
   .session-grid { grid-template-columns: 1fr; }
 }
 </style>
+<script defer src="/static/alpine.js"></script>
 </head>
-<body>
+<body x-data="sessionsPage()" x-init="filter()">
 <div class="header">
   <div class="header-inner">
     <div class="header-top">
       <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" style="width:1.2em;height:1.2em;vertical-align:middle;margin-right:0.3em;display:inline-block;"><path fill="var(--border-accent)" fill-rule="evenodd" d="M165.29 165.29 H517.36 V400 H400 V517.36 H282.65 V634.72 H165.29 Z M282.65 282.65 V400 H400 V282.65 Z"/><path fill="var(--border-accent)" d="M517.36 400 H634.72 V634.72 H517.36 Z"/></svg> Pi Sessions</h1>
-      <button class="new-session-btn" id="newSessionBtn" title="Start new session">+</button>
+      <button class="new-session-btn" id="newSessionBtn" title="Start new session" @click="openModal()">+</button>
     </div>
     <div class="search-box">
-      <input type="text" id="search" placeholder="Search sessions..." autofocus>
+      <input type="text" id="search" placeholder="Search sessions..." autofocus x-model="query" @input.debounce.50ms="filter()">
     </div>
     <div class="stats-bar">{{ len . }} sessions</div>
   </div>
@@ -305,7 +307,7 @@ body {
         <div class="session-grid">
       {{ $currentProject = .Project }}
     {{ end }}
-    <div class="session-card" data-id="{{ .ID }}" data-search="{{ sessionName . | html }} {{ .Project | html }}">
+    <div class="session-card" data-id="{{ .ID }}" data-search="{{ sessionName . | html }} {{ .Project | html }}" @click="window.location='/session?id={{ .ID }}'">
       <div class="session-title">{{ sessionName . | html }}</div>
       <div class="session-project">{{ .Project | html }}</div>
       <div class="session-meta">
@@ -318,122 +320,90 @@ body {
   {{ end }}
   {{ if ne $currentProject "" }}</div></div>{{ end }}
 </div>
-<script>
-const search = document.getElementById('search');
-const cards = document.querySelectorAll('.session-card');
-const groups = document.querySelectorAll('.project-group');
-
-search.addEventListener('input', (e) => {
-  const q = e.target.value.toLowerCase();
-  cards.forEach(card => {
-    card.classList.toggle('hidden', !card.dataset.search.toLowerCase().includes(q));
-  });
-  groups.forEach(g => {
-    const visible = g.querySelectorAll('.session-card:not(.hidden)').length;
-    g.style.display = visible > 0 ? '' : 'none';
-  });
-});
-
-cards.forEach(card => {
-  card.addEventListener('click', () => {
-    window.location.href = '/session?id=' + encodeURIComponent(card.dataset.id);
-  });
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const modalOverlay = document.getElementById('modalOverlay');
-  const newSessionBtn = document.getElementById('newSessionBtn');
-  const sessionPath = document.getElementById('sessionPath');
-  const createBtn = document.getElementById('createBtn');
-  const cancelBtn = document.getElementById('cancelBtn');
-  const modalError = document.getElementById('modalError');
-  const recentLocations = document.getElementById('recentLocations');
-
-  function openModal() {
-    modalOverlay.classList.add('open');
-    sessionPath.value = '';
-    modalError.textContent = '';
-    loadRecentLocations();
-    setTimeout(() => sessionPath.focus(), 10);
-  }
-
-  function closeModal() {
-    modalOverlay.classList.remove('open');
-  }
-
-  function loadRecentLocations() {
-    fetch('/api/recent-locations')
-      .then(r => r.json())
-      .then(data => {
-        recentLocations.innerHTML = '';
-        if (!data.locations || data.locations.length === 0) return;
-        data.locations.slice(0, 10).forEach(loc => {
-          const chip = document.createElement('span');
-          chip.className = 'recent-chip';
-          chip.textContent = loc;
-          chip.addEventListener('click', () => {
-            sessionPath.value = loc;
-            sessionPath.focus();
-          });
-          recentLocations.appendChild(chip);
-        });
-      })
-      .catch(() => {});
-  }
-
-  function doCreate() {
-    const path = sessionPath.value.trim();
-    if (!path) {
-      modalError.textContent = 'Please enter a path';
-      return;
-    }
-    createBtn.disabled = true;
-    createBtn.textContent = 'Creating...';
-    fetch('/api/new-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path })
-    })
-      .then(r => r.json())
-      .then(data => {
-        createBtn.disabled = false;
-        createBtn.textContent = 'Create';
-        if (data.ok && data.id) {
-          window.location.href = '/session?id=' + encodeURIComponent(data.id);
-        } else {
-          modalError.textContent = data.error || 'Failed to create session';
-        }
-      })
-      .catch(err => {
-        createBtn.disabled = false;
-        createBtn.textContent = 'Create';
-        modalError.textContent = err.message || 'Network error';
-      });
-  }
-
-  newSessionBtn.addEventListener('click', openModal);
-  cancelBtn.addEventListener('click', closeModal);
-  createBtn.addEventListener('click', doCreate);
-  sessionPath.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') doCreate();
-    if (e.key === 'Escape') closeModal();
-  });
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) closeModal();
-  });
-});
-</script>
-<div class="modal-overlay" id="modalOverlay">
+<div class="modal-overlay" id="modalOverlay"
+     :class="{ open: modal }"
+     x-show="modal" x-cloak
+     @click.self="modal = false"
+     @keydown.escape.window="modal = false">
   <div class="modal">
     <h2>Start New Session</h2>
-    <div class="recent-locations" id="recentLocations"></div>
-    <input type="text" id="sessionPath" placeholder="/path/to/project or ~/project" autofocus>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="cancelBtn">Cancel</button>
-      <button class="btn-primary" id="createBtn">Create</button>
+    <div class="recent-locations" id="recentLocations">
+      <template x-for="loc in recent" :key="loc">
+        <span class="recent-chip" x-text="loc" @click="path = loc; $refs.sessionPath.focus()"></span>
+      </template>
     </div>
-    <div class="modal-error" id="modalError"></div>
+    <input type="text" id="sessionPath" x-ref="sessionPath"
+           placeholder="/path/to/project or ~/project"
+           x-model="path"
+           @keydown.enter="create()">
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelBtn" @click="modal = false">Cancel</button>
+      <button class="btn-primary" id="createBtn"
+              :disabled="creating"
+              x-text="creating ? 'Creating...' : 'Create'"
+              @click="create()"></button>
+    </div>
+    <div class="modal-error" id="modalError" x-text="error"></div>
   </div>
 </div>
+<script>
+function sessionsPage() {
+  return {
+    query: '',
+    modal: false,
+    path: '',
+    recent: [],
+    creating: false,
+    error: '',
+
+    filter() {
+      const q = this.query.toLowerCase();
+      document.querySelectorAll('.session-card').forEach(card => {
+        const match = card.dataset.search.toLowerCase().includes(q);
+        card.classList.toggle('hidden', !match);
+      });
+      document.querySelectorAll('.project-group').forEach(g => {
+        const anyVisible = g.querySelector('.session-card:not(.hidden)') !== null;
+        g.style.display = anyVisible ? '' : 'none';
+      });
+    },
+
+    async openModal() {
+      this.modal = true;
+      this.path = '';
+      this.error = '';
+      this.recent = [];
+      this.$nextTick(() => this.$refs.sessionPath.focus());
+      try {
+        const r = await fetch('/api/recent-locations').then(r => r.json());
+        this.recent = (r.locations || []).slice(0, 10);
+      } catch {}
+    },
+
+    async create() {
+      const p = this.path.trim();
+      if (!p) { this.error = 'Please enter a path'; return; }
+      this.creating = true;
+      this.error = '';
+      try {
+        const r = await fetch('/api/new-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: p }),
+        }).then(r => r.json());
+        if (r.ok && r.id) {
+          window.location = '/session?id=' + encodeURIComponent(r.id);
+          return;
+        }
+        this.error = r.error || 'Failed to create session';
+      } catch (e) {
+        this.error = e.message || 'Network error';
+      } finally {
+        this.creating = false;
+      }
+    },
+  };
+}
+</script>
 </body>
 </html>
