@@ -86,6 +86,13 @@ func main() {
 		fmt.Printf("Auth: disabled — set %s to require a token for access.\n", tokenEnvVar)
 	}
 
+	pidfilePath, err := writePidfile(bindHost, *port, usedTailscale)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to write pidfile: %v\n", err)
+	} else {
+		defer os.Remove(pidfilePath)
+	}
+
 	if *open {
 		go func() {
 			time.Sleep(300 * time.Millisecond)
@@ -116,6 +123,32 @@ func openBrowser(url string) {
 		args = []string{url}
 	}
 	exec.Command(cmd, args...).Start()
+}
+
+func writePidfile(host, port string, usedTailscale bool) (string, error) {
+	home := os.Getenv("HOME")
+	if home == "" {
+		return "", fmt.Errorf("HOME not set")
+	}
+	agentDir := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(agentDir, "pi-web-state.json")
+	data, err := json.Marshal(map[string]any{
+		"pid":       os.Getpid(),
+		"port":      port,
+		"host":      host,
+		"tailscale": usedTailscale,
+		"startedAt": time.Now().UTC().Format(time.RFC3339),
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func loadIndexScript(distDir string) (scriptPath string, js string, err error) {
