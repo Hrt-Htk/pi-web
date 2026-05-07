@@ -1,0 +1,21 @@
+<form id="pi-chat-composer" class="pi-chat-composer" data-session-id="{{.SessionID}}">
+  <input id="pi-chat-images" name="images" type="file" accept="image/*" multiple hidden>
+  <div class="pi-chat-shell">
+    <textarea id="pi-chat-message" name="message" rows="2" placeholder="Continue this pi session…"></textarea>
+    <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
+    <div id="pi-chat-model-popup" class="pi-chat-model-popup" style="display:none">
+      <input type="text" id="pi-chat-model-search" class="pi-chat-model-search" placeholder="Search models…" autocomplete="off">
+      <div id="pi-chat-model-list" class="pi-chat-model-list"></div>
+    </div>
+    <div id="pi-chat-thinking-popup" class="pi-chat-thinking-popup" style="display:none">
+      <div id="pi-chat-thinking-list" class="pi-chat-thinking-list"></div>
+    </div>
+    <div class="pi-chat-toolbar">
+      <button type="button" id="pi-chat-attach" class="pi-chat-icon-button" title="Attach images" aria-label="Attach images">◉</button>
+      <span id="pi-chat-status" class="pi-chat-status">idle</span>
+      <button type="button" id="pi-chat-model-label" class="pi-chat-model-label" style="display:none" title="Switch model"></button>
+      <button type="button" id="pi-chat-thinking-label" class="pi-chat-thinking-label" style="display:none" title="Switch thinking level"></button>
+      <button type="submit" id="pi-chat-send" class="pi-chat-send">Send</button>
+    </div>
+  </div>
+</form>
