@@ -13,6 +13,16 @@ describe('api helpers', () => {
     await expect(getJSON('/api/bad', { fetchImpl })).rejects.toThrow('bad request');
   });
 
+  it('rejects with HTTP status for failed non-JSON responses', async () => {
+    const fetchImpl = vi.fn(async () => new Response('Internal Server Error', { status: 500 }));
+    await expect(getJSON('/api/fail', { fetchImpl })).rejects.toThrow('HTTP 500');
+  });
+
+  it('propagates fetchImpl rejections', async () => {
+    const fetchImpl = vi.fn(async () => { throw new Error('network error'); });
+    await expect(getJSON('/api/network', { fetchImpl })).rejects.toThrow('network error');
+  });
+
   it('POSTs JSON bodies with the expected headers', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
     await expect(postJSON('/api/new-session', { path: '/tmp/project' }, { fetchImpl })).resolves.toEqual({ ok: true });

@@ -17,4 +17,10 @@ describe('storage helpers', () => {
     localStorage.setItem('bad', '{');
     expect(loadJSON('bad', [])).toEqual([]);
   });
+
+  it('does not throw when saveJSON fails', () => {
+    const circular = {};
+    circular.self = circular;
+    expect(() => saveJSON('bad', circular)).not.toThrow();
+  });
 });
