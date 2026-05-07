@@ -91,3 +91,44 @@ func TestCreateSessionFile(t *testing.T) {
 		t.Fatalf("missing cwd: %s", string(data))
 	}
 }
+
+func TestParseFileMarksSessionBrokenWhenCwdMissing(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "session.jsonl")
+	content := `{"type":"session","version":3,"id":"sid","timestamp":"2026-05-06T00:00:00.000Z","cwd":"/definitely/missing/path"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := ParseFile(path, "--tmp-project--", "session.jsonl")
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	if sess.ChatAvailable {
+		t.Fatal("expected chat to be disabled for missing cwd")
+	}
+	if !strings.Contains(sess.ChatDisabledReason, "working directory no longer exists") {
+		t.Fatalf("reason = %q", sess.ChatDisabledReason)
+	}
+}
+
+func TestParseFileLeavesChatEnabledWhenCwdExists(t *testing.T) {
+	root := t.TempDir()
+	cwd := filepath.Join(root, "project")
+	if err := os.MkdirAll(cwd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "session.jsonl")
+	content := `{"type":"session","version":3,"id":"sid","timestamp":"2026-05-06T00:00:00.000Z","cwd":"` + cwd + `"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := ParseFile(path, "--tmp-project--", "session.jsonl")
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	if !sess.ChatAvailable {
+		t.Fatalf("expected chat to be enabled, reason = %q", sess.ChatDisabledReason)
+	}
+}

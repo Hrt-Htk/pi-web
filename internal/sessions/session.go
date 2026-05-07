@@ -13,15 +13,17 @@ import (
 )
 
 type Session struct {
-	ID           string
-	Filename     string
-	Project      string
-	LastActivity string
-	MessageCount int
-	TokenTotal   int
-	CostTotal    float64
-	Header       map[string]any
-	Entries      []map[string]any
+	ID                 string
+	Filename           string
+	Project            string
+	LastActivity       string
+	MessageCount       int
+	TokenTotal         int
+	CostTotal          float64
+	Header             map[string]any
+	Entries            []map[string]any
+	ChatAvailable      bool
+	ChatDisabledReason string
 }
 
 func LoadAll(dir string) ([]Session, error) {
@@ -72,9 +74,10 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 	}
 
 	sess := Session{
-		ID:       fileName,
-		Filename: fileName,
-		Project:  cleanProjectName(dirName),
+		ID:            fileName,
+		Filename:      fileName,
+		Project:       cleanProjectName(dirName),
+		ChatAvailable: true,
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -121,6 +124,13 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 		info, _ := os.Stat(path)
 		if info != nil {
 			sess.LastActivity = info.ModTime().Format(time.RFC3339)
+		}
+	}
+
+	if cwd, _ := sess.Header["cwd"].(string); cwd != "" {
+		if _, err := os.Stat(cwd); err != nil {
+			sess.ChatAvailable = false
+			sess.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
 		}
 	}
 

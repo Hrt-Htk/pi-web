@@ -45,8 +45,15 @@ function setThinkingLabel(level) {
 
 function setupPiChatComposer() {
   const form = document.getElementById('pi-chat-composer');
-  if (!form) return;
+  if (!form) return false;
   const sessionId = form.dataset.sessionId;
+  const chatAvailable = form.dataset.chatAvailable !== 'false';
+  if (!chatAvailable) {
+    const reason = form.dataset.chatDisabledReason || 'chat unavailable';
+    setChatStatus('unavailable', 'error');
+    form.title = reason;
+    return false;
+  }
   const textarea = document.getElementById('pi-chat-message');
   const fileInput = document.getElementById('pi-chat-images');
   const attachButton = document.getElementById('pi-chat-attach');
@@ -225,10 +232,11 @@ function setupPiChatComposer() {
 
   setInterval(refreshWorkerStatus, 3000);
   refreshWorkerStatus();
+  return true;
 }
 
 function initPiChatControls() {
-  setupPiChatComposer();
+  if (!setupPiChatComposer()) return;
   loadModelSelector();
   setupThinkingLevelSelector();
 }

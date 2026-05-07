@@ -23,7 +23,11 @@ func ResolveByID(sessionsDir, id string) (ResolvedSession, error) {
 	if err != nil {
 		return ResolvedSession{}, err
 	}
-	return ResolvedSession{Session: Session{ID: id, Filename: id}, Path: path}, nil
+	sess, err := ParseFile(path, filepath.Base(filepath.Dir(path)), id)
+	if err != nil {
+		return ResolvedSession{}, err
+	}
+	return ResolvedSession{Session: sess, Path: path}, nil
 }
 
 func findPathByFilename(sessionsDir, id string) (string, error) {

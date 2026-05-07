@@ -129,7 +129,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 <button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
 </div>`
 		html = strings.Replace(html, "<body>", "<body>"+btns, 1)
-		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtml(session.ID), 1)
+		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
 		html = strings.Replace(html, "</body>", liveReloadJs+"</body>", 1)
 	} else {
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
@@ -139,8 +139,25 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 }
 
 func chatComposerHtml(sessionID string) string {
+	return chatComposerHtmlForSession(sessions.Session{ID: sessionID, ChatAvailable: true})
+}
+
+func chatComposerHtmlForSession(session sessions.Session) string {
 	var buf strings.Builder
-	if err := chatComposerTmpl.Execute(&buf, struct{ SessionID string }{sessionID}); err != nil {
+	chatAvailable := session.ChatAvailable || session.ChatDisabledReason == ""
+	data := struct {
+		SessionID          string
+		ChatAvailable      bool
+		ChatDisabledReason string
+	}{
+		SessionID:          session.ID,
+		ChatAvailable:      chatAvailable,
+		ChatDisabledReason: session.ChatDisabledReason,
+	}
+	if !data.ChatAvailable && data.ChatDisabledReason == "" {
+		data.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
+	}
+	if err := chatComposerTmpl.Execute(&buf, data); err != nil {
 		return ""
 	}
 	return buf.String()

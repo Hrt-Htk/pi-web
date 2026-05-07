@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"pi-web/internal/chat"
@@ -38,6 +40,10 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if !resolved.Session.ChatAvailable {
+		writeJSONError(w, http.StatusConflict, resolved.Session.ChatDisabledReason)
+		return
+	}
 	chatReq, err := chat.ParseRequest(r, chat.DefaultMaxImageBytes, chat.DefaultMaxRequestBytes)
 	if err != nil {
 		switch {
@@ -63,12 +69,55 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 }
 
 const recentSessionActivityWindow = 3 * time.Second
+const sessionStatusTTL = 10 * time.Second
+
+type sessionStatusFile struct {
+	State     string `json:"state"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (s *server) readSessionStatus(sessionID string) *workers.WorkerStatus {
+	if sessionID == "" {
+		return nil
+	}
+	dir := filepath.Join(s.sessionsDir, "..", "session-status")
+	path := filepath.Join(dir, sessionID)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var status sessionStatusFile
+	if err := json.Unmarshal(data, &status); err != nil {
+		return nil
+	}
+	if status.State != "running" {
+		return nil
+	}
+	updatedAt, err := time.Parse(time.RFC3339, status.UpdatedAt)
+	if err != nil {
+		return nil
+	}
+	if time.Since(updatedAt) > sessionStatusTTL {
+		return nil
+	}
+	return &workers.WorkerStatus{State: workers.WorkerStateRunning}
+}
 
 func (s *server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
+
+	// Check session status file first (terminal-owned sessions)
+	if status := s.readSessionStatus(sessionID); status != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(status)
+		return
+	}
+
 	status := s.chatSender.Status(sessionID)
-	if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
-		status.ThinkingLevel = state.ThinkingLevel
+	if status.State != workers.WorkerStateRunning {
+		if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
+			status.ThinkingLevel = state.ThinkingLevel
+		}
 	}
 	if status.State == workers.WorkerStateIdle && s.hasRecentSessionActivity(sessionID) {
 		status.State = workers.WorkerStateRunning

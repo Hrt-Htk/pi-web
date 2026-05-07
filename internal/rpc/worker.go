@@ -31,6 +31,7 @@ type piRPCWorker struct {
 	currentThinkingLevel string
 	stderrBuf            *strings.Builder
 	lastActive           atomic.Int64 // unix nanos; only user-initiated actions update this
+	lastStreamActivity   atomic.Int64 // unix nanos; stream/turn events keep worker visually running
 }
 
 // idleReportable is implemented by workers that can report when they were last
@@ -230,6 +231,8 @@ func (w *piRPCWorker) refreshThinkingLevel() {
 	_, _ = w.GetState(ctx)
 }
 
+const streamActivityWindow = 2 * time.Second
+
 func (w *piRPCWorker) Status() workers.WorkerStatus {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -237,6 +240,9 @@ func (w *piRPCWorker) Status() workers.WorkerStatus {
 	s.Model = w.currentModel
 	s.ModelProvider = w.currentProvider
 	s.ThinkingLevel = w.currentThinkingLevel
+	if s.State == workers.WorkerStateIdle && w.hasRecentStreamActivityLocked(time.Now()) {
+		s.State = workers.WorkerStateRunning
+	}
 	return s
 }
 
@@ -331,10 +337,14 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 		}
 		return
 	}
-	if raw["type"] == "agent_end" {
+	switch raw["type"] {
+	case "message_update", "message_end", "turn_end":
+		w.noteStreamActivity()
+	case "agent_end":
 		w.mu.Lock()
 		w.status = workers.WorkerStatus{State: workers.WorkerStateIdle}
 		w.mu.Unlock()
+		w.lastStreamActivity.Store(0)
 	}
 	if raw["type"] == "thinking_level_changed" {
 		if level, ok := raw["level"].(string); ok && level != "" {
@@ -343,6 +353,18 @@ func (w *piRPCWorker) handleRPCLine(line string) {
 			w.mu.Unlock()
 		}
 	}
+}
+
+func (w *piRPCWorker) noteStreamActivity() {
+	w.lastStreamActivity.Store(time.Now().UnixNano())
+}
+
+func (w *piRPCWorker) hasRecentStreamActivityLocked(now time.Time) bool {
+	last := w.lastStreamActivity.Load()
+	if last == 0 {
+		return false
+	}
+	return now.Sub(time.Unix(0, last)) <= streamActivityWindow
 }
 
 func (w *piRPCWorker) wait() {

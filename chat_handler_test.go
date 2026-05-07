@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,9 +18,13 @@ import (
 )
 
 type fakeSender struct {
-	sessionID   string
-	sessionPath string
-	chat        chat.Request
+	sessionID         string
+	sessionPath       string
+	chat              chat.Request
+	state             workers.WorkerStatus
+	status            workers.WorkerStatus
+	getStateCalls     int
+	getStateErr       error
 }
 
 func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
@@ -36,10 +43,20 @@ func (f *fakeSender) SetThinkingLevel(ctx context.Context, sessionID, sessionPat
 }
 
 func (f *fakeSender) GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error) {
+	f.getStateCalls++
+	if f.getStateErr != nil {
+		return workers.WorkerStatus{}, f.getStateErr
+	}
+	if f.state.State != "" || f.state.ThinkingLevel != "" || f.state.Model != "" || f.state.ModelProvider != "" {
+		return f.state, nil
+	}
 	return workers.WorkerStatus{State: workers.WorkerStateIdle}, nil
 }
 
 func (f *fakeSender) Status(sessionID string) workers.WorkerStatus {
+	if f.status.State != "" || f.status.ThinkingLevel != "" || f.status.Model != "" || f.status.ModelProvider != "" {
+		return f.status
+	}
 	return workers.WorkerStatus{State: workers.WorkerStateIdle}
 }
 
@@ -76,6 +93,32 @@ func TestHandleChatRejectsUnknownSession(t *testing.T) {
 	s.handleChat(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleChatRejectsBrokenSession(t *testing.T) {
+	root := t.TempDir()
+	dir := root + "/--tmp-project--"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"/session.jsonl", []byte("{\"type\":\"session\",\"version\":3,\"id\":\"sid\",\"timestamp\":\"2026-05-06T00:00:00.000Z\",\"cwd\":\"/definitely/missing/path\"}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{sessionsDir: root, chatSender: &fakeSender{}}
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	mw.WriteField("message", "hello")
+	mw.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/chat?id=session.jsonl", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	s.handleChat(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "working directory no longer exists") {
+		t.Fatalf("body = %q", w.Body.String())
 	}
 }
 
@@ -138,6 +181,25 @@ func TestHandleWorkerStatusIgnoresStaleSessionFileActivity(t *testing.T) {
 	}
 }
 
+func TestHandleWorkerStatusSkipsGetStateWhenLocalStatusRunning(t *testing.T) {
+	sender := &fakeSender{status: workers.WorkerStatus{State: workers.WorkerStateRunning}}
+	s := &server{sessionsDir: t.TempDir(), chatSender: sender}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if sender.getStateCalls != 0 {
+		t.Fatalf("GetState calls = %d, want 0", sender.getStateCalls)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"running\"}\n" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
 func TestHandleSetThinkingLevelRequiresLevel(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
@@ -162,5 +224,98 @@ func TestHandleSetThinkingLevelRejectsMissingSession(t *testing.T) {
 	s.handleSetThinkingLevel(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleWorkerStatusUsesSessionStatusFile(t *testing.T) {
+	root := t.TempDir()
+	sessionsDir := filepath.Join(root, "sessions")
+	statusDir := filepath.Join(root, "session-status")
+	if err := os.MkdirAll(statusDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sessionID := "test-session.jsonl"
+	status := map[string]any{
+		"sessionId": sessionID,
+		"state":     "running",
+		"updatedAt": time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(status)
+	if err := os.WriteFile(filepath.Join(statusDir, sessionID), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
+	w := httptest.NewRecorder()
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"running\"}\n" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleWorkerStatusIgnoresStaleSessionStatusFile(t *testing.T) {
+	root := t.TempDir()
+	sessionsDir := filepath.Join(root, "sessions")
+	statusDir := filepath.Join(root, "session-status")
+	if err := os.MkdirAll(statusDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sessionID := "test-session.jsonl"
+	status := map[string]any{
+		"sessionId": sessionID,
+		"state":     "running",
+		"updatedAt": time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(status)
+	if err := os.WriteFile(filepath.Join(statusDir, sessionID), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
+	w := httptest.NewRecorder()
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"idle\"}\n" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleWorkerStatusFallsThroughForIdleStatusFile(t *testing.T) {
+	root := t.TempDir()
+	sessionsDir := filepath.Join(root, "sessions")
+	statusDir := filepath.Join(root, "session-status")
+	if err := os.MkdirAll(statusDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sessionID := "test-session.jsonl"
+	status := map[string]any{
+		"sessionId": sessionID,
+		"state":     "idle",
+		"updatedAt": time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(status)
+	if err := os.WriteFile(filepath.Join(statusDir, sessionID), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
+	w := httptest.NewRecorder()
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if got := w.Body.String(); got != "{\"state\":\"idle\"}\n" {
+		t.Fatalf("body = %q", got)
 	}
 }

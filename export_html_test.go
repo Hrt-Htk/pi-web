@@ -25,3 +25,23 @@ func TestGenerateExportHtmlOmitsChatComposerForShare(t *testing.T) {
 		t.Fatalf("chat composer should not be included in share export")
 	}
 }
+
+func TestGenerateExportHtmlShowsDisabledChatNoticeForBrokenSession(t *testing.T) {
+	session := sessions.Session{
+		ID:                 "s.jsonl",
+		Filename:           "s.jsonl",
+		Entries:             []map[string]any{{"id": "aaaaaaaa"}},
+		ChatAvailable:      false,
+		ChatDisabledReason: "This session can be viewed, but chat is disabled because its working directory no longer exists.",
+	}
+	html := generateExportHtml(session, true)
+	if !strings.Contains(html, `data-chat-available="false"`) {
+		t.Fatalf("broken session should mark chat unavailable")
+	}
+	if !strings.Contains(html, session.ChatDisabledReason) {
+		t.Fatalf("broken session notice missing from html")
+	}
+	if !strings.Contains(html, `disabled`) {
+		t.Fatalf("broken session should disable chat controls")
+	}
+}

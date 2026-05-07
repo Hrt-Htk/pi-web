@@ -60,6 +60,7 @@ func TestIndexTemplateLoadedFromEmbeddedFile(t *testing.T) {
 	for _, marker := range []string{
 		`id="newSessionBtn"`,
 		`id="modalOverlay"`,
+		`session-running-loader`,
 	} {
 		if !strings.Contains(rendered, marker) {
 			t.Fatalf("rendered index template missing %q", marker)
@@ -98,5 +99,42 @@ func TestIndexJsSourceReferencesAPIRecentLocations(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "/api/recent-locations") {
 		t.Fatal("web/src/index/index.js missing /api/recent-locations reference")
+	}
+}
+
+func TestIndexTemplateShowsViewOnlyBadgeForBrokenSessions(t *testing.T) {
+	var buf bytes.Buffer
+	data := []sessions.Session{{
+		ID:                 "broken.jsonl",
+		Project:            "/tmp/project",
+		LastActivity:       "2026-05-07T00:00:00Z",
+		ChatAvailable:      false,
+		ChatDisabledReason: "missing cwd",
+	}}
+	if err := indexTmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("failed to render index template: %v", err)
+	}
+	rendered := buf.String()
+	if !strings.Contains(rendered, `session-card-badge`) {
+		t.Fatal("rendered index page missing session badge markup")
+	}
+	if !strings.Contains(rendered, `View only`) {
+		t.Fatal("rendered index page missing view only label")
+	}
+}
+
+func TestIndexTemplateOmitsViewOnlyBadgeForChatableSessions(t *testing.T) {
+	var buf bytes.Buffer
+	data := []sessions.Session{{
+		ID:            "ok.jsonl",
+		Project:       "/tmp/project",
+		LastActivity:  "2026-05-07T00:00:00Z",
+		ChatAvailable: true,
+	}}
+	if err := indexTmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("failed to render index template: %v", err)
+	}
+	if strings.Contains(buf.String(), `View only`) {
+		t.Fatal("rendered index page should not show view only badge for chatable sessions")
 	}
 }
