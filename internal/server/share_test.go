@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"errors"
@@ -25,14 +25,15 @@ func (f *fakeShareRunner) createGist(htmlPath string) (string, string, error) {
 	return f.createOut, f.createStderr, f.createErr
 }
 
-func newShareTestServer(t *testing.T, runner shareCmdRunner) (*server, string) {
+func newShareTestServer(t *testing.T, runner shareCmdRunner) (*Server, string) {
 	t.Helper()
 	root := t.TempDir()
 	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
-	s := &server{
-		sessionsDir: root,
-		cache:       sessions.NewCache(),
-		shareRunner: runner,
+	s := &Server{
+		sessionsDir:   root,
+		cache:         sessions.NewCache(),
+		shareRunner:   runner,
+		renderSession: func(sess sessions.Session, _ bool) string { return "<html></html>" },
 	}
 	return s, root
 }

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"os"
@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// drainBroadcast pops one reload event off the SSE channel for sessID with a
-// timeout. Returns true if a reload was received.
 func drainBroadcast(t *testing.T, c *sseClient, timeout time.Duration) bool {
 	t.Helper()
 	select {
@@ -30,7 +28,7 @@ func TestFsnotifyWatcherBroadcastsOnAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &server{sessionsDir: root, fileMod: make(map[string]time.Time)}
+	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time)}
 	if err := s.watchFilesFsnotify(); err != nil {
 		t.Skipf("fsnotify unavailable on this platform: %v", err)
 	}
@@ -38,11 +36,8 @@ func TestFsnotifyWatcherBroadcastsOnAppend(t *testing.T) {
 	client := s.addClient("session.jsonl")
 	defer s.removeClient(client)
 
-	// Give the watcher a moment to register the initial scan.
 	time.Sleep(20 * time.Millisecond)
 
-	// Bump the mtime past the recorded baseline. Some filesystems have low
-	// mtime resolution, so explicitly set it forward.
 	future := time.Now().Add(2 * time.Second)
 	if err := os.Chtimes(sessionPath, future, future); err != nil {
 		t.Fatal(err)
@@ -70,8 +65,7 @@ func TestPollingFallbackBroadcastsOnAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &server{sessionsDir: root, fileMod: make(map[string]time.Time)}
-	// Seed the baseline so a later mtime advance triggers a broadcast.
+	s := &Server{sessionsDir: root, fileMod: make(map[string]time.Time)}
 	s.scanForChanges()
 
 	client := s.addClient("session.jsonl")

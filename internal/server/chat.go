@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type ChatSender interface {
 	Status(sessionID string) workers.WorkerStatus
 }
 
-func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -76,7 +76,7 @@ type sessionStatusFile struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-func (s *server) readSessionStatus(sessionID string) *workers.WorkerStatus {
+func (s *Server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 	if sessionID == "" {
 		return nil
 	}
@@ -103,10 +103,9 @@ func (s *server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 	return &workers.WorkerStatus{State: workers.WorkerStateRunning}
 }
 
-func (s *server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("id")
 
-	// Check session status file first (terminal-owned sessions)
 	if status := s.readSessionStatus(sessionID); status != nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(status)
@@ -126,7 +125,7 @@ func (s *server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func (s *server) hasRecentSessionActivity(sessionID string) bool {
+func (s *Server) hasRecentSessionActivity(sessionID string) bool {
 	if sessionID == "" {
 		return false
 	}
@@ -145,7 +144,7 @@ func (s *server) hasRecentSessionActivity(sessionID string) bool {
 	return !mod.IsZero() && now.Sub(mod) <= recentSessionActivityWindow
 }
 
-func (s *server) handleSetModel(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleSetModel(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -183,7 +182,7 @@ func (s *server) handleSetModel(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }
 
-func (s *server) handleSetThinkingLevel(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleSetThinkingLevel(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -222,10 +221,4 @@ func (s *server) handleSetThinkingLevel(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true, "thinkingLevel": status.ThinkingLevel})
-}
-
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]any{"error": message})
 }

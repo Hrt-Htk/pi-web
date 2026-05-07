@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -15,14 +15,14 @@ import (
 // fsnotify gives ~ms-latency reloads; the poller is the safety net for
 // platforms / filesystems where inotify or kqueue isn't available
 // (e.g. some NFS mounts).
-func (s *server) watchFiles() {
+func (s *Server) watchFiles() {
 	if err := s.watchFilesFsnotify(); err != nil {
 		fmt.Fprintf(os.Stderr, "fsnotify unavailable, falling back to polling: %v\n", err)
 		s.watchFilesPolling()
 	}
 }
 
-func (s *server) watchFilesPolling() {
+func (s *Server) watchFilesPolling() {
 	ticker := time.NewTicker(1500 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -31,7 +31,7 @@ func (s *server) watchFilesPolling() {
 	}
 }
 
-func (s *server) scanForChanges() {
+func (s *Server) scanForChanges() {
 	entries, err := os.ReadDir(s.sessionsDir)
 	if err != nil {
 		return
@@ -62,7 +62,7 @@ func (s *server) scanForChanges() {
 // recordModTime updates the last-known modtime for a session file and
 // broadcasts a reload if it advanced. Shared between the polling and
 // fsnotify paths so file-mod accounting stays consistent.
-func (s *server) recordModTime(sessID string, mod time.Time) {
+func (s *Server) recordModTime(sessID string, mod time.Time) {
 	s.fileModMu.Lock()
 	lastMod, known := s.fileMod[sessID]
 	s.fileMod[sessID] = mod
@@ -78,7 +78,7 @@ func (s *server) recordModTime(sessID string, mod time.Time) {
 //
 // To avoid sending two reloads for one logical write (editors emit multiple
 // Write events), reloads are debounced per file with a short timer.
-func (s *server) watchFilesFsnotify() error {
+func (s *Server) watchFilesFsnotify() error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -89,7 +89,6 @@ func (s *server) watchFilesFsnotify() error {
 		return err
 	}
 
-	// Watch each existing project dir so we see writes to its jsonl files.
 	if entries, err := os.ReadDir(s.sessionsDir); err == nil {
 		for _, e := range entries {
 			if e.IsDir() {
@@ -98,8 +97,6 @@ func (s *server) watchFilesFsnotify() error {
 		}
 	}
 
-	// Initial scan so the first real event isn't suppressed by an unknown
-	// baseline modtime.
 	s.scanForChanges()
 
 	debouncers := newDebouncer(50 * time.Millisecond)
@@ -126,8 +123,7 @@ func (s *server) watchFilesFsnotify() error {
 	return nil
 }
 
-func (s *server) handleFsEvent(w *fsnotify.Watcher, ev fsnotify.Event, deb *debouncer) {
-	// New project subdir → start watching it.
+func (s *Server) handleFsEvent(w *fsnotify.Watcher, ev fsnotify.Event, deb *debouncer) {
 	if ev.Op&fsnotify.Create != 0 {
 		if info, err := os.Stat(ev.Name); err == nil && info.IsDir() {
 			_ = w.Add(ev.Name)
@@ -140,18 +136,12 @@ func (s *server) handleFsEvent(w *fsnotify.Watcher, ev fsnotify.Event, deb *debo
 	if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
 		return
 	}
-	// New session file → notify index-page subscribers so the list refreshes
-	// without a manual reload. Only fires on Create events post-startup, since
-	// the initial scan goes straight through scanForChanges/recordModTime.
 	if ev.Op&fsnotify.Create != 0 {
 		s.broadcast(globalSessID, "new-session")
 	}
 	deb.schedule(ev.Name)
 }
 
-// debouncer coalesces rapid bursts of events for the same file into a single
-// reload. A timer per path is reset on each new event; once it fires, the
-// reload is broadcast based on the file's current modtime.
 type debouncer struct {
 	delay  time.Duration
 	mu     sync.Mutex
@@ -187,7 +177,7 @@ func (d *debouncer) schedule(path string) {
 	})
 }
 
-func (d *debouncer) run(s *server) {
+func (d *debouncer) run(s *Server) {
 	for {
 		select {
 		case path := <-d.wakeCh:

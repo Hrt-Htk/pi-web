@@ -39,6 +39,27 @@ func TestChooseBindHostFallsBackLocalhost(t *testing.T) {
 	}
 }
 
+func TestIsLoopbackHost(t *testing.T) {
+	cases := []struct {
+		host string
+		want bool
+	}{
+		{"", true},
+		{"localhost", true},
+		{"127.0.0.1", true},
+		{"127.5.5.5", true},
+		{"::1", true},
+		{"100.64.0.10", false},
+		{"192.168.1.10", false},
+		{"example.com", false},
+	}
+	for _, tc := range cases {
+		if got := isLoopbackHost(tc.host); got != tc.want {
+			t.Errorf("isLoopbackHost(%q) = %v, want %v", tc.host, got, tc.want)
+		}
+	}
+}
+
 func TestIsTailscaleIP(t *testing.T) {
 	cases := []struct {
 		ip   string

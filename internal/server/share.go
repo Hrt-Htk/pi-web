@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"net/http"
@@ -19,7 +19,7 @@ func (a shareRunnerAdapter) CreateGist(htmlPath string) (string, string, error) 
 	return a.runner.createGist(htmlPath)
 }
 
-func (s *server) handleShare(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleShare(w http.ResponseWriter, r *http.Request) {
 	var runner share.Runner
 	if s.shareRunner != nil {
 		runner = shareRunnerAdapter{runner: s.shareRunner}
@@ -27,6 +27,6 @@ func (s *server) handleShare(w http.ResponseWriter, r *http.Request) {
 	share.Handle(w, r, share.Dependencies{
 		Runner:   runner,
 		Sessions: s.loadSessions,
-		Render:   generateExportHtml,
+		Render:   s.renderSession,
 	})
 }

@@ -1,0 +1,147 @@
+// Package server hosts the HTTP layer for pi-web: handlers, SSE plumbing,
+// the file watcher that drives reload events, and the per-session chat worker
+// orchestration. main.go wires concrete dependencies (renderers, model list,
+// auth) and registers the routes.
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"sync"
+	"time"
+
+	"pi-web/internal/auth"
+	"pi-web/internal/sessions"
+)
+
+// globalSessID is the sentinel SSE topic for events that are not tied to a
+// specific session — e.g. a new session file appearing on disk. The index
+// page subscribes to this so it can refresh when new sessions show up.
+const globalSessID = "__all__"
+
+// Deps groups everything the server needs that lives outside this package:
+// rendering (which depends on embedded templates in package main), the model
+// list (which depends on a process-wide cache), and the chat sender (which
+// owns rpc workers).
+type Deps struct {
+	SessionsDir   string
+	Auth          *auth.Middleware
+	ChatSender    ChatSender
+	Cache         *sessions.Cache
+	RenderIndex   func(w io.Writer, sessions []sessions.Session) error
+	RenderSession func(s sessions.Session, showButtons bool) string
+	Models        func(ctx context.Context) (json.RawMessage, error)
+	Now           func() time.Time
+}
+
+// Server holds runtime state — connected SSE clients and last-seen modtimes
+// per session file. Construct via New; register HTTP routes via Register.
+type Server struct {
+	sessionsDir   string
+	clients       []*sseClient
+	clientsMu     sync.RWMutex
+	fileMod       map[string]time.Time
+	fileModMu     sync.RWMutex
+	chatSender    ChatSender
+	cache         *sessions.Cache
+	auth          *auth.Middleware
+	shareRunner   shareCmdRunner
+	now           func() time.Time
+	renderIndex   func(w io.Writer, sessions []sessions.Session) error
+	renderSession func(s sessions.Session, showButtons bool) string
+	models        func(ctx context.Context) (json.RawMessage, error)
+}
+
+func New(deps Deps) *Server {
+	now := deps.Now
+	if now == nil {
+		now = time.Now
+	}
+	s := &Server{
+		sessionsDir:   deps.SessionsDir,
+		clients:       make([]*sseClient, 0),
+		fileMod:       make(map[string]time.Time),
+		chatSender:    deps.ChatSender,
+		cache:         deps.Cache,
+		auth:          deps.Auth,
+		now:           now,
+		renderIndex:   deps.RenderIndex,
+		renderSession: deps.RenderSession,
+		models:        deps.Models,
+	}
+	go s.watchFiles()
+	return s
+}
+
+// Register installs every HTTP handler on mux, wrapped with the auth
+// middleware from Deps.
+func (s *Server) Register(mux *http.ServeMux) {
+	mux.HandleFunc("/", s.auth.Wrap(s.handleIndex))
+	mux.HandleFunc("/session", s.auth.Wrap(s.handleSession))
+	mux.HandleFunc("/api/session", s.auth.Wrap(s.handleApiSession))
+	mux.HandleFunc("/api/chat", s.auth.Wrap(s.handleChat))
+	mux.HandleFunc("/api/set-model", s.auth.Wrap(s.handleSetModel))
+	mux.HandleFunc("/api/set-thinking-level", s.auth.Wrap(s.handleSetThinkingLevel))
+	mux.HandleFunc("/api/models", s.auth.Wrap(s.handleAvailableModels))
+	mux.HandleFunc("/api/worker-status", s.auth.Wrap(s.handleWorkerStatus))
+	mux.HandleFunc("/share", s.auth.Wrap(s.handleShare))
+	mux.HandleFunc("/events", s.auth.Wrap(s.handleEvents))
+	mux.HandleFunc("/api/new-session", s.auth.Wrap(s.handleNewSession))
+	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
+}
+
+func (s *Server) loadSessions() ([]sessions.Session, error) {
+	return s.cache.LoadAll(s.sessionsDir)
+}
+
+// SetShareRunner is exposed for tests that want to stub `gh` invocations.
+func (s *Server) SetShareRunner(r shareCmdRunner) { s.shareRunner = r }
+
+// ── SSE clients ────────────────────────────────────────────────────────────
+
+type sseClient struct {
+	ch     chan string
+	sessID string
+}
+
+func (s *Server) addClient(sessID string) *sseClient {
+	c := &sseClient{ch: make(chan string, 4), sessID: sessID}
+	s.clientsMu.Lock()
+	s.clients = append(s.clients, c)
+	s.clientsMu.Unlock()
+	return c
+}
+
+func (s *Server) removeClient(target *sseClient) {
+	s.clientsMu.Lock()
+	filtered := s.clients[:0]
+	for _, c := range s.clients {
+		if c != target {
+			filtered = append(filtered, c)
+		}
+	}
+	s.clients = filtered
+	s.clientsMu.Unlock()
+	close(target.ch)
+}
+
+func (s *Server) broadcast(sessID, msg string) {
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+	for _, c := range s.clients {
+		if c.sessID == sessID {
+			select {
+			case c.ch <- msg:
+			default:
+			}
+		}
+	}
+}
+
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]any{"error": message})
+}

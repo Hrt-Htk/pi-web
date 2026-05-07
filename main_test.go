@@ -1,23 +1,18 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
+	"testing/fstest"
 )
 
 func TestLoadIndexScriptValidManifest(t *testing.T) {
-	tmpDir := t.TempDir()
-	viteDir := filepath.Join(tmpDir, ".vite")
-	os.MkdirAll(viteDir, 0755)
-	assetsDir := filepath.Join(tmpDir, "assets")
-	os.MkdirAll(assetsDir, 0755)
-
-	manifest := `{"src/index/index.js":{"file":"assets/index-abc123.js"}}`
-	os.WriteFile(filepath.Join(viteDir, "manifest.json"), []byte(manifest), 0644)
-	os.WriteFile(filepath.Join(assetsDir, "index-abc123.js"), []byte("console.log('hello')"), 0644)
-
-	path, js, err := loadIndexScript(tmpDir)
+	fsys := fstest.MapFS{
+		".vite/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"src/index/index.js":{"file":"assets/index-abc123.js"}}`),
+		},
+		"assets/index-abc123.js": &fstest.MapFile{Data: []byte("console.log('hello')")},
+	}
+	path, js, err := loadIndexScript(fsys)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,45 +25,40 @@ func TestLoadIndexScriptValidManifest(t *testing.T) {
 }
 
 func TestLoadIndexScriptMissingManifest(t *testing.T) {
-	tmpDir := t.TempDir()
-	_, _, err := loadIndexScript(tmpDir)
-	if err == nil {
+	if _, _, err := loadIndexScript(fstest.MapFS{}); err == nil {
 		t.Fatal("expected error for missing manifest")
 	}
 }
 
 func TestLoadIndexScriptEmptyFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	viteDir := filepath.Join(tmpDir, ".vite")
-	os.MkdirAll(viteDir, 0755)
-	manifest := `{"src/index/index.js":{"file":""}}`
-	os.WriteFile(filepath.Join(viteDir, "manifest.json"), []byte(manifest), 0644)
-	_, _, err := loadIndexScript(tmpDir)
-	if err == nil {
+	fsys := fstest.MapFS{
+		".vite/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"src/index/index.js":{"file":""}}`),
+		},
+	}
+	if _, _, err := loadIndexScript(fsys); err == nil {
 		t.Fatal("expected error for empty file")
 	}
 }
 
 func TestLoadIndexScriptAbsolutePath(t *testing.T) {
-	tmpDir := t.TempDir()
-	viteDir := filepath.Join(tmpDir, ".vite")
-	os.MkdirAll(viteDir, 0755)
-	manifest := `{"src/index/index.js":{"file":"/etc/passwd"}}`
-	os.WriteFile(filepath.Join(viteDir, "manifest.json"), []byte(manifest), 0644)
-	_, _, err := loadIndexScript(tmpDir)
-	if err == nil {
+	fsys := fstest.MapFS{
+		".vite/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"src/index/index.js":{"file":"/etc/passwd"}}`),
+		},
+	}
+	if _, _, err := loadIndexScript(fsys); err == nil {
 		t.Fatal("expected error for absolute path")
 	}
 }
 
 func TestLoadIndexScriptPathTraversal(t *testing.T) {
-	tmpDir := t.TempDir()
-	viteDir := filepath.Join(tmpDir, ".vite")
-	os.MkdirAll(viteDir, 0755)
-	manifest := `{"src/index/index.js":{"file":"../etc/passwd"}}`
-	os.WriteFile(filepath.Join(viteDir, "manifest.json"), []byte(manifest), 0644)
-	_, _, err := loadIndexScript(tmpDir)
-	if err == nil {
+	fsys := fstest.MapFS{
+		".vite/manifest.json": &fstest.MapFile{
+			Data: []byte(`{"src/index/index.js":{"file":"../etc/passwd"}}`),
+		},
+	}
+	if _, _, err := loadIndexScript(fsys); err == nil {
 		t.Fatal("expected error for path traversal")
 	}
 }

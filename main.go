@@ -3,22 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"sync"
 	"time"
 
 	"pi-web/internal/auth"
-	"pi-web/internal/render"
 	"pi-web/internal/rpc"
+	"pi-web/internal/server"
 	"pi-web/internal/sessions"
 	"pi-web/internal/workers"
 )
@@ -26,20 +24,17 @@ import (
 const defaultPort = "31483"
 const tokenEnvVar = "PI_WEB_TOKEN"
 
-// globalSessID is the sentinel SSE topic for events that are not tied to a
-// specific session — e.g. a new session file appearing on disk. The index
-// page subscribes to this so it can refresh when new sessions show up.
-const globalSessID = "__all__"
-
 // indexScriptPath is the URL path at which the index page's Vite module is
 // served. It defaults to a stable path and is overwritten at startup if a
-// hashed asset is found in the Vite manifest.
+// hashed asset is found in the Vite manifest. The index template reads it via
+// funcMap so the rendered <script src> tracks the build hash.
 var indexScriptPath = "/static/assets/index.js"
 
 func main() {
 	port := flag.String("p", defaultPort, "port to listen on")
 	hostOverride := flag.String("host", "", "host/IP to bind; defaults to Tailscale IP when available, otherwise 127.0.0.1")
 	open := flag.Bool("o", false, "auto-open browser")
+	insecure := flag.Bool("insecure", false, "allow non-loopback bind without "+tokenEnvVar+" (DANGEROUS)")
 	flag.Parse()
 
 	sessionsDir := filepath.Join(os.Getenv("HOME"), ".pi", "agent", "sessions")
@@ -49,24 +44,32 @@ func main() {
 	}
 
 	bindHost, usedTailscale := chooseBindHost(*hostOverride, detectTailscaleIP)
-	authMiddleware := auth.New(os.Getenv(tokenEnvVar))
-	srv := newServer(sessionsDir, authMiddleware)
+	token := os.Getenv(tokenEnvVar)
+	if token == "" && !isLoopbackHost(bindHost) && !*insecure {
+		fmt.Fprintf(os.Stderr,
+			"refusing to bind %s without %s set: anyone reachable on this address could view sessions and drive pi.\n"+
+				"  set %s=$(openssl rand -hex 16) to require a token, or pass --insecure to override.\n",
+			bindHost, tokenEnvVar, tokenEnvVar)
+		os.Exit(1)
+	}
+	authMiddleware := auth.New(token)
+
+	srv := server.New(server.Deps{
+		SessionsDir:   sessionsDir,
+		Auth:          authMiddleware,
+		ChatSender:    workers.NewManager(rpc.NewPiWorker),
+		Cache:         sessions.NewCache(),
+		RenderIndex:   func(w io.Writer, ss []sessions.Session) error { return indexTmpl.Execute(w, ss) },
+		RenderSession: generateExportHtml,
+		Models: func(ctx context.Context) (json.RawMessage, error) {
+			return defaultModelsCache.get(ctx)
+		},
+	})
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", authMiddleware.Wrap(srv.handleIndex))
-	mux.HandleFunc("/session", authMiddleware.Wrap(srv.handleSession))
-	mux.HandleFunc("/api/session", authMiddleware.Wrap(srv.handleApiSession))
-	mux.HandleFunc("/api/chat", authMiddleware.Wrap(srv.handleChat))
-	mux.HandleFunc("/api/set-model", authMiddleware.Wrap(srv.handleSetModel))
-	mux.HandleFunc("/api/set-thinking-level", authMiddleware.Wrap(srv.handleSetThinkingLevel))
-	mux.HandleFunc("/api/models", authMiddleware.Wrap(handleAvailableModels))
-	mux.HandleFunc("/api/worker-status", authMiddleware.Wrap(srv.handleWorkerStatus))
-	mux.HandleFunc("/share", authMiddleware.Wrap(srv.handleShare))
-	mux.HandleFunc("/events", authMiddleware.Wrap(srv.handleEvents))
-	mux.HandleFunc("/api/new-session", authMiddleware.Wrap(srv.handleNewSession))
-	mux.HandleFunc("/api/recent-locations", authMiddleware.Wrap(srv.handleRecentLocations))
+	srv.Register(mux)
 	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
-	if scriptPath, js, err := loadIndexScript("web/dist"); err == nil {
+	if scriptPath, js, err := loadIndexScript(distFS()); err == nil {
 		indexScriptPath = scriptPath
 		mux.HandleFunc(scriptPath, serveIndexJS(js, scriptPath != "/static/assets/index.js"))
 	} else {
@@ -149,294 +152,4 @@ func writePidfile(host, port string, usedTailscale bool) (string, error) {
 		return "", err
 	}
 	return path, nil
-}
-
-func loadIndexScript(distDir string) (scriptPath string, js string, err error) {
-	data, err := os.ReadFile(filepath.Join(distDir, ".vite/manifest.json"))
-	if err != nil {
-		return "", "", fmt.Errorf("read manifest: %w", err)
-	}
-	var manifest render.Manifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return "", "", fmt.Errorf("parse manifest: %w", err)
-	}
-	entry, ok := manifest["src/index/index.js"]
-	if !ok {
-		return "", "", fmt.Errorf("manifest missing src/index/index.js entry")
-	}
-	if entry.File == "" {
-		return "", "", fmt.Errorf("manifest entry file is empty")
-	}
-	if strings.HasPrefix(entry.File, "/") {
-		return "", "", fmt.Errorf("manifest entry file is absolute: %s", entry.File)
-	}
-	if strings.Contains(entry.File, "..") {
-		return "", "", fmt.Errorf("manifest entry file contains path traversal: %s", entry.File)
-	}
-	scriptPath, ok = manifest.ScriptPath("src/index/index.js")
-	if !ok {
-		return "", "", fmt.Errorf("manifest script path not found")
-	}
-	content, err := os.ReadFile(filepath.Join(distDir, entry.File))
-	if err != nil {
-		return "", "", fmt.Errorf("read index js: %w", err)
-	}
-	return scriptPath, string(content), nil
-}
-
-func serveIndexJS(js string, immutable bool) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		if immutable {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
-		_, _ = w.Write([]byte(js))
-	}
-}
-
-// ── Server with live-reload SSE ────────────────────────────────────────────
-
-type sseClient struct {
-	ch     chan string
-	sessID string
-}
-
-type server struct {
-	sessionsDir string
-	clients     []*sseClient
-	clientsMu   sync.RWMutex
-	fileMod     map[string]time.Time
-	fileModMu   sync.RWMutex
-	chatSender  ChatSender
-	cache       *sessions.Cache
-	auth        *auth.Middleware
-	shareRunner shareCmdRunner
-	now         func() time.Time
-}
-
-func newServer(sessionsDir string, auth *auth.Middleware) *server {
-	s := &server{
-		sessionsDir: sessionsDir,
-		clients:     make([]*sseClient, 0),
-		fileMod:     make(map[string]time.Time),
-		chatSender:  workers.NewManager(rpc.NewPiWorker),
-		cache:       sessions.NewCache(),
-		auth:        auth,
-		now:         time.Now,
-	}
-	go s.watchFiles()
-	return s
-}
-
-func (s *server) loadSessions() ([]sessions.Session, error) {
-	if s.cache != nil {
-		return s.cache.LoadAll(s.sessionsDir)
-	}
-	return sessions.LoadAll(s.sessionsDir)
-}
-
-func (s *server) addClient(sessID string) *sseClient {
-	c := &sseClient{ch: make(chan string, 4), sessID: sessID}
-	s.clientsMu.Lock()
-	s.clients = append(s.clients, c)
-	s.clientsMu.Unlock()
-	return c
-}
-
-func (s *server) removeClient(target *sseClient) {
-	s.clientsMu.Lock()
-	filtered := s.clients[:0]
-	for _, c := range s.clients {
-		if c != target {
-			filtered = append(filtered, c)
-		}
-	}
-	s.clients = filtered
-	s.clientsMu.Unlock()
-	close(target.ch)
-}
-
-func (s *server) broadcast(sessID, msg string) {
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-	for _, c := range s.clients {
-		if c.sessID == sessID {
-			select {
-			case c.ch <- msg:
-			default:
-			}
-		}
-	}
-}
-
-// watchFiles is implemented in file_watcher.go.
-
-// ── HTTP Handlers ──────────────────────────────────────────────────────────
-
-func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	sessions, err := s.loadSessions()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := indexTmpl.Execute(w, sessions); err != nil {
-		fmt.Fprintf(os.Stderr, "template error: %v\n", err)
-	}
-}
-
-func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, "missing id", 400)
-		return
-	}
-
-	sessions, err := s.loadSessions()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	for _, sess := range sessions {
-		if sess.ID == id {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write([]byte(generateExportHtml(sess, true)))
-			return
-		}
-	}
-	http.Error(w, "session not found", 404)
-}
-
-func (s *server) handleApiSession(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing id")
-		return
-	}
-
-	sessions, err := s.loadSessions()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	for _, sess := range sessions {
-		if sess.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{
-				"header":  sess.Header,
-				"entries": sess.Entries,
-			})
-			return
-		}
-	}
-	writeJSONError(w, http.StatusNotFound, "not found")
-}
-
-func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	sessID := r.URL.Query().Get("id")
-	if sessID == "" {
-		http.Error(w, "missing id", 400)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
-		return
-	}
-
-	client := s.addClient(sessID)
-	defer s.removeClient(client)
-
-	fmt.Fprintf(w, ":ok\n\n")
-	flusher.Flush()
-
-	for {
-		select {
-		case msg, open := <-client.ch:
-			if !open {
-				return
-			}
-			fmt.Fprintf(w, "data: %s\n\n", msg)
-			flusher.Flush()
-		case <-r.Context().Done():
-			return
-		}
-	}
-}
-
-func (s *server) handleNewSession(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	var body struct {
-		Path string `json:"path"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid json body")
-		return
-	}
-	if body.Path == "" {
-		writeJSONError(w, http.StatusBadRequest, "path is required")
-		return
-	}
-
-	id, err := sessions.CreateSessionFile(s.sessionsDir, body.Path)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": id})
-}
-
-func (s *server) handleRecentLocations(w http.ResponseWriter, r *http.Request) {
-	locations, err := sessions.ListRecentLocations(s.sessionsDir)
-	if err != nil {
-		locations = []string{}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"locations": locations})
-}
-
-func handleAvailableModels(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	data, err := defaultModelsCache.get(ctx)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			writeJSONError(w, http.StatusGatewayTimeout, "timed out waiting for model list")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	var payload struct {
-		Models []map[string]any `json:"models"`
-	}
-	if err := json.Unmarshal(data, &payload); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid model list payload: "+err.Error())
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"models": payload.Models})
 }

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -64,7 +64,7 @@ func TestHandleChatSendsResolvedSession(t *testing.T) {
 	root := t.TempDir()
 	wantPath := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
 	fake := &fakeSender{}
-	s := &server{sessionsDir: root, chatSender: fake}
+	s := &Server{sessionsDir: root, chatSender: fake}
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	mw.WriteField("message", "hello")
@@ -82,7 +82,7 @@ func TestHandleChatSendsResolvedSession(t *testing.T) {
 }
 
 func TestHandleChatRejectsUnknownSession(t *testing.T) {
-	s := &server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	mw.WriteField("message", "hello")
@@ -105,7 +105,7 @@ func TestHandleChatRejectsBrokenSession(t *testing.T) {
 	if err := os.WriteFile(dir+"/session.jsonl", []byte("{\"type\":\"session\",\"version\":3,\"id\":\"sid\",\"timestamp\":\"2026-05-06T00:00:00.000Z\",\"cwd\":\"/definitely/missing/path\"}\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	s := &server{sessionsDir: root, chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: root, chatSender: &fakeSender{}}
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	mw.WriteField("message", "hello")
@@ -123,7 +123,7 @@ func TestHandleChatRejectsBrokenSession(t *testing.T) {
 }
 
 func TestHandleWorkerStatusDefaultsIdle(t *testing.T) {
-	s := &server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
 	w := httptest.NewRecorder()
 	s.handleWorkerStatus(w, req)
@@ -139,7 +139,7 @@ func TestHandleWorkerStatusUsesRecentSessionFileActivity(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
-	s := &server{
+	s := &Server{
 		sessionsDir: root,
 		chatSender:  &fakeSender{},
 		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-1500 * time.Millisecond)},
@@ -162,7 +162,7 @@ func TestHandleWorkerStatusIgnoresStaleSessionFileActivity(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
-	s := &server{
+	s := &Server{
 		sessionsDir: root,
 		chatSender:  &fakeSender{},
 		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-10 * time.Second)},
@@ -183,7 +183,7 @@ func TestHandleWorkerStatusIgnoresStaleSessionFileActivity(t *testing.T) {
 
 func TestHandleWorkerStatusSkipsGetStateWhenLocalStatusRunning(t *testing.T) {
 	sender := &fakeSender{status: workers.WorkerStatus{State: workers.WorkerStateRunning}}
-	s := &server{sessionsDir: t.TempDir(), chatSender: sender}
+	s := &Server{sessionsDir: t.TempDir(), chatSender: sender}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
 	w := httptest.NewRecorder()
 
@@ -203,7 +203,7 @@ func TestHandleWorkerStatusSkipsGetStateWhenLocalStatusRunning(t *testing.T) {
 func TestHandleSetThinkingLevelRequiresLevel(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
-	s := &server{sessionsDir: root, chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: root, chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodPost, "/api/set-thinking-level?id=session.jsonl", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -217,7 +217,7 @@ func TestHandleSetThinkingLevelRequiresLevel(t *testing.T) {
 }
 
 func TestHandleSetThinkingLevelRejectsMissingSession(t *testing.T) {
-	s := &server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodPost, "/api/set-thinking-level?id=missing.jsonl", strings.NewReader(`{"level":"high"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -245,7 +245,7 @@ func TestHandleWorkerStatusUsesSessionStatusFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
 	w := httptest.NewRecorder()
 	s.handleWorkerStatus(w, req)
@@ -276,7 +276,7 @@ func TestHandleWorkerStatusIgnoresStaleSessionStatusFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
 	w := httptest.NewRecorder()
 	s.handleWorkerStatus(w, req)
@@ -307,7 +307,7 @@ func TestHandleWorkerStatusFallsThroughForIdleStatusFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
+	s := &Server{sessionsDir: sessionsDir, chatSender: &fakeSender{}}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id="+sessionID, nil)
 	w := httptest.NewRecorder()
 	s.handleWorkerStatus(w, req)

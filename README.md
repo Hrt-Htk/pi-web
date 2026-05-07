@@ -13,7 +13,7 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 - In-browser model switching and thinking-level selector, per session
 - Per-session worker status (idle / running / error) with auto-recovery on crash
 - Multiple sessions run in parallel — kick off work in one, watch another stream
-- Optional `PI_WEB_TOKEN` so you can safely expose it on Tailscale or a LAN
+- `PI_WEB_TOKEN` for safe Tailscale/LAN exposure — required by default for any non-loopback bind
 
 ### Reading sessions
 
@@ -36,14 +36,18 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 ```bash
 git clone https://github.com/setkyar/pi-web.git
 cd pi-web
-cd web && npm install && npm run build && cd ..
-go build -o pi-web .
+make build   # builds the Vite bundle, then embeds it into the Go binary
 
-# optional: put it on PATH
+# optional: put it on PATH (binary is self-contained, runs from anywhere)
 cp pi-web ~/.pi/agent/bin/
 # or
 sudo cp pi-web /usr/local/bin/
 ```
+
+The frontend bundle is embedded via `//go:embed web/dist`, so `go build` needs
+`web/dist` to exist first. `make build` does both steps in order; if you build
+by hand, run `npm --prefix web install && npm --prefix web run build` before
+`go build`.
 
 ## Usage
 
@@ -57,12 +61,14 @@ pi-web -o
 # Custom port
 pi-web -p 8080
 
-# Override bind host
+# Override bind host (loopback is unauthenticated by default)
 pi-web --host 127.0.0.1
-pi-web --host 100.x.y.z
+
+# Non-loopback bind requires a token — pi-web refuses to start otherwise
+PI_WEB_TOKEN=$(openssl rand -hex 16) pi-web --host 100.x.y.z
 ```
 
-By default, pi-web binds to your Tailscale IP when available, otherwise `127.0.0.1`.
+By default, pi-web binds to your Tailscale IP when available, otherwise `127.0.0.1`. Any non-loopback bind requires `PI_WEB_TOKEN` to be set; pass `--insecure` to override (don't, on Tailscale).
 
 ## Remote access
 
@@ -76,7 +82,7 @@ PI_WEB_TOKEN=$(openssl rand -hex 16) pi-web
 #    and paste the token once. The cookie persists.
 ```
 
-> Warning: by default there is no authentication. Anyone who can reach the bound address can view sessions and send instructions to pi. **If you bind to anything beyond `127.0.0.1`, set `PI_WEB_TOKEN`.**
+> By default, pi-web refuses to bind to a non-loopback address unless `PI_WEB_TOKEN` is set — anyone who can reach the bound address could otherwise view sessions and send instructions to pi. To override this guard for local-network testing, pass `--insecure`. **Don't use `--insecure` on Tailscale or any address reachable from outside your machine.**
 >
 > Clients can pass the token via the `Authorization: Bearer <token>` header, the `X-Pi-Token` header, or once via `?token=<token>` (which sets a `pi_token` cookie for subsequent requests). Tokens passed via `?token=` end up in browser history, server access logs, and `Referer` headers from any links on the page — prefer the header form for anything beyond the initial bookmark.
 
