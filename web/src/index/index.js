@@ -11,6 +11,7 @@ export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalTh
     error: '',
     runningSessionIds: new Set(),
     _es: null,
+    _statusEs: null,
     _pollTimer: null,
     _unloadHandler: null,
 
@@ -27,6 +28,17 @@ export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalTh
         const id = card.dataset.sessionId;
         card.classList.toggle('session-card--running', !!id && this.runningSessionIds.has(id));
       });
+    },
+
+    updateRunningFromStatusMap(statusMap) {
+      const nextRunning = new Set();
+      for (const [id, payload] of Object.entries(statusMap)) {
+        if (payload && payload.state === 'running') {
+          nextRunning.add(id);
+        }
+      }
+      this.runningSessionIds = nextRunning;
+      this.syncRunningCardClasses();
     },
 
     async refreshRunningStatuses() {
@@ -78,9 +90,51 @@ export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalTh
         this._es.close();
         this._es = null;
       }
+      if (this._statusEs) {
+        this._statusEs.close();
+        this._statusEs = null;
+      }
       if (this._unloadHandler) {
         window.removeEventListener('beforeunload', this._unloadHandler);
         this._unloadHandler = null;
+      }
+    },
+
+    connectStatusStream() {
+      this.stopStatusPolling();
+      if (this._statusEs) {
+        this._statusEs.close();
+        this._statusEs = null;
+      }
+      const cards = this.visibleSessionCards();
+      const ids = cards.map((c) => c.dataset.sessionId).filter(Boolean);
+      if (ids.length === 0) {
+        this.runningSessionIds = new Set();
+        this.syncRunningCardClasses();
+        return;
+      }
+      try {
+        const es = new EventSource('/events?ids=' + encodeURIComponent(ids.join(',')));
+        this._statusEs = es;
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            this.updateRunningFromStatusMap(data);
+          } catch {
+            // ignore non-JSON events
+          }
+        };
+        es.onerror = () => {
+          // EventSource auto-reconnects; if it fails permanently,
+          // fall back to polling after a delay
+          window.setTimeout(() => {
+            if (!this._statusEs || this._statusEs.readyState === EventSource.CLOSED) {
+              this.startStatusPolling();
+            }
+          }, 5000);
+        };
+      } catch {
+        this.startStatusPolling();
       }
     },
 
@@ -94,9 +148,9 @@ export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalTh
         };
         this._unloadHandler = () => this.cleanup();
         window.addEventListener('beforeunload', this._unloadHandler);
-        this.startStatusPolling();
+        this.connectStatusStream();
       } catch {
-        this.stopStatusPolling();
+        this.startStatusPolling();
       }
     },
 
@@ -110,6 +164,8 @@ export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalTh
         const anyVisible = group.querySelector('.session-card:not(.hidden)') !== null;
         group.style.display = anyVisible ? '' : 'none';
       });
+      // Reconnect status stream with new visible set
+      this.connectStatusStream();
     },
 
     async openModal() {

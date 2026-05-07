@@ -115,12 +115,15 @@ describe('createSessionsPage', () => {
     it('avoids opening duplicate EventSource connections when called twice', () => {
       const page = createSessionsPage();
       page.subscribe();
-      expect(mockInstances.length).toBe(1);
-      const first = mockInstances[0];
-      page.subscribe();
       expect(mockInstances.length).toBe(2);
-      expect(first.close).toHaveBeenCalled();
-      expect(page._es).toBe(mockInstances[1]);
+      const firstAll = mockInstances[0];
+      const firstStatus = mockInstances[1];
+      page.subscribe();
+      expect(mockInstances.length).toBe(4);
+      expect(firstAll.close).toHaveBeenCalled();
+      expect(firstStatus.close).toHaveBeenCalled();
+      expect(page._es).toBe(mockInstances[2]);
+      expect(page._statusEs).toBe(mockInstances[3]);
     });
 
     it('removes the old beforeunload listener when called twice', () => {
@@ -138,35 +141,105 @@ describe('createSessionsPage', () => {
       removeSpy.mockRestore();
     });
 
-    it('starts status polling on subscribe and clears it during cleanup', async () => {
+    it('closes status EventSource during cleanup', () => {
       mountSessionCards();
-      vi.useFakeTimers();
-      const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ state: 'idle' }), { status: 200 }));
-      const page = createSessionsPage({ fetchImpl, pollIntervalMs: 25 });
-
+      const page = createSessionsPage();
       page.subscribe();
-      await vi.advanceTimersByTimeAsync(60);
-      expect(fetchImpl).toHaveBeenCalled();
-
+      const statusEs = mockInstances[1];
+      expect(statusEs.close).not.toHaveBeenCalled();
       page.cleanup();
-      const callsAfterCleanup = fetchImpl.mock.calls.length;
-      await vi.advanceTimersByTimeAsync(60);
-      expect(fetchImpl.mock.calls.length).toBe(callsAfterCleanup);
+      expect(statusEs.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('SSE batch status', () => {
+    let OriginalEventSource;
+    let mockInstances;
+
+    beforeEach(() => {
+      OriginalEventSource = globalThis.EventSource;
+      mockInstances = [];
+      globalThis.EventSource = vi.fn(function (url) {
+        this.url = url;
+        this.onmessage = null;
+        this.onerror = null;
+        this.close = vi.fn();
+        this.readyState = 1; // OPEN
+        mockInstances.push(this);
+      });
+      globalThis.EventSource.CLOSED = 2;
     });
 
-    it('skips polling while the document is hidden', async () => {
+    afterEach(() => {
+      globalThis.EventSource = OriginalEventSource;
+      document.body.innerHTML = '';
+    });
+
+    it('opens EventSource with ids query param for visible cards', () => {
+      mountSessionCards();
+      const page = createSessionsPage();
+      page.subscribe();
+
+      // First EventSource is for __all__ (new-session detection)
+      // Second EventSource is for batch status
+      expect(mockInstances.length).toBe(2);
+      const statusEs = mockInstances[1];
+      expect(statusEs.url).toContain('/events?ids=');
+      expect(statusEs.url).toContain('alpha.jsonl');
+      expect(statusEs.url).toContain('beta.jsonl');
+    });
+
+    it('updates running classes on status event', () => {
+      mountSessionCards();
+      const page = createSessionsPage();
+      page.subscribe();
+
+      const statusEs = mockInstances[1];
+      statusEs.onmessage({
+        data: JSON.stringify({
+          'alpha.jsonl': { state: 'running' },
+          'beta.jsonl': { state: 'idle' }
+        })
+      });
+
+      expect(document.querySelector('[data-session-id="alpha.jsonl"]')?.classList.contains('session-card--running')).toBe(true);
+      expect(document.querySelector('[data-session-id="beta.jsonl"]')?.classList.contains('session-card--running')).toBe(false);
+    });
+
+    it('reconnects status stream when filter changes visible set', () => {
+      mountSessionCards();
+      const page = createSessionsPage();
+      page.subscribe();
+      expect(mockInstances.length).toBe(2);
+
+      // Filter to only show beta
+      page.query = 'beta';
+      page.filter();
+
+      // Should have closed old status stream and opened new one
+      expect(mockInstances.length).toBe(3);
+      const newStatusEs = mockInstances[2];
+      expect(newStatusEs.url).toContain('beta.jsonl');
+      expect(newStatusEs.url).not.toContain('alpha.jsonl');
+    });
+
+    it('falls back to polling when EventSource errors', async () => {
       mountSessionCards();
       vi.useFakeTimers();
       const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ state: 'idle' }), { status: 200 }));
       const page = createSessionsPage({ fetchImpl, pollIntervalMs: 25 });
-      const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
 
       page.subscribe();
-      await vi.advanceTimersByTimeAsync(60);
-      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(mockInstances.length).toBe(2);
 
-      visibility.mockRestore();
-      page.cleanup();
+      // Simulate SSE error
+      const statusEs = mockInstances[1];
+      statusEs.readyState = 2; // CLOSED
+      statusEs.onerror();
+
+      // Wait for fallback timeout
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(fetchImpl).toHaveBeenCalled();
     });
   });
 });
