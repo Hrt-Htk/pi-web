@@ -7,6 +7,28 @@ import (
 	"pi-web/internal/sessions"
 )
 
+func minimalSessionForExport() sessions.Session {
+	return sessions.Session{
+		SessionSummary: sessions.SessionSummary{ID: "test.jsonl", Filename: "test.jsonl", ChatAvailable: true},
+		Header:         map[string]any{"cwd": "/tmp", "name": "Test"},
+		Entries:        []map[string]any{},
+	}
+}
+
+func TestSessionHTMLIncludesChatPreviewSSEHandling(t *testing.T) {
+	sess := minimalSessionForExport()
+	html := generateExportHtml(sess, true)
+	for _, want := range []string{
+		"chat-preview",
+		"renderChatPreview",
+		"clearChatPreview",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("exported html missing %q", want)
+		}
+	}
+}
+
 func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
 	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, true)

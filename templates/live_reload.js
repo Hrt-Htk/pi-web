@@ -498,11 +498,39 @@
     }, 1200);
   }
 
+  var chatPreviewEl = null;
+
+  function clearChatPreview() {
+    if (chatPreviewEl && chatPreviewEl.parentNode) {
+      chatPreviewEl.parentNode.removeChild(chatPreviewEl);
+    }
+    chatPreviewEl = null;
+  }
+
+  function renderChatPreview(payload) {
+    if (!payload || typeof payload.content !== 'string' || payload.content.length === 0) return;
+    var container = document.getElementById('messages') || document.getElementById('content') || document.body;
+    if (!chatPreviewEl) {
+      chatPreviewEl = document.createElement('div');
+      chatPreviewEl.id = 'chat-preview-stream';
+      chatPreviewEl.className = 'entry message assistant chat-preview-stream';
+      chatPreviewEl.innerHTML = '<div class="message-content"></div><div class="preview-label">streaming preview</div>';
+      container.appendChild(chatPreviewEl);
+    }
+    var content = chatPreviewEl.querySelector('.message-content');
+    if (content) {
+      content.innerHTML = renderMarkdown(payload.content);
+    }
+    chatPreviewEl.classList.toggle('done', !!payload.done);
+    scrollToBottom(false);
+  }
+
   es.onmessage = function(e) {
     if (e.data !== 'reload') return;
     fetch('/api/session?id=' + encodeURIComponent(sessId))
       .then(function(r){return r.json();})
       .then(function(data) {
+        clearChatPreview();
         var entries = data.entries || [];
         var newCount = 0;
         entries.forEach(function(entry) {
@@ -528,6 +556,11 @@
       })
       .catch(function(err){ console.error('Live update failed:', err); });
   };
+  es.addEventListener('chat-preview', function(e) {
+    try {
+      renderChatPreview(JSON.parse(e.data));
+    } catch (_) {}
+  });
   es.onerror = function() {};
 
   // Share button
