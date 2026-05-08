@@ -92,6 +92,28 @@ func TestCreateSessionFile(t *testing.T) {
 	}
 }
 
+func TestCreateSessionFileAcceptsLegitimateDoubleDotInName(t *testing.T) {
+	tmp := t.TempDir()
+	dir := filepath.Join(tmp, "..hidden-project")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	id, err := CreateSessionFile(tmp, dir)
+	if err != nil {
+		t.Fatalf("expected legitimate ..hidden path to be accepted, got %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty session id")
+	}
+}
+
+func TestCreateSessionFileRejectsRelativePath(t *testing.T) {
+	tmp := t.TempDir()
+	if _, err := CreateSessionFile(tmp, "relative/foo"); err == nil {
+		t.Fatal("expected error for relative path, got nil")
+	}
+}
+
 func TestParseFileMarksSessionBrokenWhenCwdMissing(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "session.jsonl")

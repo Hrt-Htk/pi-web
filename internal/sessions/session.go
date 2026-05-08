@@ -194,8 +194,8 @@ func CreateSessionFile(sessionsDir, path string) (string, error) {
 		path = filepath.Join(home, path[2:])
 	}
 	path = filepath.Clean(path)
-	if strings.Contains(path, "..") {
-		return "", errors.New("invalid path")
+	if !filepath.IsAbs(path) {
+		return "", errors.New("path must be absolute")
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := os.MkdirAll(path, 0755); err != nil {
@@ -204,6 +204,10 @@ func CreateSessionFile(sessionsDir, path string) (string, error) {
 	}
 
 	projectDir := filepath.Join(sessionsDir, EncodeProjectName(path))
+	rel, err := filepath.Rel(sessionsDir, projectDir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", errors.New("invalid path")
+	}
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return "", err
 	}
