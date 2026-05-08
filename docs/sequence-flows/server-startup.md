@@ -1,0 +1,165 @@
+# Sequence Flow: Server Startup
+
+This document traces the execution from `go run .` to the first HTTP request.
+
+## Sequence Diagram
+
+```
+┌──────┐   ┌────────┐   ┌──────────┐   ┌──────────┐   ┌─────────┐   ┌────────┐
+│  OS  │   │  main  │   │  network │   │  server  │   │ workers │   │  auth  │
+└──┬───┘   └───┬────┘   └────┬─────┘   └────┬─────┘   └────┬────┘   └───┬────┘
+   │           │             │              │              │            │
+   │  exec     │             │              │              │            │
+   │──────────▶│             │              │              │            │
+   │           │             │              │              │            │
+   │           │─── flag.Parse() ──────────▶│              │            │
+   │           │             │              │              │            │
+   │           │─── os.Stat(sessionsDir) ──▶│              │            │
+   │           │             │              │              │            │
+   │           │─── chooseBindHost() ──────▶│              │            │
+   │           │             │              │              │            │
+   │           │◀──── host, usedTailscale ──│              │            │
+   │           │             │              │              │            │
+   │           │─── os.Getenv(PI_WEB_TOKEN) │              │            │
+   │           │             │              │              │            │
+   │           │─── auth.New(token) ────────────────────────────────────▶│
+   │           │             │              │              │            │
+   │           │◀─────────── Middleware ────│              │            │
+   │           │             │              │              │            │
+   │           │─── server.New(deps) ──────▶│              │            │
+   │           │             │              │              │            │
+   │           │             │              ├─── go watchFiles() ───────▶│
+   │           │             │              │              │            │
+   │           │             │              ├─── go startSessionStatusWatcher()│
+   │           │             │              │              │            │
+   │           │             │              ├─── go runStatusSweeper() ─▶│
+   │           │             │              │              │            │
+   │           │◀────────── Server ─────────│              │            │
+   │           │             │              │              │            │
+   │           │─── srv.Register(mux) ─────▶│              │            │
+   │           │             │              │              │            │
+   │           │─── loadIndexScript() ─────▶│              │            │
+   │           │             │              │              │            │
+   │           │─── mux.HandleFunc(/static/alpine.js) ──────────────────▶│
+   │           │             │              │              │            │
+   │           │─── mux.HandleFunc(/static/assets/…) ───────────────────▶│
+   │           │             │              │              │            │
+   │           │─── writePidfile() ────────▶│              │            │
+   │           │             │              │              │            │
+   │           │─── warmModelsCache() ─────▶│              │            │
+   │           │             │              │              │            │
+   │           │─── openBrowser(url) ──────▶│              │            │
+   │           │   (if -o flag)             │              │            │
+   │           │             │              │              │            │
+   │           │─── http.ListenAndServe() ─▶│              │            │
+   │           │             │              │              │            │
+   │           │◀──────────── Blocks ───────│              │            │
+```
+
+## Step-by-Step
+
+### 1. CLI Flag Parsing
+
+```go
+port := flag.String("p", "31483", "port to listen on")
+hostOverride := flag.String("host", "", "host/IP to bind")
+open := flag.Bool("o", false, "auto-open browser")
+insecure := flag.Bool("insecure", false, "allow non-loopback bind without PI_WEB_TOKEN")
+```
+
+### 2. Sessions Directory Validation
+
+```go
+sessionsDir := filepath.Join(os.Getenv("HOME"), ".pi", "agent", "sessions")
+if _, err := os.Stat(sessionsDir); os.IsNotExist(err) {
+    fmt.Fprintf(os.Stderr, "sessions directory not found: %s\n", sessionsDir)
+    os.Exit(1)
+}
+```
+
+Exits early if the user hasn't run `pi` yet (which creates this directory).
+
+### 3. Host Selection
+
+Priority:
+1. `--host` flag (explicit override)
+2. Tailscale IP (detected via `100.x.x.x` or `fd7a:115c:a1e0::/48`)
+3. `127.0.0.1` (fallback)
+
+### 4. Auth Enforcement
+
+```go
+if token == "" && !isLoopbackHost(bindHost) && !*insecure {
+    fmt.Fprintf(os.Stderr, "refusing to bind %s without PI_WEB_TOKEN set…\n")
+    os.Exit(1)
+}
+```
+
+Non-loopback binds **require** `PI_WEB_TOKEN` to prevent unauthorized access over the network.
+
+### 5. Server Construction
+
+```go
+srv := server.New(server.Deps{
+    SessionsDir:   sessionsDir,
+    Auth:          authMiddleware,
+    ChatSender:    workers.NewManager(rpc.NewPiWorker),
+    Cache:         sessions.NewCache(),
+    RenderIndex:   func(w io.Writer, ss []sessions.Session) error { … },
+    RenderSession: generateExportHtml,
+    Models:        func(ctx context.Context) (json.RawMessage, error) { … },
+})
+```
+
+Server creation immediately spawns three background goroutines:
+
+1. **`watchFiles()`** — watches `sessionsDir` for changes (fsnotify + polling fallback)
+2. **`startSessionStatusWatcher()`** — watches `session-status/` for terminal activity
+3. **`runStatusSweeper()`** — revalidates running status every second
+
+### 6. Route Registration
+
+All routes are wrapped with `auth.Wrap`:
+
+```go
+mux.HandleFunc("/", s.auth.Wrap(s.handleIndex))
+mux.HandleFunc("/session", s.auth.Wrap(s.handleSession))
+mux.HandleFunc("/api/chat", s.auth.Wrap(s.handleChat))
+// … etc
+```
+
+### 7. Static Asset Loading
+
+```go
+if scriptPath, js, err := loadIndexScript(distFS()); err == nil {
+    indexScriptPath = scriptPath
+    mux.HandleFunc(scriptPath, serveIndexJS(js, true))
+}
+```
+
+Reads Vite manifest to discover the hashed filename of the index bundle.
+
+### 8. Pidfile
+
+```go
+writePidfile(bindHost, port, usedTailscale)
+// → ~/.pi/agent/pi-web-state.json
+```
+
+Contains PID, port, host, Tailscale flag, and start time. Cleaned up on shutdown.
+
+### 9. Model Cache Warming
+
+```go
+warmModelsCache() // async goroutine
+```
+
+Spawns `pi --mode rpc` once to fetch the model list, so the first session page load doesn't wait.
+
+### 10. Listen
+
+```go
+http.ListenAndServe(addr, mux)
+```
+
+Blocks forever (or until error).

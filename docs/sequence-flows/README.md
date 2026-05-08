@@ -1,0 +1,11 @@
+# Sequence Flows
+
+This directory documents the key runtime sequences in pi-web.
+
+| Document | Description |
+|----------|-------------|
+| [server-startup.md](./server-startup.md) | From `main()` to listening on the network |
+| [session-viewing.md](./session-viewing.md) | Loading and rendering a session page |
+| [chat.md](./chat.md) | Sending a chat message via the web UI |
+| [live-reload.md](./live-reload.md) | How file changes propagate to the browser |
+| [share.md](./share.md) | Exporting a session to a private GitHub Gist |
