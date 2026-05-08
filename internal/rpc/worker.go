@@ -76,10 +76,10 @@ func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink) (work
 	var stderrBuf strings.Builder
 	cmd.Stderr = &stderrBuf
 	worker := &piRPCWorker{
-		sessionPath: sessionPath,
-		cmd:         cmd,
-		stdin:       stdin,
-		status:      workers.WorkerStatus{State: workers.WorkerStateIdle},
+		sessionPath:   sessionPath,
+		cmd:           cmd,
+		stdin:         stdin,
+		status:        workers.WorkerStatus{State: workers.WorkerStateIdle},
 		pending:       make(map[string]chan response),
 		stderrBuf:     &stderrBuf,
 		streamSink:    streamSink,
@@ -184,6 +184,18 @@ func (w *piRPCWorker) SetModel(ctx context.Context, provider, modelID string) er
 func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error {
 	w.touch()
 	return w.sendAndAwait(ctx, BuildSetThinkingLevelCommand(w.nextID(), level))
+}
+
+func (w *piRPCWorker) Abort(ctx context.Context) error {
+	w.touch()
+	if err := w.sendAndAwait(ctx, BuildAbortCommand(w.nextID())); err != nil {
+		return err
+	}
+	w.mu.Lock()
+	w.status.State = workers.WorkerStateIdle
+	w.status.Error = ""
+	w.mu.Unlock()
+	return nil
 }
 
 func (w *piRPCWorker) GetState(ctx context.Context) (workers.WorkerStatus, error) {

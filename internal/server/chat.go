@@ -18,6 +18,7 @@ type ChatSender interface {
 	Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error
 	SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error
 	SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error
+	Abort(ctx context.Context, sessionID string) error
 	GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error)
 	Status(sessionID string) workers.WorkerStatus
 	EnsureWorker(ctx context.Context, sessionID, sessionPath string) error
@@ -100,6 +101,38 @@ func (s *Server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 		return nil
 	}
 	return &workers.WorkerStatus{State: workers.WorkerStateRunning}
+}
+
+func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
+	if err != nil {
+		if errors.Is(err, sessions.ErrInvalidSessionID) {
+			writeJSONError(w, http.StatusBadRequest, "invalid session id")
+			return
+		}
+		if errors.Is(err, sessions.ErrSessionNotFound) {
+			writeJSONError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if s.chatSender == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "chat unavailable")
+		return
+	}
+	if err := s.chatSender.Abort(r.Context(), resolved.Session.ID); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = os.Remove(filepath.Join(s.sessionStatusDir(), resolved.Session.ID))
+	s.recomputeAndBroadcastStatus(resolved.Session.ID)
+	s.broadcast(resolved.Session.ID, "reload")
+	writeJSON(w, 0, map[string]any{"ok": true, "status": "cancelled"})
 }
 
 func (s *Server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {

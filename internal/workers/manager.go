@@ -30,6 +30,7 @@ type ChatWorker interface {
 	Prompt(ctx context.Context, chat chat.Request) error
 	SetModel(ctx context.Context, provider, modelID string) error
 	SetThinkingLevel(ctx context.Context, level string) error
+	Abort(ctx context.Context) error
 	GetState(ctx context.Context) (WorkerStatus, error)
 	Status() WorkerStatus
 	Close() error
@@ -154,6 +155,16 @@ func (m *Manager) GetState(ctx context.Context, sessionID string) (WorkerStatus,
 		return WorkerStatus{State: WorkerStateIdle}, nil
 	}
 	return worker.GetState(ctx)
+}
+
+func (m *Manager) Abort(ctx context.Context, sessionID string) error {
+	m.mu.Lock()
+	worker := m.workers[sessionID]
+	m.mu.Unlock()
+	if worker == nil {
+		return nil
+	}
+	return worker.Abort(ctx)
 }
 
 func (m *Manager) EnsureWorker(ctx context.Context, sessionID, sessionPath string) error {

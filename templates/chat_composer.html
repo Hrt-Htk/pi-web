@@ -12,10 +12,13 @@
       <div id="pi-chat-thinking-list" class="pi-chat-thinking-list"></div>
     </div>
     <div class="pi-chat-toolbar">
-      <button type="button" id="pi-chat-attach" class="pi-chat-icon-button" title="Attach images" aria-label="Attach images" {{if not .ChatAvailable}}disabled{{end}}>◉</button>
+      <button type="button" id="pi-chat-attach" class="pi-chat-icon-button pi-chat-photo-button" title="Attach photos" aria-label="Attach photos" {{if not .ChatAvailable}}disabled{{end}}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4.75 5.5h14.5c.69 0 1.25.56 1.25 1.25v10.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25V6.75c0-.69.56-1.25 1.25-1.25Zm0 1.5v8.73l3.58-3.58a1 1 0 0 1 1.41 0l2.18 2.18 3.33-3.33a1 1 0 0 1 1.41 0L19 13.34V7H4.75Zm12.5 2.25a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
+      </button>
       <span id="pi-chat-status" class="pi-chat-status">{{if .ChatAvailable}}idle{{else}}unavailable{{end}}</span>
+      <button type="button" id="pi-chat-thinking-label" class="pi-chat-thinking-label" style="display:none" title="Switch effort" {{if not .ChatAvailable}}disabled{{end}}></button>
       <button type="button" id="pi-chat-model-label" class="pi-chat-model-label" style="display:none" title="Switch model" {{if not .ChatAvailable}}disabled{{end}}></button>
-      <button type="button" id="pi-chat-thinking-label" class="pi-chat-thinking-label" style="display:none" title="Switch thinking level" {{if not .ChatAvailable}}disabled{{end}}></button>
+      <button type="button" id="pi-chat-cancel" class="pi-chat-cancel" style="display:none" title="Cancel running response" aria-label="Cancel running response" {{if not .ChatAvailable}}disabled{{end}}>Cancel</button>
       <button type="submit" id="pi-chat-send" class="pi-chat-send" {{if not .ChatAvailable}}disabled{{end}}>Send</button>
     </div>
   </div>

@@ -39,6 +39,7 @@ func (f *fakeChatWorker) Status() WorkerStatus {
 func (f *fakeChatWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
 
 func (f *fakeChatWorker) SetThinkingLevel(ctx context.Context, level string) error { return nil }
+func (f *fakeChatWorker) Abort(ctx context.Context) error                          { return nil }
 
 func (f *fakeChatWorker) GetState(ctx context.Context) (WorkerStatus, error) {
 	return f.Status(), nil
@@ -116,6 +117,7 @@ type reapableWorker struct {
 func (r *reapableWorker) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
 func (r *reapableWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
 func (r *reapableWorker) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (r *reapableWorker) Abort(ctx context.Context) error                              { return nil }
 func (r *reapableWorker) GetState(ctx context.Context) (WorkerStatus, error)           { return r.Status(), nil }
 func (r *reapableWorker) Status() WorkerStatus                                         { return WorkerStatus{State: WorkerStateIdle} }
 func (r *reapableWorker) Close() error                                                 { r.closed = true; return nil }
@@ -178,6 +180,7 @@ type runningReapable struct{}
 func (runningReapable) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
 func (runningReapable) SetModel(ctx context.Context, provider, modelID string) error { return nil }
 func (runningReapable) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (runningReapable) Abort(ctx context.Context) error                              { return nil }
 func (runningReapable) GetState(ctx context.Context) (WorkerStatus, error) {
 	return WorkerStatus{State: WorkerStateRunning}, nil
 }
@@ -190,6 +193,7 @@ type erroredWorker struct{}
 func (erroredWorker) Prompt(ctx context.Context, chat chat.Request) error          { return nil }
 func (erroredWorker) SetModel(ctx context.Context, provider, modelID string) error { return nil }
 func (erroredWorker) SetThinkingLevel(ctx context.Context, level string) error     { return nil }
+func (erroredWorker) Abort(ctx context.Context) error                              { return nil }
 func (erroredWorker) GetState(ctx context.Context) (WorkerStatus, error) {
 	return WorkerStatus{State: WorkerStateError}, nil
 }

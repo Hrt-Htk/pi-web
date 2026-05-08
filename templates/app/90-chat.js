@@ -5,9 +5,16 @@ let currentModelForThinking = null;
 
 function setChatStatus(text, cls) {
   const status = document.getElementById('pi-chat-status');
-  if (!status) return;
-  status.textContent = text;
-  status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
+  const cancelButton = document.getElementById('pi-chat-cancel');
+  const isRunning = cls === 'running' || text === 'running' || text === 'sending' || text === 'accepted' || text === 'cancelling';
+  if (status) {
+    status.textContent = text;
+    status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
+  }
+  if (cancelButton) {
+    cancelButton.style.display = isRunning ? '' : 'none';
+    cancelButton.disabled = text === 'cancelling';
+  }
 }
 
 function setModelLabel(label) {
@@ -60,6 +67,7 @@ function setupPiChatComposer() {
   const attachmentList = document.getElementById('pi-chat-attachments');
   const status = document.getElementById('pi-chat-status');
   const sendButton = document.getElementById('pi-chat-send');
+  const cancelButton = document.getElementById('pi-chat-cancel');
   let selectedChatFiles = [];
 
   function setStatus(text, cls) {
@@ -81,7 +89,7 @@ function setupPiChatComposer() {
       item.className = 'pi-chat-attachment';
       const name = document.createElement('span');
       name.className = 'pi-chat-attachment-name';
-      name.textContent = '◉ ' + file.name;
+      name.textContent = '▧ ' + file.name;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'pi-chat-remove';
@@ -97,6 +105,23 @@ function setupPiChatComposer() {
   }
 
   attachButton.addEventListener('click', () => fileInput.click());
+  if (cancelButton) {
+    cancelButton.addEventListener('click', async () => {
+      cancelButton.disabled = true;
+      setStatus('cancelling', 'running');
+      try {
+        const response = await fetch('/api/chat/cancel?id=' + encodeURIComponent(sessionId), { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'cancel failed');
+        setStatus('idle', '');
+        refreshWorkerStatus();
+      } catch (error) {
+        setStatus(error.message || String(error), 'error');
+      } finally {
+        cancelButton.disabled = false;
+      }
+    });
+  }
   fileInput.addEventListener('change', () => {
     const seen = new Set(selectedChatFiles.map(fileKey));
     for (const file of fileInput.files) {
@@ -126,6 +151,7 @@ function setupPiChatComposer() {
     for (const file of files) body.append('images', file);
     sendButton.disabled = true;
     setStatus('sending', 'running');
+    window.dispatchEvent(new CustomEvent('pi-chat-message-sent'));
     try {
       const response = await fetch('/api/chat?id=' + encodeURIComponent(sessionId), { method: 'POST', body });
       const data = await response.json();
@@ -475,6 +501,14 @@ function setupThinkingLevelSelector() {
   function openThinkingPopup() {
     thinkingPopup.style.display = 'flex';
     renderThinkingList(knownThinkingLevel);
+    const rect = thinkingLabelBtn.getBoundingClientRect();
+    const minW = 120;
+    let left = rect.right - minW;
+    if (left < 4) left = 4;
+    if (left + minW > window.innerWidth - 4) left = window.innerWidth - minW - 4;
+    thinkingPopup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    thinkingPopup.style.left = left + 'px';
+    thinkingPopup.style.right = '';
   }
 
   function closeThinkingPopup() {

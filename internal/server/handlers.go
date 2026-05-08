@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"pi-web/internal/sessions"
@@ -21,7 +22,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.renderIndex(w, summaries); err != nil {
-		fmt.Fprintf(os.Stderr, "template error: %v\n", err)
+		if !isBrokenPipe(err) {
+			fmt.Fprintf(os.Stderr, "template error: %v\n", err)
+		}
 	}
 }
 
@@ -130,4 +133,12 @@ func (s *Server) handleAvailableModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 0, map[string]any{"models": payload.Models})
+}
+
+func isBrokenPipe(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "broken pipe") || strings.Contains(msg, "connection reset by peer")
 }

@@ -29,6 +29,40 @@ func TestSessionHTMLIncludesChatPreviewSSEHandling(t *testing.T) {
 	}
 }
 
+func TestSessionHTMLForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
+	sess := minimalSessionForExport()
+	html := generateExportHtml(sess, true)
+	for _, want := range []string{
+		"pi-chat-message-sent",
+		"forcePreviewFollowUntil",
+		"Date.now() < forcePreviewFollowUntil",
+		"forceFollowToBottom",
+		"scrollAfterLayout",
+		"scrollElementAboveComposer",
+		"chatComposerHeight",
+		"if (FOLLOW) {\n            scrollAfterLayout(true);",
+		"showFollowButton();",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("exported html missing %q", want)
+		}
+	}
+}
+
+func TestSessionHTMLShowsAnimatedWorkingPreviewLabel(t *testing.T) {
+	sess := minimalSessionForExport()
+	html := generateExportHtml(sess, true)
+	for _, want := range []string{
+		"working<span class=\"working-dots\"",
+		"chat-preview-working-dots",
+		"animation: chat-preview-working-dots",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("exported html missing %q", want)
+		}
+	}
+}
+
 func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
 	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, true)
@@ -54,7 +88,7 @@ func TestGenerateExportHtmlIncludesResumeButtonWhenButtonsShown(t *testing.T) {
 	if !strings.Contains(html, `id="resume-btn"`) {
 		t.Fatalf("resume button missing from local session page")
 	}
-	if !strings.Contains(html, `Resume in Terminal`) {
+	if !strings.Contains(html, `Terminal`) {
 		t.Fatalf("resume button text missing from local session page")
 	}
 }

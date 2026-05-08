@@ -282,6 +282,7 @@
   var FOLLOW = true;
   var followBtn = null;
   var pendingCount = 0;
+  var forcePreviewFollowUntil = 0;
 
   function isAtBottom() {
     var de = document.documentElement;
@@ -300,12 +301,39 @@
     return remaining < 80;
   }
 
+  function chatComposerHeight() {
+    var composer = document.getElementById('pi-chat-composer');
+    return composer ? composer.getBoundingClientRect().height : 0;
+  }
+
   function scrollToBottom(smooth) {
     var content = document.getElementById('content');
     if (content && content.scrollHeight > content.clientHeight) {
       content.scrollTo({ top: content.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
     }
     window.scrollTo({ top: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight), behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  function scrollElementAboveComposer(el, smooth) {
+    if (!el) {
+      scrollToBottom(smooth);
+      return;
+    }
+    var gap = chatComposerHeight() + 24;
+    var content = document.getElementById('content');
+    if (content && content.contains(el)) {
+      var contentRect = content.getBoundingClientRect();
+      var elRect = el.getBoundingClientRect();
+      var delta = elRect.bottom - (contentRect.bottom - gap);
+      if (delta > 0) {
+        content.scrollTo({ top: content.scrollTop + delta, behavior: smooth ? 'smooth' : 'auto' });
+      }
+    }
+    var rect = el.getBoundingClientRect();
+    var viewportDelta = rect.bottom - (window.innerHeight - gap);
+    if (viewportDelta > 0) {
+      window.scrollTo({ top: (window.scrollY || window.pageYOffset) + viewportDelta, behavior: smooth ? 'smooth' : 'auto' });
+    }
   }
 
   function showFollowButton() {
@@ -349,6 +377,26 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   var contentEl = document.getElementById('content');
   if (contentEl) contentEl.addEventListener('scroll', onScroll, { passive: true });
+
+  function scrollAfterLayout(smooth, target) {
+    requestAnimationFrame(function() {
+      scrollElementAboveComposer(target, !!smooth);
+      setTimeout(function() { scrollElementAboveComposer(target, !!smooth); }, 40);
+    });
+  }
+
+  function forceFollowToBottom(smooth) {
+    FOLLOW = true;
+    pendingCount = 0;
+    hideFollowButton();
+    scrollAfterLayout(!!smooth);
+  }
+
+  window.addEventListener('pi-chat-message-sent', function() {
+    forcePreviewFollowUntil = Date.now() + 30000;
+    forceFollowToBottom(true);
+  });
+
   scrollToBottom(false);
 
   function buildEntryNode(entry, allEntries) {
@@ -513,8 +561,8 @@
     if (!chatPreviewEl) {
       chatPreviewEl = document.createElement('div');
       chatPreviewEl.id = 'chat-preview-stream';
-      chatPreviewEl.className = 'entry message assistant chat-preview-stream';
-      chatPreviewEl.innerHTML = '<div class="message-content"></div><div class="preview-label">streaming preview</div>';
+      chatPreviewEl.className = 'assistant-message chat-preview-stream';
+      chatPreviewEl.innerHTML = '<div class="message-content assistant-text"></div><div class="preview-label">working<span class="working-dots" aria-hidden="true"></span></div>';
       container.appendChild(chatPreviewEl);
     }
     var content = chatPreviewEl.querySelector('.message-content');
@@ -522,7 +570,10 @@
       content.innerHTML = renderMarkdown(payload.content);
     }
     chatPreviewEl.classList.toggle('done', !!payload.done);
-    scrollToBottom(false);
+    if (FOLLOW || Date.now() < forcePreviewFollowUntil) {
+      forceFollowToBottom(false);
+      scrollAfterLayout(false, chatPreviewEl);
+    }
   }
 
   es.onmessage = function(e) {
@@ -552,6 +603,12 @@
         if (newCount > 0) {
           showIndicator();
           updateStats(entries);
+          if (FOLLOW) {
+            scrollAfterLayout(true);
+          } else {
+            pendingCount += newCount;
+            showFollowButton();
+          }
         }
       })
       .catch(function(err){ console.error('Live update failed:', err); });
@@ -645,7 +702,7 @@
     });
   }
 
-  // Resume in Terminal button
+  // Terminal button
   var resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) {
     resumeBtn.addEventListener('click', function() {

@@ -46,6 +46,10 @@ func (f *fakeSender) SetThinkingLevel(ctx context.Context, sessionID, sessionPat
 	return nil
 }
 
+func (f *fakeSender) Abort(ctx context.Context, sessionID string) error {
+	return nil
+}
+
 func (f *fakeSender) GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error) {
 	f.getStateCalls++
 	if f.getStateErr != nil {
