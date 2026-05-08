@@ -84,6 +84,14 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Pre-initialize a worker so the session page can read default model and
+	// thinking level immediately instead of waiting for the first chat message.
+	if s.chatSender != nil {
+		if resolved, err := sessions.ResolveByID(s.sessionsDir, id); err == nil {
+			go s.chatSender.EnsureWorker(context.Background(), resolved.Session.ID, resolved.Path)
+		}
+	}
+
 	writeJSON(w, 0, map[string]any{"ok": true, "id": id})
 }
 

@@ -213,3 +213,22 @@ func TestBusyWorkerUsesSteeringCommand(t *testing.T) {
 		t.Fatalf("streamingBehavior = %v, want steer", worker.prompts[0]["streamingBehavior"])
 	}
 }
+
+func TestEnsureWorkerCreatesWorkerWithoutSendingMessage(t *testing.T) {
+	created := 0
+	manager := NewManager(func(sessionPath string) (ChatWorker, error) {
+		created++
+		return &fakeChatWorker{}, nil
+	})
+	ctx := context.Background()
+	if err := manager.EnsureWorker(ctx, "a.jsonl", "/tmp/a.jsonl"); err != nil {
+		t.Fatal(err)
+	}
+	if created != 1 {
+		t.Fatalf("created workers = %d, want 1", created)
+	}
+	status := manager.Status("a.jsonl")
+	if status.State != WorkerStateIdle {
+		t.Fatalf("status = %q, want idle", status.State)
+	}
+}
