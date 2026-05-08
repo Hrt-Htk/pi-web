@@ -130,14 +130,34 @@ func (s *Server) SetShareRunner(r shareCmdRunner) { s.shareRunner = r }
 type sseClient struct {
 	ch     chan string
 	sessID string
+	mu     sync.Mutex
+	queued map[string]bool
 }
 
 func (s *Server) addClient(sessID string) *sseClient {
-	c := &sseClient{ch: make(chan string, 4), sessID: sessID}
+	c := &sseClient{
+		ch:     make(chan string, 16),
+		sessID: sessID,
+		queued: make(map[string]bool),
+	}
 	s.clientsMu.Lock()
 	s.clients = append(s.clients, c)
 	s.clientsMu.Unlock()
 	return c
+}
+
+// eventKey returns a coalescing key for msg. Events with the same non-empty
+// key are deduplicated while pending in a client's channel; an empty key
+// means "always deliver, drop on full" (status events self-heal via the
+// reconnect snapshot).
+func eventKey(msg string) string {
+	switch msg {
+	case "reload":
+		return "reload"
+	case "new-session":
+		return "new-session"
+	}
+	return ""
 }
 
 func (s *Server) removeClient(target *sseClient) {
@@ -156,13 +176,26 @@ func (s *Server) removeClient(target *sseClient) {
 func (s *Server) broadcast(sessID, msg string) {
 	s.clientsMu.RLock()
 	defer s.clientsMu.RUnlock()
+	key := eventKey(msg)
 	for _, c := range s.clients {
-		if c.sessID == sessID {
-			select {
-			case c.ch <- msg:
-			default:
-			}
+		if c.sessID != sessID {
+			continue
 		}
+		c.mu.Lock()
+		if key != "" && c.queued[key] {
+			c.mu.Unlock()
+			continue
+		}
+		select {
+		case c.ch <- msg:
+			if key != "" {
+				c.queued[key] = true
+			}
+		default:
+			// dropped — only reachable for keyless events (e.g. status-delta);
+			// snapshot-on-reconnect recovers state for those.
+		}
+		c.mu.Unlock()
 	}
 }
 
