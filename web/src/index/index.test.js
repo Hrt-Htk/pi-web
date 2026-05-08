@@ -85,16 +85,21 @@ describe('createSessionsPage', () => {
   });
 
   it('reloads the page on a new-session message', () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'location');
     const reloadSpy = vi.fn();
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: { reload: reloadSpy },
     });
-    const page = createSessionsPage();
-    page.subscribe();
-    const es = FakeEventSource.instances[0];
-    es.emit('message', 'new-session');
-    expect(reloadSpy).toHaveBeenCalled();
+    try {
+      const page = createSessionsPage();
+      page.subscribe();
+      const es = FakeEventSource.instances[0];
+      es.emit('message', 'new-session');
+      expect(reloadSpy).toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(window, 'location', original);
+    }
   });
 
   it('rebuilds running set on a fresh status-snapshot after reconnect', () => {

@@ -1,7 +1,7 @@
 import Alpine from 'alpinejs';
 import { getJSON, postJSON } from '../shared/api.js';
 
-export function createSessionsPage({ fetchImpl = globalThis.fetch?.bind(globalThis) } = {}) {
+export function createSessionsPage() {
   return {
     query: '',
     modal: false,
