@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -12,18 +13,23 @@ import (
 	"time"
 )
 
-type Session struct {
+type SessionSummary struct {
 	ID                 string
 	Filename           string
 	Project            string
 	LastActivity       string
+	Name               string
 	MessageCount       int
 	TokenTotal         int
 	CostTotal          float64
-	Header             map[string]any
-	Entries            []map[string]any
 	ChatAvailable      bool
 	ChatDisabledReason string
+}
+
+type Session struct {
+	SessionSummary
+	Header  map[string]any
+	Entries []map[string]any
 }
 
 func LoadAll(dir string) ([]Session, error) {
@@ -67,21 +73,137 @@ func SortByActivity(sessions []Session) {
 	})
 }
 
-func ParseFile(path, dirName, fileName string) (Session, error) {
-	data, err := os.ReadFile(path)
+// ParseSummary streams path line-by-line, accumulating only the fields the
+// index page needs. Lines are discarded after parsing — unlike ParseFile,
+// the full conversation is not retained in memory.
+func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return Session{}, err
+		return SessionSummary{}, err
 	}
+	defer f.Close()
 
-	sess := Session{
+	s := SessionSummary{
 		ID:            fileName,
 		Filename:      fileName,
 		Project:       cleanProjectName(dirName),
 		ChatAvailable: true,
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	for _, line := range lines {
+	var headerName, firstUserText, headerCwd string
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var raw map[string]any
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			continue
+		}
+		if raw["type"] == "session" {
+			if n, _ := raw["name"].(string); n != "" {
+				headerName = n
+			}
+			if cwd, _ := raw["cwd"].(string); cwd != "" {
+				headerCwd = cwd
+			}
+			continue
+		}
+		if ts, ok := raw["timestamp"].(string); ok {
+			s.LastActivity = ts
+		}
+		if raw["type"] == "message" {
+			msg, ok := raw["message"].(map[string]any)
+			if !ok {
+				continue
+			}
+			s.MessageCount++
+			if usage, ok := msg["usage"].(map[string]any); ok {
+				if t, ok := usage["totalTokens"].(float64); ok {
+					s.TokenTotal += int(t)
+				}
+				if cost, ok := usage["cost"].(map[string]any); ok {
+					if total, ok := cost["total"].(float64); ok {
+						s.CostTotal += total
+					}
+				}
+			}
+			if firstUserText == "" {
+				if role, _ := msg["role"].(string); role == "user" {
+					firstUserText = extractMessageText(msg["content"])
+				}
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return SessionSummary{}, err
+	}
+
+	if s.LastActivity == "" {
+		if info, err := os.Stat(path); err == nil {
+			s.LastActivity = info.ModTime().Format(time.RFC3339)
+		}
+	}
+
+	switch {
+	case headerName != "":
+		s.Name = headerName
+	case firstUserText != "":
+		s.Name = truncate(firstUserText, 80)
+	default:
+		s.Name = fileName
+	}
+
+	if headerCwd != "" {
+		if _, err := os.Stat(headerCwd); err != nil {
+			s.ChatAvailable = false
+			s.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
+		}
+	}
+
+	return s, nil
+}
+
+func extractMessageText(content any) string {
+	switch v := content.(type) {
+	case string:
+		return v
+	case []any:
+		var buf strings.Builder
+		for _, item := range v {
+			if block, ok := item.(map[string]any); ok {
+				if t, _ := block["type"].(string); t == "text" {
+					if txt, _ := block["text"].(string); txt != "" {
+						buf.WriteString(txt)
+					}
+				}
+			}
+		}
+		return buf.String()
+	}
+	return ""
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}
+
+func ParseFile(path, dirName, fileName string) (Session, error) {
+	summary, err := ParseSummary(path, dirName, fileName)
+	if err != nil {
+		return Session{}, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Session{}, err
+	}
+	sess := Session{SessionSummary: summary}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -90,50 +212,11 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			continue
 		}
-
 		sess.Entries = append(sess.Entries, raw)
-
 		if raw["type"] == "session" {
 			sess.Header = raw
-			continue
-		}
-
-		if ts, ok := raw["timestamp"].(string); ok {
-			sess.LastActivity = ts
-		}
-
-		if raw["type"] == "message" {
-			msg, ok := raw["message"].(map[string]any)
-			if ok {
-				sess.MessageCount++
-				if usage, ok := msg["usage"].(map[string]any); ok {
-					if t, ok := usage["totalTokens"].(float64); ok {
-						sess.TokenTotal += int(t)
-					}
-					if cost, ok := usage["cost"].(map[string]any); ok {
-						if total, ok := cost["total"].(float64); ok {
-							sess.CostTotal += total
-						}
-					}
-				}
-			}
 		}
 	}
-
-	if sess.LastActivity == "" {
-		info, _ := os.Stat(path)
-		if info != nil {
-			sess.LastActivity = info.ModTime().Format(time.RFC3339)
-		}
-	}
-
-	if cwd, _ := sess.Header["cwd"].(string); cwd != "" {
-		if _, err := os.Stat(cwd); err != nil {
-			sess.ChatAvailable = false
-			sess.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
-		}
-	}
-
 	return sess, nil
 }
 

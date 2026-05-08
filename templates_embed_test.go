@@ -104,13 +104,13 @@ func TestIndexJsSourceReferencesAPIRecentLocations(t *testing.T) {
 
 func TestIndexTemplateShowsViewOnlyBadgeForBrokenSessions(t *testing.T) {
 	var buf bytes.Buffer
-	data := []sessions.Session{{
+	data := []sessions.Session{{SessionSummary: sessions.SessionSummary{
 		ID:                 "broken.jsonl",
 		Project:            "/tmp/project",
 		LastActivity:       "2026-05-07T00:00:00Z",
 		ChatAvailable:      false,
 		ChatDisabledReason: "missing cwd",
-	}}
+	}}}
 	if err := indexTmpl.Execute(&buf, data); err != nil {
 		t.Fatalf("failed to render index template: %v", err)
 	}
@@ -125,12 +125,12 @@ func TestIndexTemplateShowsViewOnlyBadgeForBrokenSessions(t *testing.T) {
 
 func TestIndexTemplateOmitsViewOnlyBadgeForChatableSessions(t *testing.T) {
 	var buf bytes.Buffer
-	data := []sessions.Session{{
+	data := []sessions.Session{{SessionSummary: sessions.SessionSummary{
 		ID:            "ok.jsonl",
 		Project:       "/tmp/project",
 		LastActivity:  "2026-05-07T00:00:00Z",
 		ChatAvailable: true,
-	}}
+	}}}
 	if err := indexTmpl.Execute(&buf, data); err != nil {
 		t.Fatalf("failed to render index template: %v", err)
 	}

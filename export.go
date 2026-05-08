@@ -139,7 +139,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 }
 
 func chatComposerHtml(sessionID string) string {
-	return chatComposerHtmlForSession(sessions.Session{ID: sessionID, ChatAvailable: true})
+	return chatComposerHtmlForSession(sessions.Session{SessionSummary: sessions.SessionSummary{ID: sessionID, ChatAvailable: true}})
 }
 
 func chatComposerHtmlForSession(session sessions.Session) string {

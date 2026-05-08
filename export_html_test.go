@@ -8,7 +8,7 @@ import (
 )
 
 func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
-	session := sessions.Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, true)
 	if !strings.Contains(html, `id="pi-chat-composer"`) {
 		t.Fatalf("chat composer missing from local session page")
@@ -19,7 +19,7 @@ func TestGenerateExportHtmlIncludesChatComposerWhenButtonsShown(t *testing.T) {
 }
 
 func TestGenerateExportHtmlOmitsChatComposerForShare(t *testing.T) {
-	session := sessions.Session{ID: "s.jsonl", Filename: "s.jsonl", Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, false)
 	if strings.Contains(html, `id="pi-chat-composer"`) {
 		t.Fatalf("chat composer should not be included in share export")
@@ -28,11 +28,13 @@ func TestGenerateExportHtmlOmitsChatComposerForShare(t *testing.T) {
 
 func TestGenerateExportHtmlShowsDisabledChatNoticeForBrokenSession(t *testing.T) {
 	session := sessions.Session{
-		ID:                 "s.jsonl",
-		Filename:           "s.jsonl",
-		Entries:             []map[string]any{{"id": "aaaaaaaa"}},
-		ChatAvailable:      false,
-		ChatDisabledReason: "This session can be viewed, but chat is disabled because its working directory no longer exists.",
+		SessionSummary: sessions.SessionSummary{
+			ID:                 "s.jsonl",
+			Filename:           "s.jsonl",
+			ChatAvailable:      false,
+			ChatDisabledReason: "This session can be viewed, but chat is disabled because its working directory no longer exists.",
+		},
+		Entries: []map[string]any{{"id": "aaaaaaaa"}},
 	}
 	html := generateExportHtml(session, true)
 	if !strings.Contains(html, `data-chat-available="false"`) {
