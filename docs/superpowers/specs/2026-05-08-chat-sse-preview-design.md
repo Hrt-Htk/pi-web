@@ -38,7 +38,12 @@ Add a helper for named SSE events that JSON-marshals payloads and emits a single
 Extend worker construction so the RPC worker can notify the server about stream preview updates for a specific session. The callback boundary should keep the worker independent from HTTP details:
 
 ```go
-type StreamEventSink func(event StreamEvent)
+type StreamPreview struct {
+    Content string `json:"content"`
+    Done    bool   `json:"done"`
+}
+
+type StreamEventSink func(StreamPreview)
 ```
 
 The manager will pass the session ID/session path into worker creation so callbacks can be routed to the correct SSE topic.
@@ -49,7 +54,7 @@ The RPC worker will inspect `message_update` events with `assistantMessageEvent`
 
 - `text_delta`: append delta to current preview buffer
 - `text_end`: set/confirm final content when provided
-- `message_end`, `turn_end`, `agent_end`: mark preview done and/or clear state after final broadcast
+- `message_end`, `turn_end`, `agent_end`: mark preview done and clear the accumulator after the final preview broadcast
 
 Broadcast payload:
 
