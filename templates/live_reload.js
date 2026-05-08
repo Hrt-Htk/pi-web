@@ -624,22 +624,18 @@
       function showCopiedNotice() {
         var notice = document.getElementById('resume-copy-notice');
         if (!notice) {
-          notice = document.createElement('button');
-          notice.type = 'button';
+          notice = document.createElement('div');
           notice.id = 'resume-copy-notice';
-          notice.className = 'session-action';
-          resumeBtn.parentNode.insertBefore(notice, resumeBtn.nextSibling);
+          notice.style.cssText = 'position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;';
+          document.body.appendChild(notice);
         }
-        notice.textContent = 'Copied — tap to view';
+        notice.textContent = 'Copied';
         notice.title = cmd;
-        notice.onclick = function() {
-          notice.textContent = cmd;
-        };
-        notice.style.display = '';
         clearTimeout(hideTimer);
+        notice.style.opacity = '1';
         hideTimer = setTimeout(function() {
-          notice.style.display = 'none';
-        }, 3500);
+          notice.style.opacity = '0';
+        }, 1200);
       }
       function fallbackCopy() {
         var textarea = document.createElement('textarea');

@@ -48,14 +48,17 @@ func TestResumeButtonClipboardGuardAndFallback(t *testing.T) {
 	}
 }
 
-func TestResumeButtonShowsNotificationWithoutChangingButtonText(t *testing.T) {
+func TestResumeButtonShowsToastWithoutChangingButtonText(t *testing.T) {
 	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "2026-05-08T13-05-24.068Z_492e5bad-c6e9-4c74-9195-f7efc309a7c7.jsonl", Filename: "2026-05-08T13-05-24.068Z_492e5bad-c6e9-4c74-9195-f7efc309a7c7.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
 	html := generateExportHtml(session, true)
 	if strings.Contains(html, `resumeBtn.textContent = 'Copied!'`) {
 		t.Fatalf("resume button text should not change to Copied")
 	}
-	if !strings.Contains(html, `Copied — tap to view`) {
-		t.Fatalf("resume copy should show a nearby tap-to-view notification")
+	if strings.Contains(html, `Copied — tap to view`) || strings.Contains(html, `notice.onclick`) {
+		t.Fatalf("resume copy notification should be a passive toast, not tap-to-expand")
+	}
+	if !strings.Contains(html, `Copied`) || !strings.Contains(html, `background:var(--accent);color:var(--body-bg)`) {
+		t.Fatalf("resume copy should show an accent-colored toast notification")
 	}
 	if !strings.Contains(html, `resumeSessionArg`) {
 		t.Fatalf("resume copy should derive UUID-only session argument")
