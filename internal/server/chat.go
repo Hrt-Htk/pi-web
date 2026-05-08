@@ -80,8 +80,7 @@ func (s *Server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 	if sessionID == "" {
 		return nil
 	}
-	dir := filepath.Join(s.sessionsDir, "..", "session-status")
-	path := filepath.Join(dir, sessionID)
+	path := filepath.Join(s.sessionStatusDir(), sessionID)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
