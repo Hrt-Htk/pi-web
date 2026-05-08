@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"pi-web/internal/auth"
+	"pi-web/internal/rpc"
 	"pi-web/internal/sessions"
 )
 
@@ -171,6 +172,17 @@ func (s *Server) removeClient(target *sseClient) {
 	s.clients = filtered
 	s.clientsMu.Unlock()
 	close(target.ch)
+}
+
+func (s *Server) BroadcastChatPreview(sessionID string, preview rpc.StreamPreview) {
+	if sessionID == "" || sessionID == globalSessID {
+		return
+	}
+	msg, err := formatSSEJSONEvent("chat-preview", preview)
+	if err != nil {
+		return
+	}
+	s.broadcast(sessionID, msg)
 }
 
 func (s *Server) broadcast(sessID, msg string) {

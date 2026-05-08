@@ -56,10 +56,18 @@ func main() {
 	}
 	authMiddleware := auth.New(token)
 
-	srv := server.New(server.Deps{
+	var srv *server.Server
+	manager := workers.NewManager(func(sessionID, sessionPath string) (workers.ChatWorker, error) {
+		return rpc.NewPiWorkerWithStream(sessionPath, func(preview rpc.StreamPreview) {
+			if srv != nil {
+				srv.BroadcastChatPreview(sessionID, preview)
+			}
+		})
+	})
+	srv = server.New(server.Deps{
 		SessionsDir:   sessionsDir,
 		Auth:          authMiddleware,
-		ChatSender:    workers.NewManager(func(_ string, sessionPath string) (workers.ChatWorker, error) { return rpc.NewPiWorker(sessionPath) }),
+		ChatSender:    manager,
 		Cache:         sessions.NewCache(),
 		RenderIndex:   func(w io.Writer, ss []sessions.SessionSummary) error { return indexTmpl.Execute(w, ss) },
 		RenderSession: generateExportHtml,
