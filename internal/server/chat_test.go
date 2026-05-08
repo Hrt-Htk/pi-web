@@ -18,13 +18,17 @@ import (
 )
 
 type fakeSender struct {
-	sessionID         string
-	sessionPath       string
-	chat              chat.Request
-	state             workers.WorkerStatus
-	status            workers.WorkerStatus
-	getStateCalls     int
-	getStateErr       error
+	sessionID               string
+	sessionPath             string
+	chat                    chat.Request
+	state                   workers.WorkerStatus
+	status                  workers.WorkerStatus
+	getStateCalls           int
+	getStateErr             error
+	ensureWorkerCalled      bool
+	ensureWorkerSessionID   string
+	ensureWorkerSessionPath string
+	ensureWorkerCh          chan struct{}
 }
 
 func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
@@ -58,6 +62,16 @@ func (f *fakeSender) Status(sessionID string) workers.WorkerStatus {
 		return f.status
 	}
 	return workers.WorkerStatus{State: workers.WorkerStateIdle}
+}
+
+func (f *fakeSender) EnsureWorker(ctx context.Context, sessionID, sessionPath string) error {
+	f.ensureWorkerCalled = true
+	f.ensureWorkerSessionID = sessionID
+	f.ensureWorkerSessionPath = sessionPath
+	if f.ensureWorkerCh != nil {
+		f.ensureWorkerCh <- struct{}{}
+	}
+	return nil
 }
 
 func TestHandleChatSendsResolvedSession(t *testing.T) {
@@ -317,5 +331,128 @@ func TestHandleWorkerStatusFallsThroughForIdleStatusFile(t *testing.T) {
 	}
 	if got := w.Body.String(); got != "{\"state\":\"idle\"}\n" {
 		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestHandleWorkerStatusReturnsModelAndThinkingLevel(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	sender := &fakeSender{
+		state: workers.WorkerStatus{
+			State:         workers.WorkerStateIdle,
+			Model:         "kimi-k2.6",
+			ModelName:     "Kimi K2.6",
+			ModelProvider: "opengo-work",
+			ThinkingLevel: "medium",
+		},
+	}
+	s := &Server{sessionsDir: root, chatSender: sender}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["model"] != "kimi-k2.6" {
+		t.Fatalf("model = %q, want kimi-k2.6", got["model"])
+	}
+	if got["modelName"] != "Kimi K2.6" {
+		t.Fatalf("modelName = %q, want Kimi K2.6", got["modelName"])
+	}
+	if got["modelProvider"] != "opengo-work" {
+		t.Fatalf("modelProvider = %q, want opengo-work", got["modelProvider"])
+	}
+	if got["thinkingLevel"] != "medium" {
+		t.Fatalf("thinkingLevel = %q, want medium", got["thinkingLevel"])
+	}
+}
+
+func TestHandleWorkerStatusSpawnsWorkerWhenModelUnknown(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	sender := &fakeSender{
+		ensureWorkerCh: make(chan struct{}, 1),
+		state: workers.WorkerStatus{
+			State:         workers.WorkerStateIdle,
+			Model:         "kimi-k2.6",
+			ModelProvider: "opengo-work",
+			ThinkingLevel: "medium",
+		},
+	}
+	s := &Server{sessionsDir: root, chatSender: sender}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	select {
+	case <-sender.ensureWorkerCh:
+		if !sender.ensureWorkerCalled {
+			t.Fatal("EnsureWorker not marked as called")
+		}
+		if sender.ensureWorkerSessionID == "" {
+			t.Fatal("EnsureWorker called with empty sessionID")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("EnsureWorker was not called within 1s")
+	}
+}
+
+func TestHandleNewSessionPreinitializesWorker(t *testing.T) {
+	root := t.TempDir()
+	fake := &fakeSender{ensureWorkerCh: make(chan struct{}, 1)}
+	s := &Server{
+		sessionsDir: root,
+		chatSender:  fake,
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session", strings.NewReader(`{"path":"/tmp/test-project"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["ok"] != true {
+		t.Fatalf("ok = %v, want true", body["ok"])
+	}
+	id, _ := body["id"].(string)
+	if id == "" {
+		t.Fatal("missing id in response")
+	}
+
+	// Verify EnsureWorker was called
+	select {
+	case <-fake.ensureWorkerCh:
+		if !fake.ensureWorkerCalled {
+			t.Fatal("EnsureWorker not marked as called")
+		}
+		if fake.ensureWorkerSessionID == "" {
+			t.Fatal("EnsureWorker called with empty sessionID")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("EnsureWorker was not called within 1s")
+	}
+
+	// Verify file was created
+	projectDir := filepath.Join(root, "--tmp-test-project--")
+	entries, err := os.ReadDir(projectDir)
+	if err != nil {
+		t.Fatalf("expected project dir to exist: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected session file to be created")
 	}
 }

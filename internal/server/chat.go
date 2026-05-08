@@ -20,6 +20,7 @@ type ChatSender interface {
 	SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error
 	GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error)
 	Status(sessionID string) workers.WorkerStatus
+	EnsureWorker(ctx context.Context, sessionID, sessionPath string) error
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -109,9 +110,15 @@ func (s *Server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	if s.computeRunningStatus(sessionID) {
 		status.State = workers.WorkerStateRunning
 	} else if s.chatSender != nil {
-		// Preserve the existing behaviour: when not running, fetch GetState
-		// to populate ThinkingLevel for the session page.
+		if s.chatSender.Status(sessionID).Model == "" {
+			if resolved, err := sessions.ResolveByID(s.sessionsDir, sessionID); err == nil {
+				go s.chatSender.EnsureWorker(context.Background(), resolved.Session.ID, resolved.Path)
+			}
+		}
 		if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
+			status.Model = state.Model
+			status.ModelName = state.ModelName
+			status.ModelProvider = state.ModelProvider
 			status.ThinkingLevel = state.ThinkingLevel
 		}
 	}
