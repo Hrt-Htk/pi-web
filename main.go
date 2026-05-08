@@ -59,7 +59,7 @@ func main() {
 	srv := server.New(server.Deps{
 		SessionsDir:   sessionsDir,
 		Auth:          authMiddleware,
-		ChatSender:    workers.NewManager(rpc.NewPiWorker),
+		ChatSender:    workers.NewManager(func(_ string, sessionPath string) (workers.ChatWorker, error) { return rpc.NewPiWorker(sessionPath) }),
 		Cache:         sessions.NewCache(),
 		RenderIndex:   func(w io.Writer, ss []sessions.SessionSummary) error { return indexTmpl.Execute(w, ss) },
 		RenderSession: generateExportHtml,

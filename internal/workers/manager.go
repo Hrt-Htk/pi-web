@@ -35,7 +35,7 @@ type ChatWorker interface {
 	Close() error
 }
 
-type Factory func(sessionPath string) (ChatWorker, error)
+type Factory func(sessionID, sessionPath string) (ChatWorker, error)
 
 type Manager struct {
 	mu      sync.Mutex
@@ -198,7 +198,7 @@ func (m *Manager) workerFor(sessionID, sessionPath string) (ChatWorker, error) {
 		m.mu.Unlock()
 	}
 
-	worker, err := m.factory(sessionPath)
+	worker, err := m.factory(sessionID, sessionPath)
 	if err != nil {
 		return nil, err
 	}

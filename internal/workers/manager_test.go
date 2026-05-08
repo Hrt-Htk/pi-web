@@ -48,7 +48,7 @@ func (f *fakeChatWorker) Close() error { return nil }
 
 func TestManagerCreatesOneWorkerPerSession(t *testing.T) {
 	created := 0
-	manager := NewManager(func(sessionPath string) (ChatWorker, error) {
+	manager := NewManager(func(sessionID, sessionPath string) (ChatWorker, error) {
 		created++
 		return &fakeChatWorker{}, nil
 	})
@@ -68,7 +68,7 @@ func TestManagerCreatesOneWorkerPerSession(t *testing.T) {
 }
 
 func TestManagerReportsMissingWorkerIdle(t *testing.T) {
-	manager := NewManager(func(sessionPath string) (ChatWorker, error) { return &fakeChatWorker{}, nil })
+	manager := NewManager(func(sessionID, sessionPath string) (ChatWorker, error) { return &fakeChatWorker{}, nil })
 	status := manager.Status("missing.jsonl")
 	if status.State != WorkerStateIdle {
 		t.Fatalf("status = %q, want idle", status.State)
@@ -77,7 +77,7 @@ func TestManagerReportsMissingWorkerIdle(t *testing.T) {
 
 func TestManagerEvictsErroredWorker(t *testing.T) {
 	created := 0
-	factory := func(sessionPath string) (ChatWorker, error) {
+	factory := func(sessionID, sessionPath string) (ChatWorker, error) {
 		created++
 		return &fakeChatWorker{}, nil
 	}
@@ -123,7 +123,7 @@ func (r *reapableWorker) IdleSince(now time.Time) time.Duration                 
 
 func TestManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
 	w := &reapableWorker{idleFor: time.Hour}
-	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string, string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestManagerReapsIdleWorkersBeyondTTL(t *testing.T) {
 
 func TestManagerKeepsFreshWorker(t *testing.T) {
 	w := &reapableWorker{idleFor: time.Second}
-	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string, string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestManagerKeepsFreshWorker(t *testing.T) {
 func TestManagerDoesNotReapRunningWorker(t *testing.T) {
 	// streaming=true → Status reports running, so reap should skip even if idle for > TTL.
 	w := &runningReapable{}
-	manager := NewManagerWithTTL(func(string) (ChatWorker, error) { return w, nil }, time.Minute)
+	manager := NewManagerWithTTL(func(string, string) (ChatWorker, error) { return w, nil }, time.Minute)
 	defer manager.Close()
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "hi"}); err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func (erroredWorker) Close() error { return nil }
 
 func TestBusyWorkerUsesSteeringCommand(t *testing.T) {
 	worker := &fakeChatWorker{streaming: true}
-	manager := NewManager(func(sessionPath string) (ChatWorker, error) { return worker, nil })
+	manager := NewManager(func(sessionID, sessionPath string) (ChatWorker, error) { return worker, nil })
 	if err := manager.Send(context.Background(), "a.jsonl", "/tmp/a.jsonl", chat.Request{Message: "steer"}); err != nil {
 		t.Fatal(err)
 	}
@@ -214,9 +214,25 @@ func TestBusyWorkerUsesSteeringCommand(t *testing.T) {
 	}
 }
 
+func TestManagerFactoryReceivesSessionIDAndPath(t *testing.T) {
+	var gotID, gotPath string
+	manager := NewManager(func(sessionID, sessionPath string) (ChatWorker, error) {
+		gotID = sessionID
+		gotPath = sessionPath
+		return &fakeChatWorker{}, nil
+	})
+
+	if err := manager.EnsureWorker(context.Background(), "a.jsonl", "/tmp/a.jsonl"); err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "a.jsonl" || gotPath != "/tmp/a.jsonl" {
+		t.Fatalf("factory got id=%q path=%q, want a.jsonl /tmp/a.jsonl", gotID, gotPath)
+	}
+}
+
 func TestEnsureWorkerCreatesWorkerWithoutSendingMessage(t *testing.T) {
 	created := 0
-	manager := NewManager(func(sessionPath string) (ChatWorker, error) {
+	manager := NewManager(func(sessionID, sessionPath string) (ChatWorker, error) {
 		created++
 		return &fakeChatWorker{}, nil
 	})
