@@ -56,6 +56,7 @@ type Server struct {
 	models        func(ctx context.Context) (json.RawMessage, error)
 	lastKnown     map[string]struct{} // session ids currently broadcast as running
 	lastKnownMu   sync.Mutex
+	stopCh        chan struct{}
 }
 
 func New(deps Deps) *Server {
@@ -80,6 +81,8 @@ func New(deps Deps) *Server {
 	if err := s.startSessionStatusWatcher(); err != nil {
 		fmt.Fprintf(os.Stderr, "session-status watcher unavailable: %v\n", err)
 	}
+	s.stopCh = make(chan struct{})
+	go s.runStatusSweeper(s.stopCh, time.Second)
 	return s
 }
 
