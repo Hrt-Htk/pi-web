@@ -91,12 +91,17 @@ func main() {
 		fmt.Printf("Auth: disabled — set %s to require a token for access.\n", tokenEnvVar)
 	}
 
-	pidfilePath, err := writePidfile(bindHost, *port, usedTailscale)
+	stateFilePath, err := writeStateFile(bindHost, *port, usedTailscale)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to write pidfile: %v\n", err)
-	} else {
-		defer os.Remove(pidfilePath)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
+	defer func() {
+		if stateFile != nil {
+			_ = stateFile.Close()
+		}
+		_ = os.Remove(stateFilePath)
+	}()
 
 	if *open {
 		go func() {
@@ -149,7 +154,11 @@ func openBrowser(url string) {
 	exec.Command(cmd, args...).Start()
 }
 
-func writePidfile(host, port string, usedTailscale bool) (string, error) {
+// stateFile is held open for the lifetime of the process so the flock stays
+// in effect. Closing it releases the lock.
+var stateFile *os.File
+
+func writeStateFile(host, port string, usedTailscale bool) (string, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
 		return "", fmt.Errorf("HOME not set")
@@ -159,6 +168,14 @@ func writePidfile(host, port string, usedTailscale bool) (string, error) {
 		return "", err
 	}
 	path := filepath.Join(agentDir, "pi-web-state.json")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return "", err
+	}
+	if err := lockStateFile(f); err != nil {
+		_ = f.Close()
+		return "", err
+	}
 	data, err := json.Marshal(map[string]any{
 		"pid":       os.Getpid(),
 		"port":      port,
@@ -167,10 +184,17 @@ func writePidfile(host, port string, usedTailscale bool) (string, error) {
 		"startedAt": time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {
+		_ = f.Close()
 		return "", err
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := f.Truncate(0); err != nil {
+		_ = f.Close()
 		return "", err
 	}
+	if _, err := f.WriteAt(data, 0); err != nil {
+		_ = f.Close()
+		return "", err
+	}
+	stateFile = f
 	return path, nil
 }
