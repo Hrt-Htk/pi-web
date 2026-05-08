@@ -23,6 +23,7 @@ func TestLiveReloadJsIsEmbeddedAndWrapped(t *testing.T) {
 		"function appendEntry(",
 		"new EventSource(",
 		"share-btn",
+		"resume-btn",
 	} {
 		if !strings.Contains(liveReloadJs, marker) {
 			t.Fatalf("liveReloadJs missing expected JS marker %q", marker)

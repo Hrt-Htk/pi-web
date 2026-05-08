@@ -20,6 +20,7 @@ type ChatSender interface {
 	SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error
 	GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error)
 	Status(sessionID string) workers.WorkerStatus
+	EnsureWorker(ctx context.Context, sessionID, sessionPath string) error
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {

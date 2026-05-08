@@ -60,6 +60,10 @@ func (f *fakeSender) Status(sessionID string) workers.WorkerStatus {
 	return workers.WorkerStatus{State: workers.WorkerStateIdle}
 }
 
+func (f *fakeSender) EnsureWorker(ctx context.Context, sessionID, sessionPath string) error {
+	return nil
+}
+
 func TestHandleChatSendsResolvedSession(t *testing.T) {
 	root := t.TempDir()
 	wantPath := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")

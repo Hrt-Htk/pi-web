@@ -127,7 +127,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 		btns := `<div class="session-actions">
 <a href="/" class="session-action" title="Back to sessions">← Sessions</a>
 <button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
-<button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard">▶ Resume</button>
+<button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard">Resume in Terminal</button>
 </div>`
 		html = strings.Replace(html, "<body>", "<body>"+btns, 1)
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)

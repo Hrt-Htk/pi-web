@@ -156,6 +156,11 @@ func (m *Manager) GetState(ctx context.Context, sessionID string) (WorkerStatus,
 	return worker.GetState(ctx)
 }
 
+func (m *Manager) EnsureWorker(ctx context.Context, sessionID, sessionPath string) error {
+	_, err := m.workerFor(sessionID, sessionPath)
+	return err
+}
+
 func (m *Manager) Close() error {
 	select {
 	case <-m.reaperStop:
