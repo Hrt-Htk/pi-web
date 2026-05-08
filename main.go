@@ -61,7 +61,7 @@ func main() {
 		Auth:          authMiddleware,
 		ChatSender:    workers.NewManager(rpc.NewPiWorker),
 		Cache:         sessions.NewCache(),
-		RenderIndex:   func(w io.Writer, ss []sessions.Session) error { return indexTmpl.Execute(w, ss) },
+		RenderIndex:   func(w io.Writer, ss []sessions.SessionSummary) error { return indexTmpl.Execute(w, ss) },
 		RenderSession: generateExportHtml,
 		Models: func(ctx context.Context) (json.RawMessage, error) {
 			return defaultModelsCache.get(ctx)

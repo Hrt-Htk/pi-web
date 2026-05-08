@@ -32,7 +32,7 @@ type Deps struct {
 	Auth          *auth.Middleware
 	ChatSender    ChatSender
 	Cache         *sessions.Cache
-	RenderIndex   func(w io.Writer, sessions []sessions.Session) error
+	RenderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
 	RenderSession func(s sessions.Session, showButtons bool) string
 	Models        func(ctx context.Context) (json.RawMessage, error)
 	Now           func() time.Time
@@ -51,7 +51,7 @@ type Server struct {
 	auth          *auth.Middleware
 	shareRunner   shareCmdRunner
 	now           func() time.Time
-	renderIndex   func(w io.Writer, sessions []sessions.Session) error
+	renderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
 	renderSession func(s sessions.Session, showButtons bool) string
 	models        func(ctx context.Context) (json.RawMessage, error)
 	lastKnown     map[string]struct{} // session ids currently broadcast as running
@@ -118,7 +118,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
 }
 
-func (s *Server) loadSessions() ([]sessions.Session, error) {
+func (s *Server) loadSummaries() ([]sessions.SessionSummary, error) {
 	return s.cache.LoadAll(s.sessionsDir)
 }
 

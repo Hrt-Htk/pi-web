@@ -18,7 +18,7 @@ func newTestServer(t *testing.T) *Server {
 		SessionsDir:   dir,
 		Auth:          auth.New(""),
 		Cache:         sessions.NewCache(),
-		RenderIndex:   func(w io.Writer, _ []sessions.Session) error { return nil },
+		RenderIndex:   func(w io.Writer, _ []sessions.SessionSummary) error { return nil },
 		RenderSession: func(s sessions.Session, _ bool) string { return "" },
 		Models:        func(ctx context.Context) (json.RawMessage, error) { return nil, nil },
 	})

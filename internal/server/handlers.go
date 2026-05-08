@@ -14,13 +14,13 @@ import (
 )
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	sess, err := s.loadSessions()
+	summaries, err := s.loadSummaries()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.renderIndex(w, sess); err != nil {
+	if err := s.renderIndex(w, summaries); err != nil {
 		fmt.Fprintf(os.Stderr, "template error: %v\n", err)
 	}
 }
@@ -83,6 +83,14 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	// Pre-initialize a worker so the session page can read default model and
+	// thinking level immediately instead of waiting for the first chat message.
+	if s.chatSender != nil {
+		if resolved, err := sessions.ResolveByID(s.sessionsDir, id); err == nil {
+			go s.chatSender.EnsureWorker(context.Background(), resolved.Session.ID, resolved.Path)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

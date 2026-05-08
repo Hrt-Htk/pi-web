@@ -73,6 +73,14 @@ func SortByActivity(sessions []Session) {
 	})
 }
 
+func SortSummariesByActivity(s []SessionSummary) {
+	sort.Slice(s, func(i, j int) bool {
+		ti, _ := time.Parse(time.RFC3339, s[i].LastActivity)
+		tj, _ := time.Parse(time.RFC3339, s[j].LastActivity)
+		return ti.After(tj)
+	})
+}
+
 // ParseSummary streams path line-by-line, accumulating only the fields the
 // index page needs. Lines are discarded after parsing — unlike ParseFile,
 // the full conversation is not retained in memory.

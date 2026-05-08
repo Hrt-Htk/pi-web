@@ -11,14 +11,14 @@ import (
 type cacheEntry struct {
 	modTime time.Time
 	dirName string
-	session Session
+	summary SessionSummary
 }
 
 type Cache struct {
 	mu      sync.Mutex
 	entries map[string]cacheEntry // keyed by full file path
 
-	parses int // diagnostic: number of ParseFile calls
+	parses int // diagnostic: number of ParseSummary calls
 	hits   int // diagnostic: number of cache hits
 }
 
@@ -26,10 +26,11 @@ func NewCache() *Cache {
 	return &Cache{entries: make(map[string]cacheEntry)}
 }
 
-// LoadAll returns all sessions under dir. Files whose modtime hasn't changed
-// since the previous call are returned from the cache; files that are new or
-// modified are re-parsed; files that have disappeared are evicted.
-func (c *Cache) LoadAll(dir string) ([]Session, error) {
+// LoadAll returns summaries for every session under dir. Files whose modtime
+// hasn't changed since the previous call are returned from the cache; files
+// that are new or modified are re-parsed; files that have disappeared are
+// evicted.
+func (c *Cache) LoadAll(dir string) ([]SessionSummary, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -39,7 +40,7 @@ func (c *Cache) LoadAll(dir string) ([]Session, error) {
 	defer c.mu.Unlock()
 
 	seen := make(map[string]struct{})
-	var sessions []Session
+	var summaries []SessionSummary
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -61,16 +62,16 @@ func (c *Cache) LoadAll(dir string) ([]Session, error) {
 			}
 			if cached, ok := c.entries[path]; ok && cached.modTime.Equal(info.ModTime()) && cached.dirName == e.Name() {
 				c.hits++
-				sessions = append(sessions, cached.session)
+				summaries = append(summaries, cached.summary)
 				continue
 			}
-			sess, err := ParseFile(path, e.Name(), f.Name())
+			summary, err := ParseSummary(path, e.Name(), f.Name())
 			if err != nil {
 				continue
 			}
 			c.parses++
-			c.entries[path] = cacheEntry{modTime: info.ModTime(), dirName: e.Name(), session: sess}
-			sessions = append(sessions, sess)
+			c.entries[path] = cacheEntry{modTime: info.ModTime(), dirName: e.Name(), summary: summary}
+			summaries = append(summaries, summary)
 		}
 	}
 
@@ -81,8 +82,8 @@ func (c *Cache) LoadAll(dir string) ([]Session, error) {
 		}
 	}
 
-	SortByActivity(sessions)
-	return sessions, nil
+	SortSummariesByActivity(summaries)
+	return summaries, nil
 }
 
 func (c *Cache) stats() (parses, hits, size int) {

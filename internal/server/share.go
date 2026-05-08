@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"pi-web/internal/sessions"
 	"pi-web/internal/share"
 )
 
@@ -25,8 +26,14 @@ func (s *Server) handleShare(w http.ResponseWriter, r *http.Request) {
 		runner = shareRunnerAdapter{runner: s.shareRunner}
 	}
 	share.Handle(w, r, share.Dependencies{
-		Runner:   runner,
-		Sessions: s.loadSessions,
-		Render:   s.renderSession,
+		Runner: runner,
+		Resolve: func(id string) (sessions.Session, error) {
+			resolved, err := sessions.ResolveByID(s.sessionsDir, id)
+			if err != nil {
+				return sessions.Session{}, err
+			}
+			return resolved.Session, nil
+		},
+		Render: s.renderSession,
 	})
 }

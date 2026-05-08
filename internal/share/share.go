@@ -53,10 +53,10 @@ func FindGh() string {
 }
 
 type Dependencies struct {
-	Runner   Runner
-	Sessions func() ([]sessions.Session, error)
-	Render   func(sessions.Session, bool) string
-	FindGh   func() string
+	Runner  Runner
+	Resolve func(id string) (sessions.Session, error)
+	Render  func(sessions.Session, bool) string
+	FindGh  func() string
 }
 
 func Handle(w http.ResponseWriter, r *http.Request, deps Dependencies) {
@@ -90,19 +90,12 @@ func Handle(w http.ResponseWriter, r *http.Request, deps Dependencies) {
 		return
 	}
 
-	loaded, err := deps.Sessions()
+	resolved, err := deps.Resolve(id)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeJSONError(w, http.StatusNotFound, "session not found")
 		return
 	}
-
-	var html string
-	for _, sess := range loaded {
-		if sess.ID == id {
-			html = deps.Render(sess, false)
-			break
-		}
-	}
+	html := deps.Render(resolved, false)
 	if html == "" {
 		writeJSONError(w, http.StatusNotFound, "session not found")
 		return
