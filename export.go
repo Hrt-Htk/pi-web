@@ -116,7 +116,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 	css = strings.Replace(css, "{{INFO_BG}}", infoBg, 1)
 
 	html := templateHtml
-	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(sessionName(session))+"</title>", 1)
+	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
 	html = strings.Replace(html, "{{CSS}}", css, 1)
 	html = strings.Replace(html, "{{JS}}", templateJs, 1)
 	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
@@ -127,6 +127,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 		btns := `<div class="session-actions">
 <a href="/" class="session-action" title="Back to sessions">← Sessions</a>
 <button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
+<button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard">▶ Resume</button>
 </div>`
 		html = strings.Replace(html, "<body>", "<body>"+btns, 1)
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
