@@ -26,6 +26,25 @@ func TestGenerateExportHtmlOmitsChatComposerForShare(t *testing.T) {
 	}
 }
 
+func TestGenerateExportHtmlIncludesResumeButtonWhenButtonsShown(t *testing.T) {
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	html := generateExportHtml(session, true)
+	if !strings.Contains(html, `id="resume-btn"`) {
+		t.Fatalf("resume button missing from local session page")
+	}
+	if !strings.Contains(html, `Resume in Terminal`) {
+		t.Fatalf("resume button text missing from local session page")
+	}
+}
+
+func TestGenerateExportHtmlOmitsResumeButtonForShare(t *testing.T) {
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
+	html := generateExportHtml(session, false)
+	if strings.Contains(html, `id="resume-btn"`) {
+		t.Fatalf("resume button should not be included in share export")
+	}
+}
+
 func TestGenerateExportHtmlShowsDisabledChatNoticeForBrokenSession(t *testing.T) {
 	session := sessions.Session{
 		SessionSummary: sessions.SessionSummary{

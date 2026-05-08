@@ -611,4 +611,33 @@
         });
     });
   }
+
+  // Resume in Terminal button
+  var resumeBtn = document.getElementById('resume-btn');
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', function() {
+      var cmd = 'pi --session ' + sessId;
+      navigator.clipboard.writeText(cmd).then(function() {
+        resumeBtn.textContent = 'Copied!';
+        setTimeout(function() {
+          if (resumeBtn) resumeBtn.textContent = 'Resume in Terminal';
+        }, 1500);
+      }).catch(function() {
+        var textarea = document.createElement('textarea');
+        textarea.value = cmd;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) {
+          resumeBtn.textContent = 'Copied!';
+          setTimeout(function() {
+            if (resumeBtn) resumeBtn.textContent = 'Resume in Terminal';
+          }, 1500);
+        }
+      });
+    });
+  }
 })();
