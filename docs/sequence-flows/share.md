@@ -21,7 +21,7 @@ This flow covers a user clicking the **Share** button on a session page, which c
      │             │              │─── gh auth status│               │              │
      │             │              │   (verify logged in)              │               │
      │             │              │                  │               │              │
-     │             │              │─── loadSessions()│               │              │
+     │             │              │─── deps.Resolve(id)│               │              │
      │             │              │   (find matching session)         │               │
      │             │              │                  │               │              │
      │             │              │─── generateExportHtml(session, false)
@@ -88,7 +88,7 @@ If not logged in → `400` error: `"GitHub CLI not logged in. Run 'gh auth login
 
 ### 4. Find and Render Session
 
-The handler loads all sessions and finds the matching one by ID. It then calls:
+The handler resolves the session by ID and then calls:
 
 ```go
 generateExportHtml(session, false)

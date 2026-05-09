@@ -113,6 +113,9 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 
     // 2. Build CSS with theme variables injected
     css := strings.Replace(templateCss, "{{THEME_VARS}}", precomputedThemeVars, 1)
+    css = strings.Replace(css, "{{BODY_BG}}", bodyBg, 1)
+    css = strings.Replace(css, "{{CONTAINER_BG}}", cardBg, 1)
+    css = strings.Replace(css, "{{INFO_BG}}", infoBg, 1)
 
     // 3. Assemble HTML
     html := templateHtml
@@ -124,6 +127,7 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
     html = strings.Replace(html, "{{HIGHLIGHT_JS}}", hljsJs, 1)
 
     if showButtons {
+        // actionButtons = back link + share button + terminal button
         html = strings.Replace(html, "<body>", "<body>"+actionButtons, 1)
         html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtml, 1)
         html = strings.Replace(html, "</body>", liveReloadJs+"</body>", 1)
@@ -150,4 +154,6 @@ When the session file changes, the file watcher calls `broadcast(sessID, "reload
 
 ## Caching Behavior
 
-If the same session is viewed multiple times in quick succession, `sessions.Cache` may return a cached `Session` without re-parsing, provided the file's `modTime` hasn't changed.
+Single-session views (`/session`, `/api/session`) always parse the full file on demand via `sessions.ResolveByID` → `ParseFile`. There is no caching at this layer.
+
+`sessions.Cache` (via `LoadAll`) is used **only** by the index page (`/`) to avoid re-parsing summaries for the session list. It returns `SessionSummary` structs (lightweight, no full entry list) keyed by file modtime.

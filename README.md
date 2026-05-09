@@ -44,7 +44,7 @@ cp pi-web ~/.pi/agent/bin/
 sudo cp pi-web /usr/local/bin/
 ```
 
-The frontend bundle is embedded via `//go:embed web/dist`, so `go build` needs
+The frontend bundle is embedded via `//go:embed all:web/dist`, so `go build` needs
 `web/dist` to exist first. `make build` does both steps in order; if you build
 by hand, run `npm --prefix web install && npm --prefix web run build` before
 `go build`.

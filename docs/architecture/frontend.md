@@ -10,8 +10,10 @@ Built with **Vite** + **Alpine.js**, embedded into the Go binary.
 
 ```
 web/src/index/index.js    ──┐
+web/src/session/session.js  │
 web/src/shared/api.js       ├──▶  vite build  ──▶  web/dist/  ──▶  //go:embed
 web/src/shared/storage.js   │                      │              (dist_embed.go)
+web/src/shared/escape.js    │                      │
 web/src/live/live.js        │                      │
                             │                      ▼
                         .vite/manifest.json    assets/index-*.js
@@ -25,7 +27,7 @@ The index page (`templates/index.html`) is rendered by `indexTmpl` with these he
 
 - `fmtTime` — format RFC3339 to human-readable
 - `fmtTokens` — abbreviate large numbers (1.2k, 3.4M)
-- `fmtCost` — format cost as `$0.0012` or `—`
+- `fmtCost` — format cost as `$0.0001` or `—`
 - `sessionName` — derive display name from header or first user message
 - `indexScript` — inject the correct Vite bundle path
 
@@ -117,8 +119,15 @@ HTML escape utility for safely rendering user content.
 
 Colors are defined in `computeThemeVars()` in `export.go` as CSS custom properties. The session page injects them into `:root`.
 
-Key color tokens:
+Key color tokens (full list in `computeThemeVars()` in `export.go`):
 - `--cyan`, `--blue`, `--green`, `--red`, `--yellow` — semantic colors
 - `--userMessageBg` — user chat bubble
 - `--toolSuccessBg` / `--toolErrorBg` — tool result states
 - `--thinkingLow` → `--thinkingXhigh` — thinking level indicator gradient
+- `--bodyBg`, `--containerBg`, `--infoBg` — replaced at render time
+- `--accent`, `--selectedBg`, `--customMessageBg`, `--customMessageLabel`
+- `--mdHeading`, `--mdLink`, `--mdCode`, `--mdCodeBlock`, `--mdQuote`
+- `--toolDiffAdded`, `--toolDiffRemoved`, `--toolDiffContext`
+- `--syntaxComment`, `--syntaxKeyword`, `--syntaxFunction`, `--syntaxVariable`, `--syntaxString`
+- `--bashMode`, `--success`, `--error`, `--warning`, `--muted`, `--dim`, `--text`
+- `--border`, `--borderAccent`, `--borderMuted`, `--toolOutput`

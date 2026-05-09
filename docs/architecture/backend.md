@@ -21,6 +21,7 @@ pi-web/
 │   ├── rpc/
 │   │   ├── client.go           # JSONL RPC command builders
 │   │   ├── worker.go           # pi --mode rpc subprocess worker
+│   │   ├── stream.go           # SSE chat-preview stream accumulator
 │   │   └── oneshot.go          # One-shot RPC for model enumeration
 │   ├── server/
 │   │   ├── server.go           # Server type, deps, SSE client registry
@@ -52,15 +53,22 @@ Central state holder. Created once at startup, lives for the process lifetime.
 type Server struct {
     sessionsDir   string          // ~/.pi/agent/sessions
     clients       []*sseClient    // active SSE connections
+    clientsMu     sync.RWMutex
     fileMod       map[string]time.Time  // last seen modtime per session
+    fileModMu     sync.RWMutex
     chatSender    ChatSender      // workers.Manager
     cache         *sessions.Cache // modtime-aware parse cache
     auth          *auth.Middleware
-    renderIndex   func(w io.Writer, sessions []sessions.Session) error
+    shareRunner   shareCmdRunner  // overridable in tests
+    now           func() time.Time
+    renderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
     renderSession func(s sessions.Session, showButtons bool) string
     models        func(ctx context.Context) (json.RawMessage, error)
     lastKnown     map[string]struct{} // sessions currently broadcast as running
+    lastKnownMu   sync.Mutex
     stopCh        chan struct{}
+    stopOnce      sync.Once
+    wg            sync.WaitGroup
 }
 ```
 
@@ -90,9 +98,12 @@ Manages `pi --mode rpc` subprocesses per session.
 
 ```go
 type Manager struct {
-    workers map[string]ChatWorker  // sessionID → worker
-    factory Factory                // sessionPath → ChatWorker
-    idleTTL time.Duration          // default 30m
+    mu         sync.Mutex
+    workers    map[string]ChatWorker  // sessionID → worker
+    factory    Factory                // (sessionID, sessionPath) → ChatWorker
+    idleTTL    time.Duration          // default 30m
+    reaperStop chan struct{}
+    reaperDone chan struct{}
 }
 ```
 
@@ -102,14 +113,22 @@ A single `pi --mode rpc` subprocess. Communicates via JSONL on stdin/stdout.
 
 ```go
 type piRPCWorker struct {
-    sessionPath    string
-    cmd            *exec.Cmd
-    stdin          io.WriteCloser
-    status         workers.WorkerStatus
-    pending        map[string]chan response  // in-flight RPC calls
-    currentModel   string
-    currentProvider string
+    mu                   sync.Mutex
+    writeMu              sync.Mutex
+    sessionPath          string
+    cmd                  *exec.Cmd
+    stdin                io.WriteCloser
+    status               workers.WorkerStatus
+    seq                  atomic.Uint64
+    pending              map[string]chan response  // in-flight RPC calls
+    currentModel         string
+    currentProvider      string
     currentThinkingLevel string
+    stderrBuf            *strings.Builder
+    lastActive           atomic.Int64 // unix nanos; user-initiated actions
+    lastStreamActivity   atomic.Int64 // unix nanos; stream events keep worker visually running
+    streamSink           StreamEventSink
+    streamPreview        *streamPreviewAccumulator
 }
 ```
 
@@ -121,6 +140,7 @@ type piRPCWorker struct {
 | `/session` | GET | `handleSession` | Render single session as embedded HTML |
 | `/api/session` | GET | `handleApiSession` | JSON session data |
 | `/api/chat` | POST | `handleChat` | Send chat message (multipart) |
+| `/api/chat/cancel` | POST | `handleCancelChat` | Abort running chat worker |
 | `/api/set-model` | POST | `handleSetModel` | Change model for session |
 | `/api/set-thinking-level` | POST | `handleSetThinkingLevel` | Change thinking level |
 | `/api/models` | GET | `handleAvailableModels` | List available AI models |
@@ -146,7 +166,7 @@ Request ──▶ auth.Wrap(handler)
         │               │
         ▼               ▼
    extract token    pass through
-   (query → cookie → header → X-Pi-Token)
+   (query → Authorization: Bearer → X-Pi-Token → cookie)
         │
         ▼
    constant-time compare
@@ -166,7 +186,7 @@ The server maintains a slice of `sseClient` structs. Each client subscribes to a
 - `__all__` — index page subscribes here; receives `new-session`, `status-snapshot`, `status-delta`
 - Specific session ID — session page subscribes here; receives `reload` when the file changes
 
-Broadcasting is fire-and-forget with a small buffered channel (4). If the client is slow, events are dropped rather than blocking.
+Broadcasting is fire-and-forget with a buffered channel (16). If the client is slow, keyless events are dropped rather than blocking. Duplicate `reload` and `new-session` events are coalesced per-client while pending.
 
 ## Running-Status Computation
 

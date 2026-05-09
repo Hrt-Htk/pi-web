@@ -76,8 +76,8 @@ LoadAll(dir)
     │
     ├──▶ For each .jsonl file:
     │         ├──▶ Check modtime against cache
-    │         ├──▶ MATCH → return cached Session
-    │         └──▶ MISMATCH → ParseFile + store in cache
+    │         ├──▶ MATCH → return cached SessionSummary
+    │         └──▶ MISMATCH → ParseSummary + store in cache
     │
     ├──▶ Evict files no longer on disk
     │
@@ -123,7 +123,7 @@ Browser POST /api/chat?id=<id>
            ├──▶ workers.Manager.Send(ctx, sessionID, sessionPath, chatReq)
            │         │
            │         ├──▶ Get or create ChatWorker for session
-           │         │         └──▶ rpc.NewPiWorker(sessionPath)
+           │         │         └──▶ rpc.NewPiWorkerWithStream(sessionPath, streamSink)
            │         │               ├──▶ exec.Command("pi", "--mode", "rpc")
            │         │               ├──▶ Start subprocess
            │         │               ├──▶ switch_session RPC
@@ -173,7 +173,7 @@ Browser POST /share?id=<id>
            │
            ├──▶ gh auth status → verify login
            │
-           ├──▶ loadSessions → find matching session
+           ├──▶ deps.Resolve(id) → find matching session
            │
            ├──▶ generateExportHtml(session, false)  (no buttons)
            │
@@ -182,4 +182,26 @@ Browser POST /share?id=<id>
            ├──▶ gh gist create --public=false <tmpfile>
            │
            └──▶ Return {gistUrl, gistId, previewUrl}
+```
+
+## Data Flow: Create New Session
+
+```
+Browser POST /api/new-session
+           │
+           ▼
+    server.handleNewSession
+           │
+           ├──▶ Decode JSON body → extract path
+           │
+           ├──▶ Validate path (absolute, exists or create)
+           │
+           ├──▶ Encode project name → create directory under sessionsDir
+           │
+           ├──▶ Generate UUID + timestamp → write header JSONL
+           │
+           ├──▶ Pre-initialize chat worker (EnsureWorker)
+           │         └──▶ So the session page can read default model/thinking level immediately
+           │
+           └──▶ Return {"ok": true, "id": <filename>}
 ```

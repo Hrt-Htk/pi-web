@@ -111,7 +111,7 @@ Polling scans all `.jsonl` files and compares modtimes against `fileMod` map.
        │ writes status    │                    │                │             │
        │─────────────────▶│                    │                │             │
        │                  │                    │                │             │
-       │                  │ Create/Write event │                │             │
+       │                  │ Create/Write/Rename event │                │             │
        │                  │───────────────────▶│                │             │
        │                  │                    │                │             │
        │                  │                    │─── recomputeAndBroadcastStatus

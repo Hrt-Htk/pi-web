@@ -44,7 +44,7 @@ This document traces the execution from `go run .` to the first HTTP request.
    │           │             │              │              │            │
    │           │─── mux.HandleFunc(/static/assets/…) ───────────────────▶│
    │           │             │              │              │            │
-   │           │─── writePidfile() ────────▶│              │            │
+   │           │─── writeStateFile() ────────▶│              │            │
    │           │             │              │              │            │
    │           │─── warmModelsCache() ─────▶│              │            │
    │           │             │              │              │            │
@@ -61,7 +61,7 @@ This document traces the execution from `go run .` to the first HTTP request.
 ### 1. CLI Flag Parsing
 
 ```go
-port := flag.String("p", "31483", "port to listen on")
+port := flag.String("p", "31415", "port to listen on")
 hostOverride := flag.String("host", "", "host/IP to bind")
 open := flag.Bool("o", false, "auto-open browser")
 insecure := flag.Bool("insecure", false, "allow non-loopback bind without PI_WEB_TOKEN")
@@ -103,9 +103,15 @@ Non-loopback binds **require** `PI_WEB_TOKEN` to prevent unauthorized access ove
 srv := server.New(server.Deps{
     SessionsDir:   sessionsDir,
     Auth:          authMiddleware,
-    ChatSender:    workers.NewManager(rpc.NewPiWorker),
+    ChatSender:    workers.NewManager(func(sessionID, sessionPath string) (workers.ChatWorker, error) {
+        return rpc.NewPiWorkerWithStream(sessionPath, func(preview rpc.StreamPreview) {
+            if srv != nil {
+                srv.BroadcastChatPreview(sessionID, preview)
+            }
+        })
+    }),
     Cache:         sessions.NewCache(),
-    RenderIndex:   func(w io.Writer, ss []sessions.Session) error { … },
+    RenderIndex:   func(w io.Writer, ss []sessions.SessionSummary) error { … },
     RenderSession: generateExportHtml,
     Models:        func(ctx context.Context) (json.RawMessage, error) { … },
 })
@@ -142,7 +148,7 @@ Reads Vite manifest to discover the hashed filename of the index bundle.
 ### 8. Pidfile
 
 ```go
-writePidfile(bindHost, port, usedTailscale)
+writeStateFile(bindHost, port, usedTailscale)
 // → ~/.pi/agent/pi-web-state.json
 ```
 
@@ -159,7 +165,13 @@ Spawns `pi --mode rpc` once to fetch the model list, so the first session page l
 ### 10. Listen
 
 ```go
-http.ListenAndServe(addr, mux)
+httpServer := &http.Server{
+    Addr:              addr,
+    Handler:           mux,
+    ReadHeaderTimeout: 10 * time.Second,
+    IdleTimeout:       120 * time.Second,
+}
+httpServer.ListenAndServe()
 ```
 
-Blocks forever (or until error).
+Blocks until interrupted. On `SIGINT`/`SIGTERM` the server performs a graceful shutdown (5s timeout) and calls `srv.Shutdown()` to stop background goroutines.

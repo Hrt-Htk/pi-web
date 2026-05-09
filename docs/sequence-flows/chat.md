@@ -44,7 +44,7 @@ This flow covers a user typing a message (with optional image attachment) in the
      │             │              │                  │                  │       │       │
      │             │              │                  │                  │   no  │       │
      │             │              │                  │                  │   ▼   │       │
-     │             │              │                  │                  │─── factory(path)──▶│
+     │             │              │                  │                  │─── factory(id, path)──▶│
      │             │              │                  │                  │       │       │
      │             │              │                  │                  │       │─── exec.Command("pi", "--mode", "rpc")
      │             │              │                  │                  │       │─── Start()
@@ -87,7 +87,7 @@ This flow covers a user typing a message (with optional image attachment) in the
      │             │              │                  │                  ├─── Status()
      │             │              │                  │                  │   (may return running)
      │             │              │                  │                  │               │
-     │◀──────────── {state: "running", model: "…"} ─│                  │               │
+     │◀──────────── {state: "running", model: "…", thinkingLevel: "…"} ─│                  │               │
      │             │              │                  │                  │               │
      │             │              │                  │                  │               │
      │  [Later]    │              │                  │                  │               │
@@ -145,8 +145,8 @@ Lock mutex
     If exists and error → close and delete
 Unlock mutex
 
-Create new worker: factory(sessionPath)
-  → rpc.NewPiWorker(sessionPath)
+Create new worker: factory(sessionID, sessionPath)
+  → rpc.NewPiWorkerWithStream(sessionPath, streamSink)
 
 Lock mutex
   Double-check no race winner created one
@@ -204,3 +204,11 @@ These update `lastStreamActivity` so `Status()` continues to report `running` un
 ### 8. Worker Lifecycle
 
 After 30 minutes of idle time (no user-initiated actions), the reaper goroutine closes idle workers to free resources.
+
+### 9. Cancelling a Chat
+
+`POST /api/chat/cancel?id=<id>` aborts the running worker, removes the terminal's session-status file, broadcasts a `reload` event, and returns `{"ok": true, "status": "cancelled"}`.
+
+### 10. Model Switch Side Effect
+
+`handleSetModel` updates the worker model via RPC. On success, the worker automatically refreshes its thinking level (`refreshThinkingLevel`) so the UI stays consistent.

@@ -44,6 +44,7 @@ pi-web is a local HTTP server that lets you browse and interact with your pi cod
 │   GET  /session       →  handleSession    (embedded HTML)                │
 │   GET  /api/session   →  handleApiSession  (JSON)                        │
 │   POST /api/chat      →  handleChat        (multipart or JSON)           │
+│   POST /api/chat/cancel → handleCancelChat                               │
 │   POST /api/set-model →  handleSetModel                                  │
 │   POST /api/set-thinking-level → handleSetThinkingLevel                  │
 │   GET  /api/models    →  handleAvailableModels                           │
@@ -118,7 +119,7 @@ pi-web is a local HTTP server that lets you browse and interact with your pi cod
 6. Create `Server` → starts file watcher + status watcher + sweeper
 7. Register routes on `http.ServeMux`
 8. Load Vite manifest and register static assets
-9. Write pidfile to `~/.pi/agent/pi-web-state.json`
+9. Write state file to `~/.pi/agent/pi-web-state.json` (with flock)
 10. Optionally open browser
 11. Warm models cache (async)
-12. `http.ListenAndServe`
+12. Start `http.Server` with timeouts; graceful shutdown on `SIGINT`/`SIGTERM`
