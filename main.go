@@ -23,7 +23,7 @@ import (
 	"pi-web/internal/workers"
 )
 
-const defaultPort = "31483"
+const defaultPort = "31415"
 const tokenEnvVar = "PI_WEB_TOKEN"
 
 // indexScriptPath is the URL path at which the index page's Vite module is
