@@ -31,6 +31,8 @@ const tokenEnvVar = "PI_WEB_TOKEN"
 // hashed asset is found in the Vite manifest. The index template reads it via
 // funcMap so the rendered <script src> tracks the build hash.
 var indexScriptPath = "/static/assets/index.js"
+var sessionScriptPath = "/static/assets/session.js"
+var liveScriptPath = "/static/assets/live.js"
 
 func main() {
 	port := flag.String("p", defaultPort, "port to listen on")
@@ -79,11 +81,20 @@ func main() {
 	mux := http.NewServeMux()
 	srv.Register(mux)
 	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
-	if scriptPath, js, err := loadIndexScript(distFS()); err == nil {
-		indexScriptPath = scriptPath
-		mux.HandleFunc(scriptPath, serveIndexJS(js, scriptPath != "/static/assets/index.js"))
+	if scripts, err := loadFrontendScripts(distFS(), indexEntry, "src/session/session.js", "src/live/live.js"); err == nil {
+		for _, script := range scripts {
+			switch script.Entry {
+			case indexEntry:
+				indexScriptPath = script.Path
+			case "src/session/session.js":
+				sessionScriptPath = script.Path
+			case "src/live/live.js":
+				liveScriptPath = script.Path
+			}
+			mux.HandleFunc(script.Path, serveIndexJS(script.JS, script.Path != "/static/assets/index.js"))
+		}
 	} else {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to load Vite index script: %v (index page JS will be unavailable)\n", err)
+		fmt.Fprintf(os.Stderr, "WARNING: failed to load Vite frontend scripts: %v (frontend JS will be unavailable)\n", err)
 	}
 
 	addr := net.JoinHostPort(bindHost, *port)

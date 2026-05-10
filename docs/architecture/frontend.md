@@ -1,133 +1,97 @@
 # Frontend Architecture
 
-pi-web uses **two different frontend strategies** for its two main pages.
+pi-web uses a Vite-built frontend embedded into the Go binary, plus a self-contained static export path.
 
-## 1. Index Page (`/`)
+## Vite App Frontends
 
-Built with **Vite** + **Alpine.js**, embedded into the Go binary.
+Built with **Vite** + **Alpine.js / vanilla modules**, embedded into the Go binary.
 
 ### Build Pipeline
 
 ```
-web/src/index/index.js    ──┐
-web/src/session/session.js  │
-web/src/shared/api.js       ├──▶  vite build  ──▶  web/dist/  ──▶  //go:embed
-web/src/shared/storage.js   │                      │              (dist_embed.go)
-web/src/shared/escape.js    │                      │
-web/src/live/live.js        │                      │
-                            │                      ▼
-                        .vite/manifest.json    assets/index-*.js
+web/src/index/index.js      ──┐
+web/src/session/session.js    │
+web/src/live/live.js          ├──▶  vite build  ──▶  web/dist/  ──▶  //go:embed
+web/src/shared/*.js           │                      │              (dist_embed.go)
+web/src/session/**/*.js       │                      ▼
+                              │                  .vite/manifest.json
 ```
 
-At startup, `dist_embed.go` reads `.vite/manifest.json` to find the hashed JS filename and registers it as a route.
+At startup, `dist_embed.go` reads `.vite/manifest.json`, validates configured entrypoints, and registers their hashed asset routes under `/static/...`.
 
-### Runtime
+## Index Page (`/`)
 
-The index page (`templates/index.html`) is rendered by `indexTmpl` with these helpers:
+`templates/index.html` renders the shell and injects the Vite `index` module path with `indexScript`.
 
-- `fmtTime` — format RFC3339 to human-readable
-- `fmtTokens` — abbreviate large numbers (1.2k, 3.4M)
-- `fmtCost` — format cost as `$0.0001` or `—`
-- `sessionName` — derive display name from header or first user message
-- `indexScript` — inject the correct Vite bundle path
+The Alpine app is in `web/src/index/`:
 
-### Alpine.js App (`createSessionsPage`)
+- search/filter session cards
+- new-session modal
+- recent locations
+- running-session live status via shared SSE helpers
 
-Located in `web/src/index/index.js`:
+## Session Page (`/session?id=…`)
 
-- **Search**: Filters session cards by `data-search` attribute; hides empty project groups
-- **New Session Modal**: Prompts for path, calls `POST /api/new-session`, redirects to new session
-- **Live Status**: Subscribes to `/events?id=__all__` and toggles `.session-card--running` class based on `status-snapshot` and `status-delta` events
-- **Auto-reload**: Full page reload on `new-session` SSE event
+Interactive session viewing is now owned by the Vite `session` entrypoint at `web/src/session/session.js`.
 
-## 2. Session Page (`/session?id=…`)
-
-Server-rendered **embedded HTML** with no build step. Uses string replacement to inject CSS, JS, and data into `templates/template.html`.
-
-### Rendering Pipeline
+The Go template still renders the HTML shell, CSS, chat form shell, and serialized initial data:
 
 ```
-sessions.Session
-       │
-       ▼
 generateExportHtml(session, showButtons=true)
        │
-       ├──▶ template.html  (base HTML shell)
-       ├──▶ template.css   (dark theme, with {{THEME_VARS}} replaced)
-       ├──▶ templateJs     (concatenated templates/app/*.js)
-       ├──▶ base64(sessionData)  (injected as global data)
-       ├──▶ marked.min.js  (Markdown → HTML)
-       ├──▶ highlight.min.js (syntax highlighting)
-       ├──▶ chat_composer.html (chat input UI)
-       └──▶ live_reload.js (SSE client for this session)
+       ├──▶ templates/template.html
+       ├──▶ templates/template.css
+       ├──▶ base64(sessionData) in #session-data
+       ├──▶ chat_composer.html
+       └──▶ <script type="module" src="/static/assets/session-*.js">
 ```
 
-### Embedded JS Templates (`templates/app/*.js`)
+Session frontend modules are split by ownership:
 
-These are concatenated in lexical order (numeric prefix controls load order):
+- `web/src/session/data/` — initial payload decoding, URL params, lookup maps
+- `web/src/session/tree/` — tree building, filtering, flattening, tree DOM rendering
+- `web/src/session/render/` — formatting helpers
+- `web/src/session/navigation/` — session path rendering, header/message navigation, copy-link wiring
+- `web/src/session/legacy/` — remaining compatibility sources for render-entry/header/ui/chat while they are incrementally modularized
 
-| File | Purpose |
-|------|---------|
-| `00-data.js` | Parse base64 session data, expose global `sessionData` |
-| `10-tree.js` | Build entry tree from flat entries (branches, compactions) |
-| `20-filter.js` | Filter entries by type, search, branch |
-| `30-format.js` | Format timestamps, tokens, costs, diff highlights |
-| `40-render-tree.js` | Render the sidebar tree navigation |
-| `50-render-entry.js` | Render individual entries (messages, tool calls, bash, etc.) |
-| `60-header.js` | Render session header (model, tokens, cost, timestamp) |
-| `70-navigation.js` | Keyboard shortcuts, scroll-to-entry, permalink handling |
-| `80-ui.js` | UI state: dark/light mode, sidebar toggle, mobile layout |
-| `90-chat.js` | Chat composer, model selector, thinking-level selector, send/receive |
+`templates/app/*.js` is no longer the source of interactive session runtime behavior. It is kept for static/share exports.
 
-### Live Reload for Session Page
+## Static / Share Export
 
-The session page opens its own SSE connection to `/events?id=<sessionId>`:
+When `generateExportHtml(session, showButtons=false)` creates self-contained exported HTML, it still inlines:
 
-- On `reload` event → fetch `/api/session?id=…`, append/upsert canonical entries, clear any temporary chat preview
-- On `chat-preview` event → render/update a temporary assistant preview block until canonical JSONL reload arrives
-- Debounced in the server watcher to avoid multiple reloads per save
+- `templates/app/*.js`
+- `templates/vendor/marked.min.js`
+- `templates/vendor/highlight.min.js`
+
+This keeps exported/shared HTML independent from the Go server and Vite assets.
+
+## Live Reload
+
+Interactive session live reload is bundled by the Vite `session` entrypoint. The legacy live source is currently imported into that bundle while it is being modularized.
+
+The session page listens to `/events?id=<sessionId>` for:
+
+- `reload` / canonical session updates
+- `chat-preview` streaming preview updates
+- running worker/status-related UI updates
 
 ## Shared Frontend Modules
 
-### `web/src/shared/api.js`
-
-```js
-getJSON(url)   → fetch + parse + throw on error
-postJSON(url, body) → POST with JSON body
-```
-
-Used by index page for: `/api/recent-locations`, `/api/new-session`
-
-### `web/src/shared/storage.js`
-
-LocalStorage helpers for persisting UI preferences (theme, sidebar state, etc.)
-
-### `web/src/shared/escape.js`
-
-HTML escape utility for safely rendering user content.
+- `web/src/shared/api.js` — JSON fetch helpers
+- `web/src/shared/status-events.js` — shared status SSE lifecycle
+- `web/src/shared/storage.js` — localStorage helpers
+- `web/src/shared/escape.js` — HTML escaping
 
 ## Static Assets
 
 | Asset | Source | Served From |
 |-------|--------|-------------|
 | Vite index bundle | `web/dist/assets/index-*.js` | `/static/assets/index-*.js` |
-| Alpine.js | `templates/vendor/alpine.min.js` | `/static/alpine.js` |
-| marked.js | `templates/vendor/marked.min.js` | inline in session HTML |
-| highlight.js | `templates/vendor/highlight.min.js` | inline in session HTML |
+| Vite session bundle | `web/dist/assets/session-*.js` | `/static/assets/session-*.js` |
+| Vite live bundle | `web/dist/assets/live-*.js` | `/static/assets/live-*.js` |
+| Static export JS | `templates/app/*.js` + vendors | inline in exported HTML |
 
 ## Theme System
 
-Colors are defined in `computeThemeVars()` in `export.go` as CSS custom properties. The session page injects them into `:root`.
-
-Key color tokens (full list in `computeThemeVars()` in `export.go`):
-- `--cyan`, `--blue`, `--green`, `--red`, `--yellow` — semantic colors
-- `--userMessageBg` — user chat bubble
-- `--toolSuccessBg` / `--toolErrorBg` — tool result states
-- `--thinkingLow` → `--thinkingXhigh` — thinking level indicator gradient
-- `--bodyBg`, `--containerBg`, `--infoBg` — replaced at render time
-- `--accent`, `--selectedBg`, `--customMessageBg`, `--customMessageLabel`
-- `--mdHeading`, `--mdLink`, `--mdCode`, `--mdCodeBlock`, `--mdQuote`
-- `--toolDiffAdded`, `--toolDiffRemoved`, `--toolDiffContext`
-- `--syntaxComment`, `--syntaxKeyword`, `--syntaxFunction`, `--syntaxVariable`, `--syntaxString`
-- `--bashMode`, `--success`, `--error`, `--warning`, `--muted`, `--dim`, `--text`
-- `--border`, `--borderAccent`, `--borderMuted`, `--toolOutput`
+Session colors are still defined by `computeThemeVars()` in `export.go` and injected into `templates/template.css`. Moving CSS into Vite-owned files is a remaining cleanup step.

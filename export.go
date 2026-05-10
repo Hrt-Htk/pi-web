@@ -118,12 +118,10 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 	html := templateHtml
 	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
 	html = strings.Replace(html, "{{CSS}}", css, 1)
-	html = strings.Replace(html, "{{JS}}", templateJs, 1)
 	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-	html = strings.Replace(html, "{{MARKED_JS}}", markedJs, 1)
-	html = strings.Replace(html, "{{HIGHLIGHT_JS}}", hljsJs, 1)
 
 	if showButtons {
+		html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+template.HTMLEscapeString(sessionScriptPath)+`"></script>`, 1)
 		btns := `<div class="session-actions">
 <a href="/" class="session-action" title="Back to sessions">← Sessions</a>
 <button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
@@ -131,8 +129,9 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
 </div>`
 		html = strings.Replace(html, "<body>", "<body>"+btns, 1)
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
-		html = strings.Replace(html, "</body>", liveReloadJs+"</body>", 1)
 	} else {
+		inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + templateJs + "\n</script>"
+		html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineScript, 1)
 		html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
 	}
 

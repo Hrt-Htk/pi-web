@@ -25,37 +25,82 @@ func distFS() fs.FS {
 	return sub
 }
 
-func loadIndexScript(distFS fs.FS) (scriptPath string, js string, err error) {
+const indexEntry = "src/index/index.js"
+
+// frontendScript is one Vite-built JavaScript entrypoint ready to be served by Go.
+type frontendScript struct {
+	Entry string
+	Path  string
+	JS    string
+}
+
+func loadManifest(distFS fs.FS) (render.Manifest, error) {
 	data, err := fs.ReadFile(distFS, ".vite/manifest.json")
 	if err != nil {
-		return "", "", fmt.Errorf("read manifest: %w", err)
+		return nil, fmt.Errorf("read manifest: %w", err)
 	}
 	var manifest render.Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return "", "", fmt.Errorf("parse manifest: %w", err)
+		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
-	entry, ok := manifest["src/index/index.js"]
+	return manifest, nil
+}
+
+func validateManifestEntry(manifest render.Manifest, entryName string) (render.ManifestEntry, error) {
+	entry, ok := manifest[entryName]
 	if !ok {
-		return "", "", fmt.Errorf("manifest missing src/index/index.js entry")
+		return render.ManifestEntry{}, fmt.Errorf("manifest missing %s entry", entryName)
 	}
 	if entry.File == "" {
-		return "", "", fmt.Errorf("manifest entry file is empty")
+		return render.ManifestEntry{}, fmt.Errorf("manifest entry file is empty: %s", entryName)
 	}
 	if strings.HasPrefix(entry.File, "/") {
-		return "", "", fmt.Errorf("manifest entry file is absolute: %s", entry.File)
+		return render.ManifestEntry{}, fmt.Errorf("manifest entry file is absolute: %s", entry.File)
 	}
 	if strings.Contains(entry.File, "..") {
-		return "", "", fmt.Errorf("manifest entry file contains path traversal: %s", entry.File)
+		return render.ManifestEntry{}, fmt.Errorf("manifest entry file contains path traversal: %s", entry.File)
 	}
-	scriptPath, ok = manifest.ScriptPath("src/index/index.js")
+	return entry, nil
+}
+
+func loadFrontendScript(distFS fs.FS, manifest render.Manifest, entryName string) (frontendScript, error) {
+	entry, err := validateManifestEntry(manifest, entryName)
+	if err != nil {
+		return frontendScript{}, err
+	}
+	scriptPath, ok := manifest.ScriptPath(entryName)
 	if !ok {
-		return "", "", fmt.Errorf("manifest script path not found")
+		return frontendScript{}, fmt.Errorf("manifest script path not found: %s", entryName)
 	}
 	content, err := fs.ReadFile(distFS, entry.File)
 	if err != nil {
-		return "", "", fmt.Errorf("read index js: %w", err)
+		return frontendScript{}, fmt.Errorf("read %s js: %w", entryName, err)
 	}
-	return scriptPath, string(content), nil
+	return frontendScript{Entry: entryName, Path: scriptPath, JS: string(content)}, nil
+}
+
+func loadFrontendScripts(distFS fs.FS, entryNames ...string) ([]frontendScript, error) {
+	manifest, err := loadManifest(distFS)
+	if err != nil {
+		return nil, err
+	}
+	scripts := make([]frontendScript, 0, len(entryNames))
+	for _, entryName := range entryNames {
+		script, err := loadFrontendScript(distFS, manifest, entryName)
+		if err != nil {
+			return nil, err
+		}
+		scripts = append(scripts, script)
+	}
+	return scripts, nil
+}
+
+func loadIndexScript(distFS fs.FS) (scriptPath string, js string, err error) {
+	scripts, err := loadFrontendScripts(distFS, indexEntry)
+	if err != nil {
+		return "", "", err
+	}
+	return scripts[0].Path, scripts[0].JS, nil
 }
 
 func serveIndexJS(js string, immutable bool) http.HandlerFunc {

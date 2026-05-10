@@ -83,23 +83,47 @@ func TestIndexTemplateUsesViteModuleNotStandaloneAlpine(t *testing.T) {
 	}
 }
 
+func TestSessionPageUsesViteModuleForInteractiveViewer(t *testing.T) {
+	sessionScriptPath = "/static/assets/session-test.js"
+	html := generateExportHtml(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}, true)
+	if !strings.Contains(html, `<script type="module" src="/static/assets/session-test.js"></script>`) {
+		t.Fatal("session page missing Vite session module script")
+	}
+	if strings.Contains(html, "new EventSource(") {
+		t.Fatal("session page still inlines live reload JS instead of using Vite session module")
+	}
+	if strings.Contains(html, "{{SESSION_SCRIPT}}") || strings.Contains(html, "{{JS}}") {
+		t.Fatal("session page still contains unreplaced script placeholders")
+	}
+}
+
+func TestStaticExportKeepsInlineSessionRenderer(t *testing.T) {
+	html := generateExportHtml(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}, false)
+	if !strings.Contains(html, "function renderTree()") {
+		t.Fatal("static export missing inline legacy session renderer")
+	}
+	if strings.Contains(html, `src="/static/assets/session`) {
+		t.Fatal("static export should not depend on external Vite session asset")
+	}
+}
+
 func TestIndexJsSourceReferencesAPINewSession(t *testing.T) {
-	data, err := os.ReadFile("web/src/index/index.js")
+	data, err := os.ReadFile("web/src/index/sessions-page.js")
 	if err != nil {
-		t.Fatalf("read web/src/index/index.js: %v", err)
+		t.Fatalf("read web/src/index/sessions-page.js: %v", err)
 	}
 	if !strings.Contains(string(data), "/api/new-session") {
-		t.Fatal("web/src/index/index.js missing /api/new-session reference")
+		t.Fatal("web/src/index/sessions-page.js missing /api/new-session reference")
 	}
 }
 
 func TestIndexJsSourceReferencesAPIRecentLocations(t *testing.T) {
-	data, err := os.ReadFile("web/src/index/index.js")
+	data, err := os.ReadFile("web/src/index/sessions-page.js")
 	if err != nil {
-		t.Fatalf("read web/src/index/index.js: %v", err)
+		t.Fatalf("read web/src/index/sessions-page.js: %v", err)
 	}
 	if !strings.Contains(string(data), "/api/recent-locations") {
-		t.Fatal("web/src/index/index.js missing /api/recent-locations reference")
+		t.Fatal("web/src/index/sessions-page.js missing /api/recent-locations reference")
 	}
 }
 

@@ -15,23 +15,21 @@ func minimalSessionForExport() sessions.Session {
 	}
 }
 
-func TestSessionHTMLIncludesChatPreviewSSEHandling(t *testing.T) {
-	sess := minimalSessionForExport()
-	html := generateExportHtml(sess, true)
+func TestSessionViteSourceIncludesChatPreviewSSEHandling(t *testing.T) {
+	source := liveReloadJsBody
 	for _, want := range []string{
 		"chat-preview",
 		"renderChatPreview",
 		"clearChatPreview",
 	} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("exported html missing %q", want)
+		if !strings.Contains(source, want) {
+			t.Fatalf("live reload source missing %q", want)
 		}
 	}
 }
 
-func TestSessionHTMLForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
-	sess := minimalSessionForExport()
-	html := generateExportHtml(sess, true)
+func TestSessionViteSourceForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
+	source := liveReloadJsBody
 	for _, want := range []string{
 		"pi-chat-message-sent",
 		"forcePreviewFollowUntil",
@@ -43,22 +41,20 @@ func TestSessionHTMLForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
 		"if (FOLLOW) {\n            scrollAfterLayout(true);",
 		"showFollowButton();",
 	} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("exported html missing %q", want)
+		if !strings.Contains(source, want) {
+			t.Fatalf("live reload source missing %q", want)
 		}
 	}
 }
 
-func TestSessionHTMLShowsAnimatedWorkingPreviewLabel(t *testing.T) {
-	sess := minimalSessionForExport()
-	html := generateExportHtml(sess, true)
+func TestSessionViteSourceShowsAnimatedWorkingPreviewLabel(t *testing.T) {
 	for _, want := range []string{
 		"working<span class=\"working-dots\"",
 		"chat-preview-working-dots",
 		"animation: chat-preview-working-dots",
 	} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("exported html missing %q", want)
+		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(templateCss, want) {
+			t.Fatalf("session frontend source missing %q", want)
 		}
 	}
 }
@@ -93,33 +89,43 @@ func TestGenerateExportHtmlIncludesResumeButtonWhenButtonsShown(t *testing.T) {
 	}
 }
 
+func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
+	for _, want := range []string{
+		"function copyShareUrl(text, label)",
+		"navigator.clipboard && navigator.clipboard.writeText",
+		"document.execCommand('copy')",
+		"share-copy-notice",
+		"label + ' copied'",
+	} {
+		if !strings.Contains(liveReloadJsBody, want) {
+			t.Fatalf("share copy source missing %q", want)
+		}
+	}
+}
+
 func TestResumeButtonClipboardGuardAndFallback(t *testing.T) {
-	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Filename: "s.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
-	html := generateExportHtml(session, true)
-	if !strings.Contains(html, "if (navigator.clipboard && navigator.clipboard.writeText) {\n        navigator.clipboard.writeText(cmd)") {
+	if !strings.Contains(liveReloadJsBody, "if (navigator.clipboard && navigator.clipboard.writeText) {\n        navigator.clipboard.writeText(cmd)") {
 		t.Fatalf("resume clipboard code should guard navigator.clipboard before writeText")
 	}
-	if !strings.Contains(html, `document.execCommand('copy')`) {
+	if !strings.Contains(liveReloadJsBody, `document.execCommand('copy')`) {
 		t.Fatalf("resume clipboard code should include execCommand fallback")
 	}
 }
 
 func TestResumeButtonShowsToastWithoutChangingButtonText(t *testing.T) {
-	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "2026-05-08T13-05-24.068Z_492e5bad-c6e9-4c74-9195-f7efc309a7c7.jsonl", Filename: "2026-05-08T13-05-24.068Z_492e5bad-c6e9-4c74-9195-f7efc309a7c7.jsonl"}, Entries: []map[string]any{{"id": "aaaaaaaa"}}}
-	html := generateExportHtml(session, true)
-	if strings.Contains(html, `resumeBtn.textContent = 'Copied!'`) {
+	if strings.Contains(liveReloadJsBody, `resumeBtn.textContent = 'Copied!'`) {
 		t.Fatalf("resume button text should not change to Copied")
 	}
-	if strings.Contains(html, `Copied — tap to view`) || strings.Contains(html, `notice.onclick`) {
+	if strings.Contains(liveReloadJsBody, `Copied — tap to view`) || strings.Contains(liveReloadJsBody, `notice.onclick`) {
 		t.Fatalf("resume copy notification should be a passive toast, not tap-to-expand")
 	}
-	if !strings.Contains(html, `Copied`) || !strings.Contains(html, `background:var(--accent);color:var(--body-bg)`) {
+	if !strings.Contains(liveReloadJsBody, `Copied`) || !strings.Contains(liveReloadJsBody, `background:var(--accent);color:var(--body-bg)`) {
 		t.Fatalf("resume copy should show an accent-colored toast notification")
 	}
-	if !strings.Contains(html, `resumeSessionArg`) {
+	if !strings.Contains(liveReloadJsBody, `resumeSessionArg`) {
 		t.Fatalf("resume copy should derive UUID-only session argument")
 	}
-	if !strings.Contains(html, `substring(underscore + 1)`) {
+	if !strings.Contains(liveReloadJsBody, `substring(underscore + 1)`) {
 		t.Fatalf("resume copy should strip timestamp prefix from session filename")
 	}
 }

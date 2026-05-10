@@ -172,7 +172,7 @@ A single binary, no database, no daemon — just a Go HTTP server reading the sa
 
 ## Development
 
-The sessions index uses a Vite-built browser bundle. Rebuild it after frontend changes before running the Go server from source:
+The sessions index and interactive session viewer use Vite-built browser bundles. Rebuild after frontend changes before running the Go server from source:
 
 ```bash
 make setup   # install frontend deps and download Go modules
