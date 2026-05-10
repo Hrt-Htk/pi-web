@@ -7,7 +7,6 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@vitejs/plugin-legacy": "latest",
     "alpinejs": "latest",
     "highlight.js": "latest",
     "marked": "latest"

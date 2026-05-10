@@ -33,15 +33,11 @@ This flow covers a user clicking a session card on the index page (or visiting `
      │             │               │                   │                  │              │
      │             │─── generateExportHtml(session, true) ────────────────▶│              │
      │             │               │                   │                  │              │
-     │             │               │                   ├─── buildTemplateJsBundle()
-     │             │               │                   │   (concat templates/app/*.js)
-     │             │               │                   │                  │              │
      │             │               │                   ├─── base64(sessionData)
      │             │               │                   │                  │              │
      │             │               │                   ├─── template.html │              │
      │             │               │                   ├─── template.css  │              │
-     │             │               │                   ├─── marked.min.js │              │
-     │             │               │                   ├─── highlight.min.js              │
+     │             │               │                   ├─── session Vite module path       │
      │             │               │                   └─── chat_composer.html              │
      │             │               │                   │                  │              │
      │             │◀────────────── HTML string ───────│                  │              │
@@ -121,16 +117,15 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
     html := templateHtml
     html = strings.Replace(html, "<title>…", "<title>"+sessionName(session)+"</title>", 1)
     html = strings.Replace(html, "{{CSS}}", css, 1)
-    html = strings.Replace(html, "{{JS}}", templateJs, 1)
     html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-    html = strings.Replace(html, "{{MARKED_JS}}", markedJs, 1)
-    html = strings.Replace(html, "{{HIGHLIGHT_JS}}", hljsJs, 1)
 
     if showButtons {
+        html = strings.Replace(html, "{{SESSION_SCRIPT}}", viteSessionModuleScript, 1)
         // actionButtons = back link + share button + terminal button
         html = strings.Replace(html, "<body>", "<body>"+actionButtons, 1)
         html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtml, 1)
-        html = strings.Replace(html, "</body>", liveReloadJs+"</body>", 1)
+    } else {
+        html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineStaticExportScripts, 1)
     }
 
     return html

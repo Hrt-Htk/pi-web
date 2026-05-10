@@ -648,15 +648,44 @@
     document.getElementById('share-close').addEventListener('click', function() {
       shareOverlay.remove(); shareOverlay = null;
     });
+    var shareCopyHideTimer;
+    function showShareCopiedNotice(label, text) {
+      var notice = document.getElementById('share-copy-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'share-copy-notice';
+        notice.style.cssText = 'position:fixed;top:8px;right:8px;z-index:400;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;';
+        document.body.appendChild(notice);
+      }
+      notice.textContent = label + ' copied';
+      notice.title = text;
+      clearTimeout(shareCopyHideTimer);
+      notice.style.opacity = '1';
+      shareCopyHideTimer = setTimeout(function() { notice.style.opacity = '0'; }, 1200);
+    }
+    function copyShareUrl(text, label) {
+      function fallbackCopy() {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) showShareCopiedNotice(label, text);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() { showShareCopiedNotice(label, text); }).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+    }
     document.getElementById('share-copy-gist').addEventListener('click', function() {
-      navigator.clipboard.writeText(gistUrl).catch(function(){});
-      this.textContent = 'Copied!';
-      setTimeout(function(){ document.getElementById('share-copy-gist').textContent = 'Copy Gist'; }, 1200);
+      copyShareUrl(gistUrl, 'Gist');
     });
     document.getElementById('share-copy-preview').addEventListener('click', function() {
-      navigator.clipboard.writeText(previewUrl).catch(function(){});
-      this.textContent = 'Copied!';
-      setTimeout(function(){ document.getElementById('share-copy-preview').textContent = 'Copy Preview'; }, 1200);
+      copyShareUrl(previewUrl, 'Preview');
     });
   }
 

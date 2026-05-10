@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Keep in sync with export/template.html until the live session shell is fully Vite-owned. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -42,16 +43,7 @@
 
   <script id="session-data" type="application/json">{{SESSION_DATA}}</script>
 
-  <!-- Vendored libraries -->
-  <script>{{MARKED_JS}}</script>
-
-  <!-- highlight.js -->
-  <script>{{HIGHLIGHT_JS}}</script>
-
-  <!-- Main application code -->
-  <script>
-{{JS}}
-  </script>
+{{SESSION_SCRIPT}}
 {{CHAT_COMPOSER}}
 </body>
 </html>
