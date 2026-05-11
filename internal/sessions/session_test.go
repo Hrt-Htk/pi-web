@@ -168,6 +168,59 @@ func TestParseSummaryUsesHeaderName(t *testing.T) {
 	}
 }
 
+func TestParseSummaryUsesSessionInfoName(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "s.jsonl")
+	content := `{"type":"session","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
+		`{"type":"message","timestamp":"2026-05-08T10:00:01Z","message":{"role":"user","content":"first user line"}}` + "\n" +
+		`{"type":"session_info","timestamp":"2026-05-08T10:00:02Z","name":"Renamed Session"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Name != "Renamed Session" {
+		t.Errorf("Name = %q, want %q", s.Name, "Renamed Session")
+	}
+}
+
+func TestParseSummarySessionInfoOverridesHeaderName(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "s.jsonl")
+	content := `{"type":"session","name":"Header Name","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
+		`{"type":"session_info","timestamp":"2026-05-08T10:00:01Z","name":"Session Info Name"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Name != "Session Info Name" {
+		t.Errorf("Name = %q, want %q", s.Name, "Session Info Name")
+	}
+}
+
+func TestParseSummarySessionInfoLatestWins(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "s.jsonl")
+	content := `{"type":"session","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
+		`{"type":"session_info","timestamp":"2026-05-08T10:00:01Z","name":"First Rename"}` + "\n" +
+		`{"type":"session_info","timestamp":"2026-05-08T10:00:02Z","name":"Second Rename"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Name != "Second Rename" {
+		t.Errorf("Name = %q, want %q", s.Name, "Second Rename")
+	}
+}
+
 func TestParseSummaryFallsBackToFirstUserMessage(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "s.jsonl")
@@ -218,6 +271,22 @@ func TestParseSummaryFallsBackToFilename(t *testing.T) {
 	}
 	if s.Name != "fallback.jsonl" {
 		t.Errorf("Name = %q, want %q", s.Name, "fallback.jsonl")
+	}
+}
+
+func TestParseSummaryExtractsSessionUUID(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "s.jsonl")
+	content := `{"type":"session","id":"019e122d-bcc4-7308-8a30-7ef83dae1983","timestamp":"2026-05-08T10:00:00Z"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.SessionUUID != "019e122d-bcc4-7308-8a30-7ef83dae1983" {
+		t.Errorf("SessionUUID = %q, want %q", s.SessionUUID, "019e122d-bcc4-7308-8a30-7ef83dae1983")
 	}
 }
 
