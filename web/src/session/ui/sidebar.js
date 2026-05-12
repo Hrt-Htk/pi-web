@@ -1,4 +1,5 @@
 export const SIDEBAR_WIDTH_STORAGE_KEY = 'pi-share:v1:sidebar-width';
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'pi-share:v1:sidebar-collapsed';
 export const MIN_CONTENT_WIDTH = 320;
 
 export function isMobileLayout({ windowImpl = window } = {}) {
@@ -56,6 +57,68 @@ export function setSidebarOpen(open, { documentImpl = document } = {}) {
   if (hamburger) hamburger.style.display = open ? 'none' : '';
 }
 
+export function loadSidebarCollapsed({ storage = globalThis.localStorage } = {}) {
+  try {
+    const raw = storage?.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    return raw === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function saveSidebarCollapsed(collapsed, { storage = globalThis.localStorage } = {}) {
+  try {
+    storage?.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+export function setSidebarCollapsed(collapsed, { documentImpl = document } = {}) {
+  const hamburger = documentImpl.getElementById('hamburger');
+  documentImpl.body?.classList.toggle('sidebar-collapsed', collapsed);
+  if (hamburger) hamburger.style.display = collapsed ? '' : 'none';
+}
+
+export function setupSidebarCollapse({ documentImpl = document, windowImpl = window, storage = globalThis.localStorage } = {}) {
+  const env = { documentImpl, windowImpl, storage };
+  const collapsed = loadSidebarCollapsed({ storage });
+  if (!isMobileLayout({ windowImpl })) {
+    setSidebarCollapsed(collapsed, { documentImpl });
+  }
+
+  const hamburger = documentImpl.getElementById('hamburger');
+  const hideBtn = documentImpl.getElementById('hide-sidebar');
+
+  hamburger?.addEventListener('click', () => {
+    if (isMobileLayout({ windowImpl })) {
+      setSidebarOpen(true, { documentImpl });
+      return;
+    }
+    setSidebarCollapsed(false, { documentImpl });
+    saveSidebarCollapsed(false, { storage });
+  });
+
+  hideBtn?.addEventListener('click', () => {
+    if (isMobileLayout({ windowImpl })) return;
+    setSidebarCollapsed(true, { documentImpl });
+    saveSidebarCollapsed(true, { storage });
+  });
+
+  documentImpl.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() !== 'b') return;
+    const tagName = documentImpl.activeElement?.tagName;
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || tagName === 'BUTTON' || documentImpl.activeElement?.isContentEditable) {
+      return;
+    }
+    e.preventDefault();
+    const currentlyCollapsed = documentImpl.body?.classList.contains('sidebar-collapsed');
+    const next = !currentlyCollapsed;
+    setSidebarCollapsed(next, { documentImpl });
+    saveSidebarCollapsed(next, { storage });
+  });
+}
+
 export function setupSidebarResize({ documentImpl = document, windowImpl = window, storage = globalThis.localStorage } = {}) {
   const sidebar = documentImpl.getElementById('sidebar');
   const sidebarResizer = documentImpl.getElementById('sidebar-resizer');
@@ -65,6 +128,9 @@ export function setupSidebarResize({ documentImpl = document, windowImpl = windo
   if (!sidebar || !sidebarResizer) return;
 
   let cleanupDrag = null;
+  let didDrag = false;
+  let dragStartX = 0;
+
   const stopDrag = (pointerId) => {
     if (cleanupDrag) {
       cleanupDrag(pointerId);
@@ -74,14 +140,20 @@ export function setupSidebarResize({ documentImpl = document, windowImpl = windo
 
   sidebarResizer.addEventListener('pointerdown', (e) => {
     if (isMobileLayout({ windowImpl })) return;
+    if (e.button !== 0) return;
 
     e.preventDefault();
+    didDrag = false;
+    dragStartX = e.clientX;
     const startX = e.clientX;
     const startWidth = sidebar.getBoundingClientRect().width;
     documentImpl.body.classList.add('sidebar-resizing');
     sidebarResizer.setPointerCapture?.(e.pointerId);
 
     const onPointerMove = (event) => {
+      if (Math.abs(event.clientX - dragStartX) > 3) {
+        didDrag = true;
+      }
       applySidebarWidth(startWidth + (event.clientX - startX), env);
     };
 
@@ -111,5 +183,16 @@ export function setupSidebarResize({ documentImpl = document, windowImpl = windo
   windowImpl.addEventListener('resize', () => {
     if (isMobileLayout({ windowImpl })) return;
     applySidebarWidth(sidebar.getBoundingClientRect().width, env);
+  });
+
+  windowImpl.addEventListener('resize', () => {
+    if (isMobileLayout({ windowImpl })) {
+      documentImpl.body?.classList.remove('sidebar-collapsed');
+      const hamburger = documentImpl.getElementById('hamburger');
+      if (hamburger) hamburger.style.display = '';
+    } else {
+      const collapsed = loadSidebarCollapsed({ storage });
+      setSidebarCollapsed(collapsed, { documentImpl });
+    }
   });
 }

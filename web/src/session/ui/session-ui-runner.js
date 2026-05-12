@@ -29,12 +29,9 @@ export function setupSessionUi({
 
   const isMobileLayout = () => sidebarApi.isMobileLayout({ windowImpl });
   sidebarApi.setupSidebarResize({ documentImpl, windowImpl, storage });
-  documentImpl.getElementById('hamburger')?.addEventListener('click', () => {
-    sidebarApi.setSidebarOpen(true, { documentImpl });
-  });
+  sidebarApi.setupSidebarCollapse({ documentImpl, windowImpl, storage });
   const closeSidebar = () => sidebarApi.setSidebarOpen(false, { documentImpl });
   documentImpl.getElementById('sidebar-overlay')?.addEventListener('click', closeSidebar);
-  documentImpl.getElementById('sidebar-close')?.addEventListener('click', closeSidebar);
 
   const toggleController = toggleStateApi.createToggleController({ documentImpl, storage });
   windowImpl.sessionToggleState = toggleController;
