@@ -9,7 +9,7 @@ pi-web is a local HTTP server that lets you browse and interact with your pi cod
 | Layer | Technology |
 |-------|------------|
 | Backend | Go 1.25+ |
-| Frontend (index) | Vite + Alpine.js + vanilla JS |
+| Frontend (index) | Vite + vanilla JS |
 | Frontend (session) | Go `html/template` + embedded JS/CSS |
 | Styling | Custom CSS (dark theme) |
 | Live Updates | Server-Sent Events (SSE) |
@@ -26,7 +26,7 @@ pi-web is a local HTTP server that lets you browse and interact with your pi cod
 │   ┌─────────────┐      ┌─────────────┐      ┌─────────────────────────┐  │
 │   │ Index Page  │      │ Session Page│      │   EventSource Client    │  │
 │   │  /index.js  │      │  (embedded) │      │      /events?id=…       │  │
-│   │  Alpine.js  │      │  marked.js  │      │                         │  │
+│   │  vanilla JS │      │  marked.js  │      │                         │  │
 │   │  highlight  │      │  highlight  │      │  • reload (session)     │  │
 │   │             │      │  chat UI    │      │  • new-session (index)  │  │
 │   │  Search     │      │  Share btn  │      │  • status-delta         │  │
@@ -40,7 +40,7 @@ pi-web is a local HTTP server that lets you browse and interact with your pi cod
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                              HTTP Router                                  │
 │                                                                           │
-│   GET  /              →  handleIndex      (Alpine.js app)                │
+│   GET  /              →  handleIndex      (Vite index bundle)             │
 │   GET  /session       →  handleSession    (embedded HTML)                │
 │   GET  /api/session   →  handleApiSession  (JSON)                        │
 │   POST /api/chat      →  handleChat        (multipart or JSON)           │

@@ -4,7 +4,7 @@ pi-web uses a Vite-built frontend embedded into the Go binary, plus a self-conta
 
 ## Vite App Frontends
 
-Built with **Vite** + **Alpine.js / vanilla modules**, embedded into the Go binary.
+Built with **Vite** + **vanilla JS modules**, embedded into the Go binary.
 
 ### Build Pipeline
 
@@ -23,7 +23,7 @@ At startup, `dist_embed.go` reads `.vite/manifest.json`, validates configured en
 
 `live_templates/index.html` renders the shell and injects the Vite `index` module path with `indexScript`.
 
-The Alpine app is in `web/src/index/`:
+The index app is in `web/src/index/`:
 
 - search/filter session cards
 - new-session modal

@@ -27,9 +27,6 @@ var markedJs string
 //go:embed export/vendor/highlight.min.js
 var hljsJs string
 
-//go:embed export/vendor/alpine.min.js
-var alpineJs string
-
 // Concatenated export app JS bundle, wrapped in a single IIFE so all modules
 // share closure scope. Files are concatenated in lexical order — the numeric
 // prefix (00-data.js, 10-tree.js, ...) controls evaluation order.

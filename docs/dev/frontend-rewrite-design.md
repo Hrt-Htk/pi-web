@@ -1,14 +1,19 @@
 # Frontend Rewrite Design
 
+> **Historical note:** Alpine.js was removed from the project in favor of vanilla JS
+> with explicit DI (`documentImpl`, `windowImpl`). The index page (`/`) now uses the
+> same vanilla module pattern as the session page. This doc describes a direction
+> that was evaluated and rejected.
+
 ## Agreed direction
-Rewrite the whole app frontend, not just the sessions index. Today the live frontend is mixed across Go templates, live template CSS, raw live reload code, and Vite entrypoints, while standalone export code lives separately under `export/`. The target is a cohesive Alpine.js-based live frontend that is built by Vite and embedded into the Go binary.
+Rewrite the whole app frontend, not just the sessions index. Today the live frontend is mixed across Go templates, live template CSS, raw live reload code, and Vite entrypoints, while standalone export code lives separately under `export/`. The target is a cohesive live frontend that is built by Vite and embedded into the Go binary.
 
 The rewrite should preserve current user-visible behavior and visual design first. Architecture comes before redesign. New packages are allowed when they solve a clear problem, but the app must remain self-contained and embeddable in Go.
 
 ## Goals
 - Move all application behavior into explicit frontend modules with clear ownership.
 - Keep Go templates focused on HTML shell, initial data injection, and server-rendered fallback content where needed.
-- Use Alpine.js as the interaction/state layer.
+- Use vanilla JS modules with explicit DI as the interaction/state layer.
 - Use Vite as the build boundary for all app frontend assets.
 - Embed the built frontend inside the Go binary using the existing `web/dist` + `//go:embed` flow.
 - Preserve current UI/UX initially so the rewrite is reviewable and testable.
@@ -31,7 +36,7 @@ The rewrite should preserve current user-visible behavior and visual design firs
 
 ```text
 web/src/
-  app/                  # app bootstrap and Alpine registration
+  app/                  # app bootstrap and module registration
   shared/               # API, storage, events, DOM, formatting, escape helpers
   design/               # tokens, base CSS, layout CSS, component CSS
   index/                # sessions index page
@@ -55,11 +60,11 @@ web/src/
 - Built assets stay under `web/dist` and are embedded into the Go binary.
 - Manifest lookup should support the needed entrypoints instead of assuming only index behavior matters.
 
-### Alpine usage
-- Alpine remains the primary UI state and interaction layer.
-- Register Alpine components/stores from Vite modules.
+### UI state layer
+- Vanilla JS remains the primary UI state and interaction layer.
+- Register module components/stores from Vite entrypoints.
 - Keep component factories testable without requiring a browser page boot.
-- Prefer small Alpine components over one global object that owns the whole app.
+- Prefer small focused modules over one global object that owns the whole app.
 
 ### Package policy
 - Packages are allowed when necessary for maintainability, parsing, rendering, or UX.

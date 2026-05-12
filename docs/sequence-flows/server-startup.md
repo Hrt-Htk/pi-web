@@ -40,7 +40,7 @@ This document traces the execution from `go run .` to the first HTTP request.
    │           │             │              │              │            │
    │           │─── loadIndexScript() ─────▶│              │            │
    │           │             │              │              │            │
-   │           │─── mux.HandleFunc(/static/alpine.js) ──────────────────▶│
+   │           │                                                          │
    │           │             │              │              │            │
    │           │─── mux.HandleFunc(/static/assets/…) ───────────────────▶│
    │           │             │              │              │            │

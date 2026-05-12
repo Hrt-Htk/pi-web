@@ -136,7 +136,7 @@ type piRPCWorker struct {
 
 | Route | Method | Handler | Description |
 |-------|--------|---------|-------------|
-| `/` | GET | `handleIndex` | Render session list (Alpine.js app shell) |
+| `/` | GET | `handleIndex` | Render session list (Vite index bundle shell) |
 | `/session` | GET | `handleSession` | Render single session as embedded HTML |
 | `/api/session` | GET | `handleApiSession` | JSON session data |
 | `/api/chat` | POST | `handleChat` | Send chat message (multipart) |
@@ -149,7 +149,7 @@ type piRPCWorker struct {
 | `/events` | GET | `handleEvents` | SSE stream |
 | `/api/new-session` | POST | `handleNewSession` | Create new session file |
 | `/api/recent-locations` | GET | `handleRecentLocations` | List known project paths |
-| `/static/alpine.js` | GET | — | Embedded Alpine.js |
+
 | `/static/assets/index-*.js` | GET | — | Embedded Vite index bundle |
 
 ## Auth Flow

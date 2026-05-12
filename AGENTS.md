@@ -18,7 +18,7 @@ The most important doc for frontend work is **`docs/dev/templates-vs-web.md`** â
 ## Tech Stack
 
 - **Backend:** Go 1.25+ (`fsnotify`, `x/sys`)
-- **Frontend:** Vanilla JS + AlpineJS, Vite, Vitest + jsdom
+- **Frontend:** Vanilla JS, Vite, Vitest + jsdom
 - **Session data:** Read-only JSONL from `~/.pi/agent/sessions/`
 - **Live updates:** SSE driven by `fsnotify` file watchers
 - **Auth:** `PI_WEB_TOKEN` required for non-loopback binds (e.g. Tailscale)
@@ -37,7 +37,7 @@ The most important doc for frontend work is **`docs/dev/templates-vs-web.md`** â
 ### Frontend
 | Directory | Purpose |
 |-----------|---------|
-| `web/src/index/` | Sessions list page (AlpineJS, Vite) |
+| `web/src/index/` | Sessions list page (Vite) |
 | `web/src/session/` | Session viewer â€” tree rendering, chat composer, live reload |
 | `web/src/shared/` | API helpers, escape, storage, status events |
 | `live_templates/` | Go-embedded HTML shells for index/session pages |

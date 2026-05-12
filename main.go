@@ -81,7 +81,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	srv.Register(mux)
-	mux.HandleFunc("/static/alpine.js", serveStaticJS(alpineJs))
 	if scripts, err := loadFrontendScripts(distFS(), indexEntry, sessionEntry, liveEntry); err == nil {
 		for _, script := range scripts {
 			switch script.Entry {
