@@ -18,8 +18,7 @@ var templateHtml string
 //go:embed export/template.css
 var templateCss string
 
-//go:embed live_templates/session.html
-var liveSessionHtml string
+
 
 //go:embed live_templates/live_reload.js
 var liveReloadJsBody string
@@ -62,7 +61,9 @@ func computeThemeVars() string {
 	return strings.Join(lines, "\n")
 }
 
-func renderSessionPage(session sessions.Session, showButtons bool) string {
+// prepareSessionPageData computes the shared payload (base64-encoded session
+// data, themed CSS, and body attributes) used by both live and export renders.
+func prepareSessionPageData(session sessions.Session) (dataBase64, css, bodyAttrs string) {
 	leafID := ""
 	if len(session.Entries) > 0 {
 		if id, ok := session.Entries[len(session.Entries)-1]["id"].(string); ok {
@@ -80,47 +81,64 @@ func renderSessionPage(session sessions.Session, showButtons bool) string {
 	}
 
 	dataJSON, _ := json.Marshal(sessionData)
-	dataBase64 := base64.StdEncoding.EncodeToString(dataJSON)
+	dataBase64 = base64.StdEncoding.EncodeToString(dataJSON)
 
 	bodyBg := "#18181e"
 	cardBg := "#1e1e24"
 	infoBg := "#3c3728"
 
-	// Both live and export sessions currently share the same CSS.
-	// live_templates/session.css was removed because it was an exact duplicate.
-	css := templateCss
+	// Both live and export sessions share the same CSS.
+	css = templateCss
 	css = strings.Replace(css, "{{THEME_VARS}}", precomputedThemeVars, 1)
 	css = strings.Replace(css, "{{BODY_BG}}", bodyBg, 1)
 	css = strings.Replace(css, "{{CONTAINER_BG}}", cardBg, 1)
 	css = strings.Replace(css, "{{INFO_BG}}", infoBg, 1)
 
-	html := templateHtml
-	if showButtons {
-		html = liveSessionHtml
+	if session.SessionUUID != "" {
+		bodyAttrs = ` data-session-uuid="` + session.SessionUUID + `"`
 	}
+	return
+}
+
+// renderLiveSessionPage renders the interactive session viewer served at
+// /session. It loads the Vite-built session module, injects action buttons,
+// and includes the chat composer.
+func renderLiveSessionPage(session sessions.Session) string {
+	dataBase64, css, bodyAttrs := prepareSessionPageData(session)
+
+	html := templateHtml
 	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
 	html = strings.Replace(html, "{{CSS}}", css, 1)
 	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
 
-	bodyAttrs := ""
-	if session.SessionUUID != "" {
-		bodyAttrs = ` data-session-uuid="` + session.SessionUUID + `"`
-	}
-	if showButtons {
-		html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+template.HTMLEscapeString(sessionScriptPath)+`"></script>`, 1)
-		btns := `<div class="session-actions">
+	html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+template.HTMLEscapeString(sessionScriptPath)+`"></script>`, 1)
+
+	btns := `<div class="session-actions">
 <a href="/" class="session-action" title="Back to sessions">← Sessions</a>
 <button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
 <button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard">$_ Terminal</button>
 </div>`
-		html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">"+btns, 1)
-		html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
-	} else {
-		inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + templateJs + "\n</script>"
-		html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineScript, 1)
-		html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">", 1)
-		html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
-	}
+	html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">"+btns, 1)
+	html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
+
+	return html
+}
+
+// renderExportSessionPage renders a self-contained HTML snapshot suitable for
+// GitHub Gist sharing. All JS is inlined and server-dependent chrome (buttons,
+// chat composer) is stripped.
+func renderExportSessionPage(session sessions.Session) string {
+	dataBase64, css, bodyAttrs := prepareSessionPageData(session)
+
+	html := templateHtml
+	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
+	html = strings.Replace(html, "{{CSS}}", css, 1)
+	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
+
+	inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + templateJs + "\n</script>"
+	html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineScript, 1)
+	html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">", 1)
+	html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
 
 	return html
 }

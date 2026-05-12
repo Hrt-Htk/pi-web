@@ -37,10 +37,10 @@ Interactive session viewing is now owned by the Vite `session` entrypoint at `we
 The Go template still renders the live HTML shell, CSS, chat form shell, and serialized initial data:
 
 ```
-generateExportHtml(session, showButtons=true)
+renderLiveSessionPage(session)
        │
-       ├──▶ live_templates/session.html
-       ├──▶ live_templates/session.css
+       ├──▶ export/template.html
+       ├──▶ export/template.css
        ├──▶ base64(sessionData) in #session-data
        ├──▶ live_templates/chat_composer.html
        └──▶ <script type="module" src="/static/assets/session-*.js">
@@ -60,7 +60,7 @@ Session frontend modules are split by ownership:
 
 ## Static / Share Export
 
-When `generateExportHtml(session, showButtons=false)` creates self-contained exported HTML, it still inlines:
+When `renderExportSessionPage(session)` creates self-contained exported HTML, it inlines:
 
 - `export/app/*.js`
 - `export/vendor/marked.min.js`
@@ -96,4 +96,4 @@ The session page listens to `/events?id=<sessionId>` for:
 
 ## Theme System
 
-Session colors are still defined by `computeThemeVars()` in `export.go` and injected into both `live_templates/session.css` and `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.
+Session colors are still defined by `computeThemeVars()` in `export.go` and injected into `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.

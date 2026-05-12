@@ -42,7 +42,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.WriteString(w, s.renderSession(resolved.Session, true))
+	io.WriteString(w, s.renderLiveSession(resolved.Session))
 }
 
 func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {

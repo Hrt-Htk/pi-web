@@ -55,7 +55,7 @@ func FindGh() string {
 type Dependencies struct {
 	Runner  Runner
 	Resolve func(id string) (sessions.Session, error)
-	Render  func(sessions.Session, bool) string
+	RenderExport func(sessions.Session) string
 	FindGh  func() string
 }
 
@@ -95,7 +95,7 @@ func Handle(w http.ResponseWriter, r *http.Request, deps Dependencies) {
 		writeJSONError(w, http.StatusNotFound, "session not found")
 		return
 	}
-	html := deps.Render(resolved, false)
+	html := deps.RenderExport(resolved)
 	if html == "" {
 		writeJSONError(w, http.StatusNotFound, "session not found")
 		return

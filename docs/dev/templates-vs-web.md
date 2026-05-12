@@ -22,10 +22,11 @@ The live app is the browser UI served by the local Go server.
 
 ### Session page (`/session?id=...`)
 
-- The live session page and standalone export both go through `generateExportHtml`; with `showButtons=true`, it renders `live_templates/session.html` instead of `export/template.html`.
+- Both the live session page and the standalone export use `export/template.html` as the base HTML shell.
+- Go replaces the same placeholders in both cases (`{{CSS}}`, `{{SESSION_DATA}}`, `{{SESSION_SCRIPT}}`, `{{CHAT_COMPOSER}}`), but with different values depending on the target.
 - Files used:
-  - `live_templates/session.html`
-  - `live_templates/session.css`
+  - `export/template.html`
+  - `export/template.css`
   - `live_templates/chat_composer.html`
 - The page loads the Vite session module with `<script type="module" src="/static/assets/session-*.js">`.
 - Interactive session behavior lives in `web/src/session/`.
@@ -48,6 +49,7 @@ When you click **"↗ Share"**:
    - `export/vendor/marked.min.js`
    - `export/vendor/highlight.min.js`
    - `export/app/*.js` concatenated in lexical order and wrapped in one IIFE
+   - `export/template.css` styles
 4. The resulting single `session.html` is uploaded as a private Gist with `gh gist create --public=false`.
 
 The export intentionally has no chat composer, no SSE, no API calls, and no external asset dependency.

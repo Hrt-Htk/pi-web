@@ -21,7 +21,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
    - `export/app/*.js` — legacy concatenated IIFE scripts, used by share/gist
    Every bugfix or feature requires editing both.
 
-3. **Duplicated HTML shells.** `live_templates/session.html` and `export/template.html` are copy-paste twins with a `<!-- Keep in sync... -->` comment.
+3. ~~**Duplicated HTML shells.** `live_templates/session.html` and `export/template.html` are copy-paste twins with a `<!-- Keep in sync... -->` comment.~~ **Fixed** — both now use `export/template.html`.
 
 4. **Dead vendor files.** `export/vendor/marked.min.js`, `highlight.min.js`, and `alpine.min.js` are all bundled by Vite (they are npm dependencies) but still vendored separately.
 
@@ -49,7 +49,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
 ### 1.3 Go server changes
 
 - [ ] Update `dist_embed.go` / `main.go` to detect and serve emitted CSS files from `web/dist/assets/`
-- [ ] Update `live_templates/session.html` to load CSS from `/static/assets/session-xxx.css` instead of the Go-injected `{{CSS}}` block
+- [ ] Update the live session HTML shell to load CSS from `/static/assets/session-xxx.css` instead of the Go-injected `{{CSS}}` block
 - [ ] Update `live_templates/index.html` to load CSS from `/static/assets/index-xxx.css` instead of the inline `<style>` block
 
 **After this phase:** The live UI loads its own CSS from Vite assets. `export/template.css` is only used for share/export.
@@ -83,31 +83,18 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
 
 ---
 
-## Phase 3: Deduplicate HTML shells
+## Phase 3: Deduplicate HTML shells ✅ Done
 
 **Goal:** Kill the `<!-- Keep in sync -->` maintenance burden between `live_templates/session.html` and `export/template.html`.
 
-### Option A — Single template with Go conditionals (recommended)
-
-- [ ] Merge `export/template.html` into `live_templates/session.html`
-- [ ] Use Go template conditionals for the small differences:
-  - **Live (`showButtons=true`):**
-    - `<script type="module" src="{{sessionScriptPath}}"></script>`
-    - Action buttons (Sessions, Share, Terminal)
-    - Chat composer
-  - **Export (`showButtons=false`):**
-    - Inline `<style>` + inline `<script>` (from Vite assets)
-    - No buttons, no chat composer
-
-- [ ] Delete `export/template.html`
-- [ ] Update `generateExportHtml()` to render the single template with the appropriate flags
-
-### Option B — Vite generates HTML (future consideration)
-
-- Add `session.html` and `index.html` to Vite's `rollupOptions.input`
-- Vite builds full HTML files with hashed asset references
-- Go serves pre-built static files (or embeds them)
-- For share, post-process the Vite HTML to inline assets
+**What we did:**
+- Deleted `live_templates/session.html` — the live session page now uses `export/template.html` as its base shell too.
+- Deleted `live_templates/session.css` — it was unused; both live and export already shared `export/template.css`.
+- Removed the `<!-- Keep in sync -->` comments.
+- Split `renderSessionPage(session, showButtons)` into `renderLiveSessionPage(session)` and `renderExportSessionPage(session)`.
+- Both functions use `export/template.html` and apply the same placeholder replacements (`{{CSS}}`, `{{SESSION_DATA}}`, `{{SESSION_SCRIPT}}`, `{{CHAT_COMPOSER}}`), but with different values:
+  - **Live:** external Vite module script, action buttons, chat composer
+  - **Export:** inline JS/CSS, no buttons, no chat composer
 
 **After this phase:** One HTML template for sessions. No more manual sync.
 
@@ -128,7 +115,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
 
 - [ ] Move session card rendering from Go template loops (`live_templates/index.html`) into `web/src/index/sessions-page.js`
 - [ ] The index page fetches session data via `/api/...` endpoints
-- [ ] `live_templates/index.html` becomes a thin static shell (like `live_templates/session.html`)
+- [ ] `live_templates/index.html` becomes a thin static shell (like `export/template.html`)
 - [ ] Fully eliminate inline CSS and server-side HTML generation for the index
 
 This is lower priority since the current hybrid works.
@@ -166,7 +153,6 @@ web/
 
 live_templates/
 ├── index.html                 ← thin static shell (or fully client-side)
-├── session.html               ← single template for live + export
 └── chat_composer.html
 
 export/

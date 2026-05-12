@@ -34,6 +34,6 @@ func (s *Server) handleShare(w http.ResponseWriter, r *http.Request) {
 			}
 			return resolved.Session, nil
 		},
-		Render: s.renderSession,
+		RenderExport: s.renderExportSession,
 	})
 }

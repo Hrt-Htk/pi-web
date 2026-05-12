@@ -47,7 +47,7 @@ web/src/
 
 ### Go/template boundary
 - Go templates should emit page shells and serialized initial data only.
-- Avoid large inline scripts in `live_templates/session.html` and `live_templates/index.html`.
+- Avoid large inline scripts in `live_templates/index.html` and `export/template.html`.
 - Vite entrypoints should own frontend behavior:
   - `src/index/index.js`
   - `src/session/session.js`

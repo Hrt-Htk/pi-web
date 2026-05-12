@@ -34,7 +34,8 @@ type Deps struct {
 	ChatSender    ChatSender
 	Cache         *sessions.Cache
 	RenderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
-	RenderSession func(s sessions.Session, showButtons bool) string
+	RenderLiveSession   func(s sessions.Session) string
+	RenderExportSession func(s sessions.Session) string
 	Models        func(ctx context.Context) (json.RawMessage, error)
 	Now           func() time.Time
 }
@@ -53,7 +54,8 @@ type Server struct {
 	shareRunner   shareCmdRunner
 	now           func() time.Time
 	renderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
-	renderSession func(s sessions.Session, showButtons bool) string
+	renderLiveSession   func(s sessions.Session) string
+	renderExportSession func(s sessions.Session) string
 	models        func(ctx context.Context) (json.RawMessage, error)
 	lastKnown     map[string]struct{} // session ids currently broadcast as running
 	lastKnownMu   sync.Mutex
@@ -76,7 +78,8 @@ func New(deps Deps) *Server {
 		auth:          deps.Auth,
 		now:           now,
 		renderIndex:   deps.RenderIndex,
-		renderSession: deps.RenderSession,
+		renderLiveSession:   deps.RenderLiveSession,
+		renderExportSession: deps.RenderExportSession,
 		models:        deps.Models,
 		lastKnown:     make(map[string]struct{}),
 		stopCh:        make(chan struct{}),

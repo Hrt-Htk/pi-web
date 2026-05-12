@@ -130,7 +130,7 @@ func TestIndexTemplateUsesViteModuleNotStandaloneAlpine(t *testing.T) {
 
 func TestSessionPageUsesViteModuleForInteractiveViewer(t *testing.T) {
 	sessionScriptPath = "/static/assets/session-test.js"
-	html := renderSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}, true)
+	html := renderLiveSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}})
 	if !strings.Contains(html, `<script type="module" src="/static/assets/session-test.js"></script>`) {
 		t.Fatal("session page missing Vite session module script")
 	}
@@ -143,7 +143,7 @@ func TestSessionPageUsesViteModuleForInteractiveViewer(t *testing.T) {
 }
 
 func TestStaticExportKeepsInlineSessionRenderer(t *testing.T) {
-	html := renderSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}, false)
+	html := renderExportSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}})
 	if !strings.Contains(html, "function renderTree()") {
 		t.Fatal("static export missing inline legacy session renderer")
 	}
