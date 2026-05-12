@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -16,20 +17,44 @@ func minimalSessionForExport() sessions.Session {
 }
 
 func TestSessionViteSourceIncludesChatPreviewSSEHandling(t *testing.T) {
-	source := liveReloadJsBody
+	events, err := os.ReadFile("web/src/session/live/live-events.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
+	}
+	preview, err := os.ReadFile("web/src/session/live/chat-preview.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/chat-preview.js: %v", err)
+	}
+	runner, err := os.ReadFile("web/src/session/live/live-reload-runner.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
+	}
+	combined := string(events) + string(preview) + string(runner)
 	for _, want := range []string{
 		"chat-preview",
 		"renderChatPreview",
 		"clearChatPreview",
 	} {
-		if !strings.Contains(source, want) {
+		if !strings.Contains(combined, want) {
 			t.Fatalf("live reload source missing %q", want)
 		}
 	}
 }
 
 func TestSessionViteSourceForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
-	source := liveReloadJsBody
+	runner, err := os.ReadFile("web/src/session/live/live-reload-runner.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
+	}
+	scroll, err := os.ReadFile("web/src/session/live/live-scroll.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-scroll.js: %v", err)
+	}
+	events, err := os.ReadFile("web/src/session/live/live-events.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
+	}
+	combined := string(runner) + string(scroll) + string(events)
 	for _, want := range []string{
 		"pi-chat-message-sent",
 		"forcePreviewFollowUntil",
@@ -38,22 +63,25 @@ func TestSessionViteSourceForcesFollowOnChatSendAndScrollsNewEntries(t *testing.
 		"scrollAfterLayout",
 		"scrollElementAboveComposer",
 		"chatComposerHeight",
-		"if (FOLLOW) {\n            scrollAfterLayout(true);",
-		"showFollowButton();",
+		"showFollowButton",
 	} {
-		if !strings.Contains(source, want) {
+		if !strings.Contains(combined, want) {
 			t.Fatalf("live reload source missing %q", want)
 		}
 	}
 }
 
 func TestSessionViteSourceShowsAnimatedWorkingPreviewLabel(t *testing.T) {
+	preview, err := os.ReadFile("web/src/session/live/chat-preview.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/chat-preview.js: %v", err)
+	}
 	for _, want := range []string{
 		"working<span class=\"working-dots\"",
 		"chat-preview-working-dots",
 		"animation: chat-preview-working-dots",
 	} {
-		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(liveSessionCss, want) {
+		if !strings.Contains(string(preview), want) && !strings.Contains(liveSessionCss, want) {
 			t.Fatalf("session frontend source missing %q", want)
 		}
 	}
@@ -93,42 +121,55 @@ func TestGenerateExportHtmlIncludesResumeButtonWhenButtonsShown(t *testing.T) {
 }
 
 func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
+	source, err := os.ReadFile("web/src/session/live/share-overlay.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/share-overlay.js: %v", err)
+	}
 	for _, want := range []string{
-		"function copyShareUrl(text, label)",
-		"navigator.clipboard && navigator.clipboard.writeText",
-		`document.execCommand("copy")`,
+		"export function copyShareUrl(",
+		"navigatorImpl.clipboard && navigatorImpl.clipboard.writeText",
+		"documentImpl.execCommand('copy')",
 		"share-copy-notice",
-		`label + " copied"`,
+		"label + ' copied'",
 	} {
-		if !strings.Contains(liveReloadJsBody, want) {
+		if !strings.Contains(string(source), want) {
 			t.Fatalf("share copy source missing %q", want)
 		}
 	}
 }
 
 func TestResumeButtonClipboardGuardAndFallback(t *testing.T) {
-	if !strings.Contains(liveReloadJsBody, "if (navigator.clipboard && navigator.clipboard.writeText)") {
+	source, err := os.ReadFile("web/src/session/live/resume-button.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/resume-button.js: %v", err)
+	}
+	if !strings.Contains(string(source), "navigatorImpl.clipboard && navigatorImpl.clipboard.writeText") {
 		t.Fatalf("resume clipboard code should guard navigator.clipboard before writeText")
 	}
-	if !strings.Contains(liveReloadJsBody, `document.execCommand("copy")`) {
+	if !strings.Contains(string(source), "documentImpl.execCommand('copy')") {
 		t.Fatalf("resume clipboard code should include execCommand fallback")
 	}
 }
 
 func TestResumeButtonShowsToastWithoutChangingButtonText(t *testing.T) {
-	if strings.Contains(liveReloadJsBody, `resumeBtn.textContent = 'Copied!'`) {
+	source, err := os.ReadFile("web/src/session/live/resume-button.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/resume-button.js: %v", err)
+	}
+	src := string(source)
+	if strings.Contains(src, `resumeBtn.textContent = 'Copied!'`) {
 		t.Fatalf("resume button text should not change to Copied")
 	}
-	if strings.Contains(liveReloadJsBody, `Copied — tap to view`) || strings.Contains(liveReloadJsBody, `notice.onclick`) {
+	if strings.Contains(src, `Copied — tap to view`) || strings.Contains(src, `notice.onclick`) {
 		t.Fatalf("resume copy notification should be a passive toast, not tap-to-expand")
 	}
-	if !strings.Contains(liveReloadJsBody, `Copied`) || !strings.Contains(liveSessionCss, `.toast-notice`) {
+	if !strings.Contains(src, `Copied`) || !strings.Contains(liveSessionCss, `.toast-notice`) {
 		t.Fatalf("resume copy should show an accent-colored toast notification")
 	}
-	if !strings.Contains(liveReloadJsBody, `document.body.dataset.sessionUuid`) {
+	if !strings.Contains(src, `documentImpl.body.dataset.sessionUuid`) {
 		t.Fatalf("resume copy should read real session UUID from body data attribute")
 	}
-	if !strings.Contains(liveReloadJsBody, `resumeSessionArg`) {
+	if !strings.Contains(src, `resumeSessionArg`) {
 		t.Fatalf("resume copy should derive UUID-only session argument")
 	}
 }

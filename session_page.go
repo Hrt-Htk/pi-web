@@ -20,13 +20,8 @@ var liveSessionCss string
 
 
 
-//go:embed live_templates/live_reload.js
-var liveReloadJsBody string
-
 //go:embed live_templates/chat_composer.html
 var chatComposerTmplStr string
-
-var liveReloadJs = "<script>\n" + liveReloadJsBody + "</script>\n"
 
 var chatComposerTmpl = template.Must(template.New("chat_composer").Parse(chatComposerTmplStr))
 

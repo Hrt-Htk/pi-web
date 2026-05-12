@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -58,19 +59,27 @@ func TestNavigationReappliesCurrentToggleStateAfterRenderingMessages(t *testing.
 }
 
 func TestLiveReloadUpdatesExistingAssistantWhenToolResultsArrive(t *testing.T) {
+	entriesSrc, err := os.ReadFile("web/src/session/live/live-entries.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-entries.js: %v", err)
+	}
+	eventsSrc, err := os.ReadFile("web/src/session/live/live-events.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
+	}
+	combined := string(entriesSrc) + string(eventsSrc)
 	checks := []string{
-		"var LIVE_RENDERED = new Set();",
-		"function upsertEntry(entry, allEntries) {",
-		"replaceEntryNode(existing, node);",
-		"LIVE_RENDERED.add(entry.id);",
-		"LIVE_RENDERED.has(entry.id)",
-		"function refreshEntriesAffectedByToolResult(toolResultEntry, allEntries) {",
-		"block.type === \"toolCall\"",
+		"export function upsertEntry(",
+		".replaceWith(node)",
+		"state.liveRendered.add(entry.id)",
+		"liveRendered.has(entry.id)",
+		"export function refreshEntriesAffectedByToolResult(",
+		"block.type === 'toolCall'",
 		"block.id === toolResultEntry.message.toolCallId",
-		"refreshEntriesAffectedByToolResult(entry, entries);",
+		"refreshEntriesAffectedByToolResult(entry, entries)",
 	}
 	for _, check := range checks {
-		if !strings.Contains(liveReloadJs, check) {
+		if !strings.Contains(combined, check) {
 			t.Fatalf("live reload does not refresh existing assistant entries when tool results arrive; missing %q", check)
 		}
 	}
@@ -91,17 +100,30 @@ func TestLiveReloadEntriesInheritCurrentToggleState(t *testing.T) {
 	}
 
 	liveReloadChecks := []string{
-		"if (typeof window.applyToggleStateToNode === \"function\") {",
-		"window.applyToggleStateToNode(node);",
+		"applyToggleStateToNode: window.applyToggleStateToNode",
+		"applyToggleStateToNode?.(node)",
 	}
+	liveRunner, err := os.ReadFile("web/src/session/live/live-reload-runner.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
+	}
+	liveEntries, err := os.ReadFile("web/src/session/live/live-entries.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-entries.js: %v", err)
+	}
+	combined := string(liveRunner) + string(liveEntries)
 	for _, check := range liveReloadChecks {
-		if !strings.Contains(liveReloadJs, check) {
+		if !strings.Contains(combined, check) {
 			t.Fatalf("live reload JS does not apply current toggle state to appended or replaced entries; missing %q", check)
 		}
 	}
 }
 
 func TestLiveReloadRendererUsesToggleableThinkingAndToolMarkup(t *testing.T) {
+	source, err := os.ReadFile("web/src/session/live/live-renderer.js")
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-renderer.js: %v", err)
+	}
 	checks := []string{
 		`<div class="thinking-block"><div class="thinking-text">`,
 		`<div class="thinking-collapsed">Thinking ...</div>`,
@@ -110,7 +132,7 @@ func TestLiveReloadRendererUsesToggleableThinkingAndToolMarkup(t *testing.T) {
 		`output-full`,
 	}
 	for _, check := range checks {
-		if !strings.Contains(liveReloadJs, check) {
+		if !strings.Contains(string(source), check) {
 			t.Fatalf("live reload renderer missing toggle-compatible markup %q", check)
 		}
 	}

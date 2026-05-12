@@ -9,33 +9,6 @@ import (
 	"pi-web/internal/sessions"
 )
 
-func TestLiveReloadJsIsEmbeddedAndWrapped(t *testing.T) {
-	if liveReloadJsBody == "" {
-		t.Fatal("liveReloadJsBody is empty; live_templates/live_reload.js was not embedded")
-	}
-	if !strings.HasPrefix(liveReloadJs, "<script>\n") {
-		t.Fatalf("liveReloadJs missing <script> open tag, got prefix %q", liveReloadJs[:min(20, len(liveReloadJs))])
-	}
-	if !strings.HasSuffix(strings.TrimRight(liveReloadJs, "\n"), "</script>") {
-		t.Fatal("liveReloadJs missing </script> close tag")
-	}
-	for _, marker := range []string{
-		"function appendEntry(",
-		"new EventSource(",
-		"share-btn",
-		"resume-btn",
-	} {
-		if !strings.Contains(liveReloadJs, marker) {
-			t.Fatalf("liveReloadJs missing expected JS marker %q", marker)
-		}
-	}
-	// Must NOT contain a nested <script> tag inside the body — otherwise the
-	// embedded file accidentally contains the wrapper too.
-	if strings.Count(liveReloadJs, "<script>") != 1 {
-		t.Fatalf("liveReloadJs should contain exactly one <script> tag, got %d", strings.Count(liveReloadJs, "<script>"))
-	}
-}
-
 func TestChatComposerTemplateEscapesSessionID(t *testing.T) {
 	got := chatComposerHtml(`"><script>alert(1)</script>`)
 	if strings.Contains(got, "<script>alert(1)</script>") {
