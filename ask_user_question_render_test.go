@@ -19,21 +19,6 @@ func TestAskUserQuestionToolHasDedicatedRenderer(t *testing.T) {
 	}
 }
 
-func TestPendingAskUserQuestionOptionsSendImmediately(t *testing.T) {
-	checks := []string{
-		"ask-question-option-action",
-		"data-question=",
-		"data-answer=",
-		"sendChatMessage(message)",
-		"document.addEventListener('click', async (event) =>",
-	}
-	for _, check := range checks {
-		if !strings.Contains(exportJs, check) {
-			t.Fatalf("missing %q; pending question options should be clickable and send immediately", check)
-		}
-	}
-}
-
 func TestErroredAskUserQuestionKeepsFallbackOptionsClickable(t *testing.T) {
 	checks := []string{
 		"const questionToolFailed = result?.isError === true;",

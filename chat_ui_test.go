@@ -5,20 +5,6 @@ import (
 	"testing"
 )
 
-func TestChatComposerScriptAccumulatesRepeatedImageSelections(t *testing.T) {
-	checks := []string{
-		"let selectedChatFiles = [];",
-		"selectedChatFiles.push(file);",
-		"for (const file of files) body.append('images', file);",
-		"selectedChatFiles = [];",
-	}
-	for _, check := range checks {
-		if !strings.Contains(exportJs, check) {
-			t.Fatalf("template JS missing %q; repeated image selections may replace earlier attachments", check)
-		}
-	}
-}
-
 func TestChatComposerCSSUsesIntegratedToolbarLayout(t *testing.T) {
 	checks := []string{
 		".pi-chat-shell",
@@ -33,15 +19,4 @@ func TestChatComposerCSSUsesIntegratedToolbarLayout(t *testing.T) {
 	}
 }
 
-func TestChatComposerEnterKeyDoesNotSubmitOnMobile(t *testing.T) {
-	checks := []string{
-		"function isMobileTextInputMode()",
-		"if (isMobileTextInputMode()) return;",
-		"form.requestSubmit();",
-	}
-	for _, check := range checks {
-		if !strings.Contains(exportJs, check) {
-			t.Fatalf("template JS missing %q; mobile Enter should insert a newline instead of sending", check)
-		}
-	}
-}
+

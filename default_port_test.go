@@ -16,7 +16,7 @@ func TestDefaultPortMatchesPublishedDefaults(t *testing.T) {
 	files := []string{
 		"com.pi-web.plist",
 		"README.md",
-		"skill/SKILL.md",
+		".pi/skills/SKILL.md",
 		".pi/extensions/pi-web.ts",
 	}
 
