@@ -145,13 +145,13 @@ export function createSessionsPage({
       this.path = '';
       this.error = '';
       this.recent = [];
-      this.$nextTick?.(() => this.$refs.sessionPath.focus());
       try {
         const response = await fetchRecent();
         this.recent = (response.locations || []).slice(0, 10);
       } catch {
         // Intentional no-op: recent locations are optional.
       }
+      return this.recent;
     },
 
     async create() {

@@ -42,7 +42,7 @@ describe('createSessionsPage', () => {
     document.body.innerHTML = '';
   });
 
-  it('creates the sessions page Alpine state object', () => {
+  it('creates the sessions page state object', () => {
     const page = createSessionsPage();
     expect(page).toMatchObject({ query: '', modal: false, path: '', recent: [], creating: false, error: '' });
     expect(typeof page.filter).toBe('function');

@@ -1,27 +1,12 @@
-function closeOverlay(state) {
-  if (state.shareOverlay) state.shareOverlay.remove();
+export function hideShareOverlay(state, { documentImpl = document } = {}) {
+  const overlay = documentImpl.getElementById('share-overlay');
+  if (overlay) overlay.style.display = 'none';
   state.shareOverlay = null;
 }
 
-function createOverlay(state, { documentImpl }) {
-  closeOverlay(state);
-  const overlay = documentImpl.createElement('div');
-  state.shareOverlay = overlay;
-  overlay.className = 'share-overlay-backdrop';
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeOverlay(state);
-  });
-  return overlay;
-}
-
 export function showShareCopiedNotice(label, text, state, { documentImpl = document, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
-  let notice = documentImpl.getElementById('share-copy-notice');
-  if (!notice) {
-    notice = documentImpl.createElement('div');
-    notice.id = 'share-copy-notice';
-    notice.className = 'toast-notice';
-    documentImpl.body.appendChild(notice);
-  }
+  const notice = documentImpl.getElementById('share-copy-notice');
+  if (!notice) return;
   notice.textContent = label + ' copied';
   notice.title = text;
   clearTimeoutImpl(state.shareCopyHideTimer);
@@ -42,49 +27,82 @@ export function copyShareUrl(text, label, state, { documentImpl = document, navi
     if (ok) showShareCopiedNotice(label, text, state, { documentImpl, setTimeoutImpl, clearTimeoutImpl });
   }
   if (navigatorImpl.clipboard && navigatorImpl.clipboard.writeText) {
-    navigatorImpl.clipboard.writeText(text).then(() => showShareCopiedNotice(label, text, state, { documentImpl, setTimeoutImpl, clearTimeoutImpl })).catch(fallbackCopy);
+    navigatorImpl.clipboard.writeText(text)
+      .then(() => showShareCopiedNotice(label, text, state, { documentImpl, setTimeoutImpl, clearTimeoutImpl }))
+      .catch(fallbackCopy);
   } else {
     fallbackCopy();
   }
 }
 
-export function showShareResult(gistUrl, previewUrl, state, { documentImpl = document, escapeHtml = String, navigatorImpl = navigator, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
-  const overlay = createOverlay(state, { documentImpl });
-  const box = documentImpl.createElement('div');
-  box.className = 'share-dialog';
-  box.innerHTML = '<h3>Session Shared</h3>' +
-    '<div class="share-field"><label>Gist URL</label>' +
-    '<input readonly class="share-url-input" onclick="this.select()"></div>' +
-    '<div class="share-field"><label>Preview URL</label>' +
-    '<input readonly class="share-url-input" onclick="this.select()"></div>' +
-    '<div class="share-actions">' +
-    '<button id="share-copy-gist" class="share-btn-primary">Copy Gist</button>' +
-    '<button id="share-copy-preview" class="share-btn-secondary">Copy Preview</button>' +
-    '<button id="share-close" class="share-btn-secondary">Close</button></div>';
-  box.querySelectorAll('.share-url-input')[0].value = gistUrl;
-  box.querySelectorAll('.share-url-input')[1].value = previewUrl;
-  overlay.appendChild(box);
-  documentImpl.body.appendChild(overlay);
-  documentImpl.getElementById('share-close').addEventListener('click', () => closeOverlay(state));
-  documentImpl.getElementById('share-copy-gist').addEventListener('click', () => copyShareUrl(gistUrl, 'Gist', state, { documentImpl, navigatorImpl, setTimeoutImpl, clearTimeoutImpl }));
-  documentImpl.getElementById('share-copy-preview').addEventListener('click', () => copyShareUrl(previewUrl, 'Preview', state, { documentImpl, navigatorImpl, setTimeoutImpl, clearTimeoutImpl }));
+export function showShareResult(gistUrl, previewUrl, state, { documentImpl = document } = {}) {
+  const overlay = documentImpl.getElementById('share-overlay');
+  const dialog = documentImpl.getElementById('share-dialog');
+  if (!overlay || !dialog) return;
+
+  dialog.classList.remove('error');
+  documentImpl.getElementById('share-title').textContent = 'Session Shared';
+  documentImpl.getElementById('share-fields').style.display = '';
+  documentImpl.getElementById('share-error-message').style.display = 'none';
+  documentImpl.getElementById('share-copy-gist').style.display = '';
+  documentImpl.getElementById('share-copy-preview').style.display = '';
+
+  documentImpl.getElementById('share-gist-url').value = gistUrl;
+  documentImpl.getElementById('share-preview-url').value = previewUrl;
+  documentImpl.getElementById('share-copy-gist').dataset.url = gistUrl;
+  documentImpl.getElementById('share-copy-preview').dataset.url = previewUrl;
+
+  overlay.style.display = '';
+  state.shareOverlay = overlay;
 }
 
 export function showShareError(message, state, { documentImpl = document, escapeHtml = String } = {}) {
-  const overlay = createOverlay(state, { documentImpl });
-  const box = documentImpl.createElement('div');
-  box.className = 'share-dialog error';
-  box.innerHTML = '<h3>Share Failed</h3>' +
-    '<p class="share-error-message">' + escapeHtml(message) + '</p>' +
-    '<div class="share-actions"><button id="share-close-err" class="share-btn-secondary">Close</button></div>';
-  overlay.appendChild(box);
-  documentImpl.body.appendChild(overlay);
-  documentImpl.getElementById('share-close-err').addEventListener('click', () => closeOverlay(state));
+  const overlay = documentImpl.getElementById('share-overlay');
+  const dialog = documentImpl.getElementById('share-dialog');
+  if (!overlay || !dialog) return;
+
+  dialog.classList.add('error');
+  documentImpl.getElementById('share-title').textContent = 'Share Failed';
+  documentImpl.getElementById('share-fields').style.display = 'none';
+  const errEl = documentImpl.getElementById('share-error-message');
+  errEl.style.display = '';
+  errEl.textContent = message;
+  documentImpl.getElementById('share-copy-gist').style.display = 'none';
+  documentImpl.getElementById('share-copy-preview').style.display = 'none';
+
+  overlay.style.display = '';
+  state.shareOverlay = overlay;
 }
 
 export function setupShareButton({ documentImpl = document, fetchImpl = fetch, sessionId, state, escapeHtml = String, navigatorImpl = navigator } = {}) {
   const shareBtn = documentImpl.getElementById('share-btn');
-  if (!shareBtn) return false;
+  const overlay = documentImpl.getElementById('share-overlay');
+  if (!shareBtn || !overlay) return false;
+
+  if (!state.__shareListenersBound) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) hideShareOverlay(state, { documentImpl });
+    });
+    const closeBtn = documentImpl.getElementById('share-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => hideShareOverlay(state, { documentImpl }));
+
+    const copyGistBtn = documentImpl.getElementById('share-copy-gist');
+    if (copyGistBtn) {
+      copyGistBtn.addEventListener('click', () => {
+        const url = copyGistBtn.dataset.url;
+        if (url) copyShareUrl(url, copyGistBtn.dataset.copyLabel || 'Gist', state, { documentImpl, navigatorImpl });
+      });
+    }
+    const copyPreviewBtn = documentImpl.getElementById('share-copy-preview');
+    if (copyPreviewBtn) {
+      copyPreviewBtn.addEventListener('click', () => {
+        const url = copyPreviewBtn.dataset.url;
+        if (url) copyShareUrl(url, copyPreviewBtn.dataset.copyLabel || 'Preview', state, { documentImpl, navigatorImpl });
+      });
+    }
+    state.__shareListenersBound = true;
+  }
+
   shareBtn.addEventListener('click', () => {
     shareBtn.textContent = '...';
     shareBtn.disabled = true;
@@ -93,8 +111,11 @@ export function setupShareButton({ documentImpl = document, fetchImpl = fetch, s
       .then((data) => {
         shareBtn.textContent = '↗ Share';
         shareBtn.disabled = false;
-        if (data.error) showShareError(data.error + (data.stderr ? '\n\n' + data.stderr : ''), state, { documentImpl, escapeHtml });
-        else showShareResult(data.gistUrl, data.previewUrl, state, { documentImpl, escapeHtml, navigatorImpl });
+        if (data.error) {
+          showShareError(data.error + (data.stderr ? '\n\n' + data.stderr : ''), state, { documentImpl, escapeHtml });
+        } else {
+          showShareResult(data.gistUrl, data.previewUrl, state, { documentImpl });
+        }
       })
       .catch((err) => {
         shareBtn.textContent = '↗ Share';

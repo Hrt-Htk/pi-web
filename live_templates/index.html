@@ -18,7 +18,7 @@
   --line-height: 18px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-[x-cloak] { display: none !important; }
+
 body {
   font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
   font-size: 12px;
@@ -325,15 +325,15 @@ body {
 }
 </style>
 </head>
-<body x-data="sessionsPage()" x-init="filter(); subscribe()">
+<body>
 <div class="header">
   <div class="header-inner">
     <div class="header-top">
       <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" style="width:1.2em;height:1.2em;vertical-align:middle;margin-right:0.3em;display:inline-block;"><path fill="var(--border-accent)" fill-rule="evenodd" d="M165.29 165.29 H517.36 V400 H400 V517.36 H282.65 V634.72 H165.29 Z M282.65 282.65 V400 H400 V282.65 Z"/><path fill="var(--border-accent)" d="M517.36 400 H634.72 V634.72 H517.36 Z"/></svg> Pi Sessions</h1>
-      <button class="new-session-btn" id="newSessionBtn" title="Start new session" @click="openModal()">+</button>
+      <button class="new-session-btn" id="newSessionBtn" title="Start new session">+</button>
     </div>
     <div class="search-box">
-      <input type="text" id="search" placeholder="Search sessions..." autofocus x-model="query" @input.debounce.50ms="filter()">
+      <input type="text" id="search" placeholder="Search sessions..." autofocus>
     </div>
     <div class="stats-bar">{{ len . }} sessions</div>
   </div>
@@ -348,7 +348,7 @@ body {
         <div class="session-grid">
       {{ $currentProject = .Project }}
     {{ end }}
-    <div class="session-card" data-id="{{ .ID }}" data-session-id="{{ .ID }}" data-search="{{ .Name | html }} {{ .Project | html }}" @click="window.location='/session?id={{ .ID }}'">
+    <div class="session-card" data-id="{{ .ID }}" data-session-id="{{ .ID }}" data-search="{{ .Name | html }} {{ .Project | html }}" onclick="window.location='/session?id={{ .ID }}'">
       <div class="session-title-row">
         <div class="session-title">{{ .Name | html }}</div>
         <div class="session-card-flags">
@@ -367,30 +367,17 @@ body {
   {{ end }}
   {{ if ne $currentProject "" }}</div></div>{{ end }}
 </div>
-<div class="modal-overlay" id="modalOverlay"
-     :class="{ open: modal }"
-     x-show="modal" x-cloak
-     @click.self="modal = false"
-     @keydown.escape.window="modal = false">
+<div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <h2>Start New Session</h2>
-    <div class="recent-locations" id="recentLocations">
-      <template x-for="loc in recent" :key="loc">
-        <span class="recent-chip" x-text="loc" @click="path = loc; $refs.sessionPath.focus()"></span>
-      </template>
-    </div>
-    <input type="text" id="sessionPath" x-ref="sessionPath"
-           placeholder="/path/to/project or ~/project"
-           x-model="path"
-           @keydown.enter="create()">
+    <div class="recent-locations" id="recentLocations"></div>
+    <input type="text" id="sessionPath"
+           placeholder="/path/to/project or ~/project">
     <div class="modal-actions">
-      <button class="btn-secondary" id="cancelBtn" @click="modal = false">Cancel</button>
-      <button class="btn-primary" id="createBtn"
-              :disabled="creating"
-              x-text="creating ? 'Creating...' : 'Create'"
-              @click="create()"></button>
+      <button class="btn-secondary" id="cancelBtn">Cancel</button>
+      <button class="btn-primary" id="createBtn">Create</button>
     </div>
-    <div class="modal-error" id="modalError" x-text="error"></div>
+    <div class="modal-error" id="modalError"></div>
   </div>
 </div>
 <script>

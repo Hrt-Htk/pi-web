@@ -8,7 +8,7 @@
     "dev": "vite build --watch"
   },
   "dependencies": {
-    "alpinejs": "latest",
+
     "highlight.js": "latest",
     "marked": "latest"
   },
