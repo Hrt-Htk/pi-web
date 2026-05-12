@@ -39,7 +39,7 @@ The Go template still renders the live HTML shell, CSS, chat form shell, and ser
 ```
 renderLiveSessionPage(session)
        │
-       ├──▶ export/template.html
+       ├──▶ live_templates/session.html
        ├──▶ export/template.css
        ├──▶ base64(sessionData) in #session-data
        ├──▶ live_templates/chat_composer.html
@@ -96,4 +96,4 @@ The session page listens to `/events?id=<sessionId>` for:
 
 ## Theme System
 
-Session colors are still defined by `computeThemeVars()` in `export.go` and injected into `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.
+Session colors are still defined by `computeThemeVars()` in `session_page.go` and injected into `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.

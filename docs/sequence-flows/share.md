@@ -26,9 +26,9 @@ This flow covers a user clicking the **Share** button on a session page, which c
      │             │              │                  │               │              │
      │             │              │─── generateExportHtml(session, false)
      │             │              │                  │               │              │
-     │             │              │                  │─── template.html│              │
-     │             │              │                  │─── template.css │              │
-     │             │              │                  │─── templateJs   │              │
+     │             │              │                  │─── export/index.html│         │
+     │             │              │                  │─── export/template.css│        │
+     │             │              │                  │─── exportJs     │              │
      │             │              │                  │─── marked.js    │              │
      │             │              │                  │─── highlight.js │              │
      │             │              │                  │               │              │

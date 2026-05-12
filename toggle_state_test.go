@@ -20,7 +20,7 @@ func TestSessionToggleButtonsReflectPersistedActiveState(t *testing.T) {
 		"T show/hide thinking · O show/hide tools · P expand/collapse tool output",
 		".header-toggle-btn.active",
 	}
-	combined := templateJs + templateCss
+	combined := exportJs + sessionCss
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("session toggle controls missing persisted active-state behavior %q", check)
@@ -39,7 +39,7 @@ func TestToolsVisibilityAndOutputExpansionAreSeparateStates(t *testing.T) {
 		"toggleState.toolOutputsExpanded = !toggleState.toolOutputsExpanded;",
 	}
 	for _, check := range checks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("tools visibility and output expansion are not separate; missing %q", check)
 		}
 	}
@@ -51,7 +51,7 @@ func TestNavigationReappliesCurrentToggleStateAfterRenderingMessages(t *testing.
 		"window.sessionToggleState?.applyToNode(messagesEl);",
 	}
 	for _, check := range checks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("navigation does not reapply persisted toggle state after rendering messages; missing %q", check)
 		}
 	}
@@ -84,7 +84,7 @@ func TestLiveReloadEntriesInheritCurrentToggleState(t *testing.T) {
 		"window.applyToggleStateToNode = (node) => window.sessionToggleState.applyToNode(node);",
 	}
 	for _, check := range jsChecks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("template JS missing reusable toggle-state hook %q", check)
 		}
 	}

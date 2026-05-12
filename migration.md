@@ -21,7 +21,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
    - `export/app/*.js` — legacy concatenated IIFE scripts, used by share/gist
    Every bugfix or feature requires editing both.
 
-3. ~~**Duplicated HTML shells.** `live_templates/session.html` and `export/template.html` are copy-paste twins with a `<!-- Keep in sync... -->` comment.~~ **Fixed** — both now use `export/template.html`.
+3. ~~**Duplicated HTML shells.** `live_templates/session.html` and `export/template.html` are copy-paste twins with a `<!-- Keep in sync... -->` comment.~~ **Fixed** — live uses `live_templates/session.html` and export uses `export/index.html`.
 
 4. **Dead vendor files.** `export/vendor/marked.min.js`, `highlight.min.js`, and `alpine.min.js` are all bundled by Vite (they are npm dependencies) but still vendored separately.
 
@@ -68,7 +68,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
   <style>/* contents of session-xxx.css */</style>
   <script type="module">/* contents of session-xxx.js */</script>
   ```
-- [ ] Remove the `templateJs` variable and the `buildTemplateJsBundle()` function that concatenates `export/app/*.js`
+- [ ] Remove the `exportJs` variable and the `buildExportJsBundle()` function that concatenates `export/app/*.js`
 
 ### 2.2 Remove dead code
 
@@ -85,18 +85,18 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
 
 ## Phase 3: Deduplicate HTML shells ✅ Done
 
-**Goal:** Kill the `<!-- Keep in sync -->` maintenance burden between `live_templates/session.html` and `export/template.html`.
+**Goal:** Kill the `<!-- Keep in sync -->` maintenance burden between `live_templates/session.html` and `export/index.html`.
 
 **What we did:**
-- Deleted `live_templates/session.html` — the live session page now uses `export/template.html` as its base shell too.
+- Kept `live_templates/session.html` for the live session page and renamed the export shell to `export/index.html`.
 - Deleted `live_templates/session.css` — it was unused; both live and export already shared `export/template.css`.
 - Removed the `<!-- Keep in sync -->` comments.
 - Split `renderSessionPage(session, showButtons)` into `renderLiveSessionPage(session)` and `renderExportSessionPage(session)`.
-- Both functions use `export/template.html` and apply the same placeholder replacements (`{{CSS}}`, `{{SESSION_DATA}}`, `{{SESSION_SCRIPT}}`, `{{CHAT_COMPOSER}}`), but with different values:
+- Both functions use their own templates and apply the same placeholder replacements (`{{CSS}}`, `{{SESSION_DATA}}`, `{{SESSION_SCRIPT}}`, `{{CHAT_COMPOSER}}`), but with different values:
   - **Live:** external Vite module script, action buttons, chat composer
   - **Export:** inline JS/CSS, no buttons, no chat composer
 
-**After this phase:** One HTML template for sessions. No more manual sync.
+**After this phase:** Two separate HTML templates with a shared CSS file. No more `<body>` string-injection hacks.
 
 ---
 
@@ -115,7 +115,7 @@ This document tracks the migration from the legacy `export/` + `live_templates/`
 
 - [ ] Move session card rendering from Go template loops (`live_templates/index.html`) into `web/src/index/sessions-page.js`
 - [ ] The index page fetches session data via `/api/...` endpoints
-- [ ] `live_templates/index.html` becomes a thin static shell (like `export/template.html`)
+- [ ] `live_templates/index.html` becomes a thin static shell (like `export/index.html`)
 - [ ] Fully eliminate inline CSS and server-side HTML generation for the index
 
 This is lower priority since the current hybrid works.

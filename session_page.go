@@ -12,11 +12,11 @@ import (
 	"pi-web/internal/sessions"
 )
 
-//go:embed export/template.html
-var templateHtml string
+//go:embed live_templates/session.html
+var liveSessionHtml string
 
 //go:embed export/template.css
-var templateCss string
+var sessionCss string
 
 
 
@@ -88,7 +88,7 @@ func prepareSessionPageData(session sessions.Session) (dataBase64, css, bodyAttr
 	infoBg := "#3c3728"
 
 	// Both live and export sessions share the same CSS.
-	css = templateCss
+	css = sessionCss
 	css = strings.Replace(css, "{{THEME_VARS}}", precomputedThemeVars, 1)
 	css = strings.Replace(css, "{{BODY_BG}}", bodyBg, 1)
 	css = strings.Replace(css, "{{CONTAINER_BG}}", cardBg, 1)
@@ -101,44 +101,17 @@ func prepareSessionPageData(session sessions.Session) (dataBase64, css, bodyAttr
 }
 
 // renderLiveSessionPage renders the interactive session viewer served at
-// /session. It loads the Vite-built session module, injects action buttons,
-// and includes the chat composer.
+// /session. It loads the Vite-built session module and includes the chat composer.
 func renderLiveSessionPage(session sessions.Session) string {
 	dataBase64, css, bodyAttrs := prepareSessionPageData(session)
 
-	html := templateHtml
-	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
+	html := liveSessionHtml
+	html = strings.Replace(html, "{{TITLE}}", template.HTMLEscapeString(session.Name), 1)
 	html = strings.Replace(html, "{{CSS}}", css, 1)
+	html = strings.Replace(html, "{{BODY_ATTRS}}", bodyAttrs, 1)
 	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-
 	html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+template.HTMLEscapeString(sessionScriptPath)+`"></script>`, 1)
-
-	btns := `<div class="session-actions">
-<a href="/" class="session-action" title="Back to sessions">← Sessions</a>
-<button id="share-btn" class="session-action" title="Share session as GitHub Gist">↗ Share</button>
-<button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard">$_ Terminal</button>
-</div>`
-	html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">"+btns, 1)
 	html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
-
-	return html
-}
-
-// renderExportSessionPage renders a self-contained HTML snapshot suitable for
-// GitHub Gist sharing. All JS is inlined and server-dependent chrome (buttons,
-// chat composer) is stripped.
-func renderExportSessionPage(session sessions.Session) string {
-	dataBase64, css, bodyAttrs := prepareSessionPageData(session)
-
-	html := templateHtml
-	html = strings.Replace(html, "<title>Session Export</title>", "<title>"+template.HTMLEscapeString(session.Name)+"</title>", 1)
-	html = strings.Replace(html, "{{CSS}}", css, 1)
-	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-
-	inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + templateJs + "\n</script>"
-	html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineScript, 1)
-	html = strings.Replace(html, "<body>", "<body"+bodyAttrs+">", 1)
-	html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
 
 	return html
 }

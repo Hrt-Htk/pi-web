@@ -22,7 +22,7 @@ func TestModelSelectorMarkupExists(t *testing.T) {
 		"data.modelProvider",
 	}
 	for _, check := range jsChecks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("missing %q in template.js", check)
 		}
 	}
@@ -33,7 +33,7 @@ func TestModelSelectorMarkupExists(t *testing.T) {
 		"model-scope-badge",
 	}
 	for _, check := range cssChecks {
-		if !strings.Contains(templateCss, check) {
+		if !strings.Contains(sessionCss, check) {
 			t.Fatalf("missing %q in template.css", check)
 		}
 	}
@@ -52,7 +52,7 @@ func TestThinkingLevelSelectorMarkupExists(t *testing.T) {
 		"setThinkingLabel",
 	}
 	for _, check := range jsChecks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("missing %q in template.js", check)
 		}
 	}
@@ -68,7 +68,7 @@ func TestThinkingLevelSelectorMarkupExists(t *testing.T) {
 		"thinking-xhigh",
 	}
 	for _, check := range cssChecks {
-		if !strings.Contains(templateCss, check) {
+		if !strings.Contains(sessionCss, check) {
 			t.Fatalf("missing %q in template.css", check)
 		}
 	}

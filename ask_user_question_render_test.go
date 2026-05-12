@@ -13,7 +13,7 @@ func TestAskUserQuestionToolHasDedicatedRenderer(t *testing.T) {
 		"ask-question-option",
 	}
 	for _, check := range checks {
-		if !strings.Contains(templateJs+templateCss, check) {
+		if !strings.Contains(exportJs+sessionCss, check) {
 			t.Fatalf("missing %q; ask_user_question should not render as raw JSON", check)
 		}
 	}
@@ -28,7 +28,7 @@ func TestPendingAskUserQuestionOptionsSendImmediately(t *testing.T) {
 		"document.addEventListener('click', async (event) =>",
 	}
 	for _, check := range checks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("missing %q; pending question options should be clickable and send immediately", check)
 		}
 	}
@@ -42,7 +42,7 @@ func TestErroredAskUserQuestionKeepsFallbackOptionsClickable(t *testing.T) {
 		"Use these options as a fallback",
 	}
 	for _, check := range checks {
-		if !strings.Contains(templateJs, check) {
+		if !strings.Contains(exportJs, check) {
 			t.Fatalf("missing %q; errored multi-question cards should remain answerable", check)
 		}
 	}

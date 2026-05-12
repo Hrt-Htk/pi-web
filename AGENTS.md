@@ -46,8 +46,25 @@ The most important doc for frontend work is **`docs/dev/templates-vs-web.md`** �
 ### Key Files
 - `main.go` — CLI flags, Tailscale auto-detect, dependency wiring
 - `dist_embed.go` — `//go:embed all:web/dist` (Vite output embedded into binary)
-- `export.go` / `export/template.css` — Static snapshot generation
+- `session_page.go` — **Live session page** rendering (`live_templates/session.html`, chat composer)
+- `export.go` — **Export/share snapshot** rendering (`export/index.html`, inlined JS, no server deps)
+- `export/template.css` — Shared session CSS (used by **both** live and export)
 - `.pi/extensions/pi-web.ts` — Pi extension with `/web`, `/mobile`, `/refresh` commands
+
+### Live App vs. Export — DO NOT MIX THESE UP
+
+| | Live App (`/session`) | Export/Share (Gist) |
+|---|---|---|
+| Go file | `session_page.go` | `export.go` |
+| HTML shell | `live_templates/session.html` | `export/index.html` |
+| JS source | `web/src/session/` (Vite) | `export/app/*.js` + `export/vendor/` |
+| CSS | `export/template.css` (shared) | `export/template.css` (shared) |
+| Chat composer | Yes (`live_templates/chat_composer.html`) | No |
+| Action buttons | Yes (baked into `live_templates/session.html`) | No |
+| SSE/API calls | Yes | No |
+| Needs server? | Yes | No — fully self-contained |
+
+**Never** use `export/index.html` for the live session page. **Never** inject live-only chrome (buttons, chat) into `export/index.html`. They are separate templates for a reason.
 
 ## Build & Test
 
@@ -74,7 +91,8 @@ make check    # test + build + vet
 
 ## Critical Rules
 
-1. **Always keep `live_templates/` in sync** with `web/src/session/live/` changes.
+1. **Live and export are separate products.** `live_templates/session.html` is for the live app. `export/index.html` is for Gist snapshots. Do not mix them.
+2. **Always keep `live_templates/` in sync** with `web/src/session/live/` changes.
 2. **Session data is read-only.** pi-web never writes JSONL. Browser chat goes to a `pi --mode rpc` worker, which writes the file. pi-web only watches and broadcasts.
 3. **One worker per session.** Reused for subsequent messages. Crashed = evicted + replaced. Idle workers reaped after 30 min.
 4. **SSE topics:** `globalSessID = "__all__"` for index-wide events; session ID for per-session events.

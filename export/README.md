@@ -2,7 +2,7 @@
 
 This directory contains the **standalone, server-independent session snapshot** that gets uploaded as a GitHub Gist when you click **↗ Share**.
 
-The export is a single self-contained `session.html` file with all CSS and JS inlined. It has no chat composer, no SSE, no API calls, and no external asset dependencies.
+The export is a single self-contained HTML file with all CSS and JS inlined. It has no chat composer, no SSE, no API calls, and no external asset dependencies.
 
 ## Directory Layout
 
@@ -29,7 +29,7 @@ export/
 
 `export.go` (`renderExportSessionPage`) produces the final HTML:
 
-1. **Template & CSS** — Uses `export/template.html` and `export/template.css`.
+1. **Template & CSS** — Uses `export/index.html` and `export/template.css`.
 2. **Vendor JS** — Inlines `vendor/marked.min.js` and `vendor/highlight.min.js`.
 3. **App JS** — Reads all `app/*.js` files, sorts them lexically by filename (the `00-`, `10-`, … prefixes control evaluation order), concatenates them, and wraps the result in a single IIFE.
 4. **Session data** — Embeds the session JSON as a base64 `<script type="application/json">` blob decoded by `00-data.js`.
@@ -40,10 +40,11 @@ export/
 |--------|-------|
 | Fix export rendering / filtering / tree behavior | `export/app/*.js` |
 | Update markdown or syntax-highlighting libraries | `export/vendor/*.js` |
-| Change session page layout or styling | `export/template.html` or `export/template.css` |
+| Change export snapshot layout or styling | `export/index.html` or `export/template.css` |
+| Change live session viewer layout or styling | `live_templates/session.html` |
 
 ## Important Notes
 
 - The numeric prefixes (`00-`, `10-`, …) on `app/*.js` **must** be preserved — they determine concatenation order.
-- The live session page (`/session?id=...`) uses the same `export/template.html` shell, but Go replaces `{{SESSION_SCRIPT}}` with a Vite module URL and injects action buttons + chat composer. If you change `export/template.html`, verify both live and export render correctly.
+- The live session page (`/session?id=...`) uses a **separate** template at `live_templates/session.html`. It shares the same CSS (`export/template.css`) and base DOM structure, but includes server-dependent chrome (action buttons, chat composer placeholder) that the export template deliberately omits. If you change either template, verify both render correctly.
 - Unlike the live app (`web/src/session/`), the export JS is **not** built by Vite. It is plain ES5-ish JS concatenated at compile time by Go.

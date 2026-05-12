@@ -108,14 +108,14 @@ func generateExportHtml(session sessions.Session, showButtons bool) string {
     dataBase64 := base64.StdEncoding.EncodeToString(marshal(sessionData))
 
     // 2. Build CSS with theme variables injected
-    css := strings.Replace(templateCss, "{{THEME_VARS}}", precomputedThemeVars, 1)
+    css := strings.Replace(sessionCss, "{{THEME_VARS}}", precomputedThemeVars, 1)
     css = strings.Replace(css, "{{BODY_BG}}", bodyBg, 1)
     css = strings.Replace(css, "{{CONTAINER_BG}}", cardBg, 1)
     css = strings.Replace(css, "{{INFO_BG}}", infoBg, 1)
 
     // 3. Assemble HTML
-    html := templateHtml
-    html = strings.Replace(html, "<title>…", "<title>"+sessionName(session)+"</title>", 1)
+    html := liveSessionHtml
+    html = strings.Replace(html, "{{TITLE}}", sessionName(session), 1)
     html = strings.Replace(html, "{{CSS}}", css, 1)
     html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
 

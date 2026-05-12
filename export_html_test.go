@@ -53,7 +53,7 @@ func TestSessionViteSourceShowsAnimatedWorkingPreviewLabel(t *testing.T) {
 		"chat-preview-working-dots",
 		"animation: chat-preview-working-dots",
 	} {
-		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(templateCss, want) {
+		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(sessionCss, want) {
 			t.Fatalf("session frontend source missing %q", want)
 		}
 	}
