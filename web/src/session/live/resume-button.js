@@ -3,15 +3,15 @@ export function showResumeCopiedNotice(command, state, { documentImpl = document
   if (!notice) {
     notice = documentImpl.createElement('div');
     notice.id = 'resume-copy-notice';
-    notice.style.cssText = 'position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;';
+    notice.className = 'toast-notice';
     documentImpl.body.appendChild(notice);
   }
   notice.textContent = 'Copied';
   notice.title = command;
   clearTimeoutImpl(state.hideTimer);
-  notice.style.opacity = '1';
+  notice.classList.add('visible');
   state.hideTimer = setTimeoutImpl(() => {
-    notice.style.opacity = '0';
+    notice.classList.remove('visible');
   }, 1200);
 }
 

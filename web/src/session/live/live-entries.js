@@ -18,9 +18,8 @@ export function buildEntryNode(entry, allEntries, { documentImpl = document, ren
 }
 
 export function highlightNewEntry(node, { windowImpl = window } = {}) {
-  node.style.transition = 'box-shadow 0.8s ease-out';
-  node.style.boxShadow = '0 0 0 2px var(--accent)';
-  windowImpl.setTimeout(() => { node.style.boxShadow = ''; }, 1500);
+  node.classList.add('new-entry-highlight');
+  windowImpl.setTimeout(() => { node.classList.remove('new-entry-highlight'); }, 1500);
 }
 
 export function appendEntry(entry, allEntries, state, env = {}) {

@@ -1630,3 +1630,167 @@
     .thinking-level-item:hover.thinking-high { color: var(--thinkingHigh); }
     .thinking-level-item.selected.thinking-xhigh,
     .thinking-level-item:hover.thinking-xhigh { color: var(--thinkingXhigh); }
+
+    /* Share overlay */
+    .share-overlay-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .share-dialog {
+      background: var(--container-bg);
+      border: 1px solid var(--dim);
+      border-radius: 4px;
+      padding: calc(var(--line-height) * 2);
+      max-width: 500px;
+      width: 90%;
+      font-family: inherit;
+    }
+
+    .share-dialog.error {
+      border-color: var(--error);
+      max-width: 400px;
+    }
+
+    .share-dialog h3 {
+      margin: 0 0 var(--line-height);
+      font-size: 12px;
+      color: var(--border-accent);
+    }
+
+    .share-dialog.error h3 {
+      color: var(--error);
+    }
+
+    .share-field {
+      margin-bottom: var(--line-height);
+    }
+
+    .share-field label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .share-url-input {
+      width: 100%;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      background: var(--body-bg);
+      color: var(--text);
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .share-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .share-btn-primary {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      background: var(--accent);
+      color: var(--body-bg);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .share-btn-secondary {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      background: var(--container-bg);
+      color: var(--text);
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .share-error-message {
+      font-size: 11px;
+      color: var(--text);
+      margin: 0 0 var(--line-height);
+      white-space: pre-wrap;
+    }
+
+    /* Toast notices (share copy, resume copy) */
+    .toast-notice {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 400;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-family: inherit;
+      background: var(--accent);
+      color: var(--body-bg);
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .toast-notice.visible {
+      opacity: 1;
+    }
+
+    /* Update indicator */
+    .update-indicator {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 200;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-family: inherit;
+      background: var(--accent);
+      color: var(--body-bg);
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      cursor: pointer;
+    }
+
+    .update-indicator.visible {
+      opacity: 1;
+    }
+
+    /* Follow button */
+    .follow-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 200;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-family: inherit;
+      background: var(--accent);
+      color: var(--body-bg);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .follow-button.visible {
+      opacity: 1;
+    }
+
+    /* New entry highlight */
+    .new-entry-highlight {
+      transition: box-shadow 0.8s ease-out;
+      box-shadow: 0 0 0 2px var(--accent);
+    }

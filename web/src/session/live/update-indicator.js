@@ -17,15 +17,15 @@ export function showUpdateIndicator(state, {
   const indicator = documentImpl.createElement('div');
   state.indicator = indicator;
   indicator.textContent = 'updated - tap to view';
-  indicator.style.cssText = 'position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;cursor:pointer;';
+  indicator.className = 'update-indicator';
   indicator.addEventListener('click', () => {
     closeSidebar();
     scrollToBottom(true);
   });
   documentImpl.body.appendChild(indicator);
-  requestAnimationFrameImpl(() => { indicator.style.opacity = '1'; });
+  requestAnimationFrameImpl(() => { indicator.classList.add('visible'); });
   setTimeoutImpl(() => {
-    indicator.style.opacity = '0';
+    indicator.classList.remove('visible');
     setTimeoutImpl(() => {
       if (state.indicator && state.indicator.parentNode) state.indicator.parentNode.removeChild(state.indicator);
       state.indicator = null;

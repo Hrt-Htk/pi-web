@@ -10,7 +10,7 @@ describe('resume button', () => {
     const notice = dom.window.document.getElementById('resume-copy-notice');
     expect(notice.textContent).toBe('Copied');
     expect(notice.title).toBe('pi --session abc');
-    expect(notice.style.opacity).toBe('0');
+    expect(notice.classList.contains('toast-notice')).toBe(true);
   });
 
   it('copies resume command on click', async () => {

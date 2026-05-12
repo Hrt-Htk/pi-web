@@ -33,7 +33,7 @@ func TestModelSelectorMarkupExists(t *testing.T) {
 		"model-scope-badge",
 	}
 	for _, check := range cssChecks {
-		if !strings.Contains(sessionCss, check) {
+		if !strings.Contains(liveSessionCss, check) {
 			t.Fatalf("missing %q in template.css", check)
 		}
 	}
@@ -68,7 +68,7 @@ func TestThinkingLevelSelectorMarkupExists(t *testing.T) {
 		"thinking-xhigh",
 	}
 	for _, check := range cssChecks {
-		if !strings.Contains(sessionCss, check) {
+		if !strings.Contains(liveSessionCss, check) {
 			t.Fatalf("missing %q in template.css", check)
 		}
 	}

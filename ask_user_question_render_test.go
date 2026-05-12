@@ -13,7 +13,7 @@ func TestAskUserQuestionToolHasDedicatedRenderer(t *testing.T) {
 		"ask-question-option",
 	}
 	for _, check := range checks {
-		if !strings.Contains(exportJs+sessionCss, check) {
+		if !strings.Contains(exportJs+liveSessionCss, check) {
 			t.Fatalf("missing %q; ask_user_question should not render as raw JSON", check)
 		}
 	}

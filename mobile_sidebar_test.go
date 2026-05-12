@@ -27,13 +27,13 @@ func TestMobileSessionActionsStayAtTopAndHideBehindSidebar(t *testing.T) {
 		"@media (max-width: 900px)",
 		"top: calc(10px + env(safe-area-inset-top));",
 	}
-	combined := sessionCss + exportHtml + liveReloadJs + exportJs + chatComposerHtml("s.jsonl") + renderLiveSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl"}})
+	combined := liveSessionCss + exportHtml + liveReloadJs + exportJs + chatComposerHtml("s.jsonl") + renderLiveSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl"}})
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("mobile action UI missing %q", check)
 		}
 	}
-	if strings.Contains(sessionCss, "bottom: calc(12px + env(safe-area-inset-bottom));") {
+	if strings.Contains(liveSessionCss, "bottom: calc(12px + env(safe-area-inset-bottom));") {
 		t.Fatalf("mobile session actions should stay at top, not overlap the bottom chat composer")
 	}
 }
@@ -45,7 +45,7 @@ func TestMobileSessionActionsDoNotCoverHeaderToggleButtons(t *testing.T) {
 		"data-action=\"toggle-thinking\"",
 		"data-action=\"toggle-tools\"",
 	}
-	combined := sessionCss + exportJs
+	combined := liveSessionCss + exportJs
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("mobile session header controls missing %q; fixed session actions can cover toggle buttons", check)

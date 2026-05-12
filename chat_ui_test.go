@@ -27,7 +27,7 @@ func TestChatComposerCSSUsesIntegratedToolbarLayout(t *testing.T) {
 		"border-top: none;",
 	}
 	for _, check := range checks {
-		if !strings.Contains(sessionCss, check) {
+		if !strings.Contains(liveSessionCss, check) {
 			t.Fatalf("template CSS missing %q; composer should render as an integrated input bar", check)
 		}
 	}

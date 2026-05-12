@@ -53,7 +53,7 @@ func TestSessionViteSourceShowsAnimatedWorkingPreviewLabel(t *testing.T) {
 		"chat-preview-working-dots",
 		"animation: chat-preview-working-dots",
 	} {
-		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(sessionCss, want) {
+		if !strings.Contains(liveReloadJsBody, want) && !strings.Contains(liveSessionCss, want) {
 			t.Fatalf("session frontend source missing %q", want)
 		}
 	}
@@ -96,9 +96,9 @@ func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
 	for _, want := range []string{
 		"function copyShareUrl(text, label)",
 		"navigator.clipboard && navigator.clipboard.writeText",
-		"document.execCommand('copy')",
+		`document.execCommand("copy")`,
 		"share-copy-notice",
-		"label + ' copied'",
+		`label + " copied"`,
 	} {
 		if !strings.Contains(liveReloadJsBody, want) {
 			t.Fatalf("share copy source missing %q", want)
@@ -107,10 +107,10 @@ func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
 }
 
 func TestResumeButtonClipboardGuardAndFallback(t *testing.T) {
-	if !strings.Contains(liveReloadJsBody, "if (navigator.clipboard && navigator.clipboard.writeText) {\n        navigator.clipboard.writeText(cmd)") {
+	if !strings.Contains(liveReloadJsBody, "if (navigator.clipboard && navigator.clipboard.writeText)") {
 		t.Fatalf("resume clipboard code should guard navigator.clipboard before writeText")
 	}
-	if !strings.Contains(liveReloadJsBody, `document.execCommand('copy')`) {
+	if !strings.Contains(liveReloadJsBody, `document.execCommand("copy")`) {
 		t.Fatalf("resume clipboard code should include execCommand fallback")
 	}
 }
@@ -122,7 +122,7 @@ func TestResumeButtonShowsToastWithoutChangingButtonText(t *testing.T) {
 	if strings.Contains(liveReloadJsBody, `Copied — tap to view`) || strings.Contains(liveReloadJsBody, `notice.onclick`) {
 		t.Fatalf("resume copy notification should be a passive toast, not tap-to-expand")
 	}
-	if !strings.Contains(liveReloadJsBody, `Copied`) || !strings.Contains(liveReloadJsBody, `background:var(--accent);color:var(--body-bg)`) {
+	if !strings.Contains(liveReloadJsBody, `Copied`) || !strings.Contains(liveSessionCss, `.toast-notice`) {
 		t.Fatalf("resume copy should show an accent-colored toast notification")
 	}
 	if !strings.Contains(liveReloadJsBody, `document.body.dataset.sessionUuid`) {

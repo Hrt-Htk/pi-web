@@ -52,9 +52,9 @@ export function scrollElementAboveComposer(el, smooth, { documentImpl = document
 
 export function createFollowButton({ documentImpl = document, requestAnimationFrameImpl = requestAnimationFrame, onClick } = {}) {
   const button = documentImpl.createElement('button');
-  button.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:200;padding:6px 14px;font-size:11px;font-family:inherit;background:var(--accent);color:var(--body-bg);border:none;border-radius:4px;cursor:pointer;opacity:0;transition:opacity 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  button.className = 'follow-button';
   documentImpl.body.appendChild(button);
-  requestAnimationFrameImpl(() => { button.style.opacity = '1'; });
+  requestAnimationFrameImpl(() => { button.classList.add('visible'); });
   if (onClick) button.addEventListener('click', onClick);
   return button;
 }
@@ -65,7 +65,7 @@ export function setFollowButtonText(button, pendingCount) {
 
 export function removeFollowButton(button, { windowImpl = window } = {}) {
   if (!button) return;
-  button.style.opacity = '0';
+  button.classList.remove('visible');
   windowImpl.setTimeout(() => {
     if (button.parentNode) button.parentNode.removeChild(button);
   }, 200);

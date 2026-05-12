@@ -20,7 +20,7 @@ func TestSessionToggleButtonsReflectPersistedActiveState(t *testing.T) {
 		"T show/hide thinking · O show/hide tools · P expand/collapse tool output",
 		".header-toggle-btn.active",
 	}
-	combined := exportJs + sessionCss
+	combined := exportJs + liveSessionCss
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("session toggle controls missing persisted active-state behavior %q", check)
@@ -65,7 +65,8 @@ func TestLiveReloadUpdatesExistingAssistantWhenToolResultsArrive(t *testing.T) {
 		"LIVE_RENDERED.add(entry.id);",
 		"LIVE_RENDERED.has(entry.id)",
 		"function refreshEntriesAffectedByToolResult(toolResultEntry, allEntries) {",
-		"if (block.type === 'toolCall' && block.id === toolResultEntry.message.toolCallId)",
+		"block.type === \"toolCall\"",
+		"block.id === toolResultEntry.message.toolCallId",
 		"refreshEntriesAffectedByToolResult(entry, entries);",
 	}
 	for _, check := range checks {
@@ -90,7 +91,7 @@ func TestLiveReloadEntriesInheritCurrentToggleState(t *testing.T) {
 	}
 
 	liveReloadChecks := []string{
-		"if (typeof window.applyToggleStateToNode === 'function') {",
+		"if (typeof window.applyToggleStateToNode === \"function\") {",
 		"window.applyToggleStateToNode(node);",
 	}
 	for _, check := range liveReloadChecks {

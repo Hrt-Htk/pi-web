@@ -603,11 +603,10 @@
     followBtn = document.createElement("button");
     followBtn.textContent =
       "↓ " + pendingCount + " new" + (pendingCount > 1 ? "s" : "");
-    followBtn.style.cssText =
-      "position:fixed;bottom:20px;right:20px;z-index:200;padding:6px 14px;font-size:11px;font-family:inherit;background:var(--accent);color:var(--body-bg);border:none;border-radius:4px;cursor:pointer;opacity:0;transition:opacity 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.3);";
+    followBtn.className = "follow-button";
     document.body.appendChild(followBtn);
     requestAnimationFrame(function () {
-      followBtn.style.opacity = "1";
+      followBtn.classList.add("visible");
     });
     followBtn.addEventListener("click", function () {
       FOLLOW = true;
@@ -619,7 +618,7 @@
 
   function hideFollowButton() {
     if (!followBtn) return;
-    followBtn.style.opacity = "0";
+    followBtn.classList.remove("visible");
     setTimeout(function () {
       if (followBtn && followBtn.parentNode) {
         followBtn.parentNode.removeChild(followBtn);
@@ -684,10 +683,9 @@
   }
 
   function highlightNewEntry(node) {
-    node.style.transition = "box-shadow 0.8s ease-out";
-    node.style.boxShadow = "0 0 0 2px var(--accent)";
+    node.classList.add("new-entry-highlight");
     setTimeout(function () {
-      node.style.boxShadow = "";
+      node.classList.remove("new-entry-highlight");
     }, 1500);
   }
 
@@ -814,8 +812,7 @@
     if (indicator) return;
     indicator = document.createElement("div");
     indicator.textContent = "updated - tap to view";
-    indicator.style.cssText =
-      "position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;cursor:pointer;";
+    indicator.className = "update-indicator";
     indicator.addEventListener("click", function () {
       document.getElementById("sidebar")?.classList.remove("open");
       document.getElementById("sidebar-overlay")?.classList.remove("open");
@@ -826,10 +823,10 @@
     });
     document.body.appendChild(indicator);
     requestAnimationFrame(function () {
-      indicator.style.opacity = "1";
+      indicator.classList.add("visible");
     });
     setTimeout(function () {
-      indicator.style.opacity = "0";
+      indicator.classList.remove("visible");
       setTimeout(function () {
         if (indicator) {
           document.body.removeChild(indicator);
@@ -933,25 +930,21 @@
   function showShareResult(gistUrl, previewUrl) {
     if (shareOverlay) shareOverlay.remove();
     shareOverlay = document.createElement("div");
-    shareOverlay.style.cssText =
-      "position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;";
+    shareOverlay.className = "share-overlay-backdrop";
     var box = document.createElement("div");
-    box.style.cssText =
-      "background:var(--container-bg);border:1px solid var(--dim);border-radius:4px;padding:calc(var(--line-height)*2);max-width:500px;width:90%;font-family:inherit;";
+    box.className = "share-dialog";
     box.innerHTML =
-      '<h3 style="margin:0 0 var(--line-height);font-size:12px;color:var(--border-accent);">Session Shared</h3>' +
-      '<div style="margin-bottom:var(--line-height);"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Gist URL</label>' +
-      '<input readonly value="' +
-      escapeHtml(gistUrl) +
-      '" style="width:100%;padding:4px 8px;font-size:11px;font-family:inherit;background:var(--body-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;" onclick="this.select()"></div>' +
-      '<div style="margin-bottom:var(--line-height);"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Preview URL</label>' +
-      '<input readonly value="' +
-      escapeHtml(previewUrl) +
-      '" style="width:100%;padding:4px 8px;font-size:11px;font-family:inherit;background:var(--body-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;" onclick="this.select()"></div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-      '<button id="share-copy-gist" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--accent);color:var(--body-bg);border:none;border-radius:3px;cursor:pointer;">Copy Gist</button>' +
-      '<button id="share-copy-preview" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Copy Preview</button>' +
-      '<button id="share-close" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Close</button></div>';
+      '<h3>Session Shared</h3>' +
+      '<div class="share-field"><label>Gist URL</label>' +
+      '<input readonly class="share-url-input" onclick="this.select()"></div>' +
+      '<div class="share-field"><label>Preview URL</label>' +
+      '<input readonly class="share-url-input" onclick="this.select()"></div>' +
+      '<div class="share-actions">' +
+      '<button id="share-copy-gist" class="share-btn-primary">Copy Gist</button>' +
+      '<button id="share-copy-preview" class="share-btn-secondary">Copy Preview</button>' +
+      '<button id="share-close" class="share-btn-secondary">Close</button></div>';
+    box.querySelectorAll(".share-url-input")[0].value = gistUrl;
+    box.querySelectorAll(".share-url-input")[1].value = previewUrl;
     shareOverlay.appendChild(box);
     document.body.appendChild(shareOverlay);
 
@@ -973,16 +966,15 @@
       if (!notice) {
         notice = document.createElement("div");
         notice.id = "share-copy-notice";
-        notice.style.cssText =
-          "position:fixed;top:8px;right:8px;z-index:400;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;";
+        notice.className = "toast-notice";
         document.body.appendChild(notice);
       }
       notice.textContent = label + " copied";
       notice.title = text;
       clearTimeout(shareCopyHideTimer);
-      notice.style.opacity = "1";
+      notice.classList.add("visible");
       shareCopyHideTimer = setTimeout(function () {
-        notice.style.opacity = "0";
+        notice.classList.remove("visible");
       }, 1200);
     }
     function copyShareUrl(text, label) {
@@ -1023,17 +1015,15 @@
   function showShareError(msg) {
     if (shareOverlay) shareOverlay.remove();
     shareOverlay = document.createElement("div");
-    shareOverlay.style.cssText =
-      "position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;";
+    shareOverlay.className = "share-overlay-backdrop";
     var box = document.createElement("div");
-    box.style.cssText =
-      "background:var(--container-bg);border:1px solid var(--error);border-radius:4px;padding:calc(var(--line-height)*2);max-width:400px;width:90%;font-family:inherit;";
+    box.className = "share-dialog error";
     box.innerHTML =
-      '<h3 style="margin:0 0 var(--line-height);font-size:12px;color:var(--error);">Share Failed</h3>' +
-      '<p style="font-size:11px;color:var(--text);margin:0 0 var(--line-height);white-space:pre-wrap;">' +
+      '<h3>Share Failed</h3>' +
+      '<p class="share-error-message">' +
       escapeHtml(msg) +
       "</p>" +
-      '<div style="display:flex;justify-content:flex-end;"><button id="share-close-err" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Close</button></div>';
+      '<div class="share-actions"><button id="share-close-err" class="share-btn-secondary">Close</button></div>';
     shareOverlay.appendChild(box);
     document.body.appendChild(shareOverlay);
     document
@@ -1089,16 +1079,15 @@
         if (!notice) {
           notice = document.createElement("div");
           notice.id = "resume-copy-notice";
-          notice.style.cssText =
-            "position:fixed;top:8px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;";
+          notice.className = "toast-notice";
           document.body.appendChild(notice);
         }
         notice.textContent = "Copied";
         notice.title = cmd;
         clearTimeout(hideTimer);
-        notice.style.opacity = "1";
+        notice.classList.add("visible");
         hideTimer = setTimeout(function () {
-          notice.style.opacity = "0";
+          notice.classList.remove("visible");
         }, 1200);
       }
       function fallbackCopy() {

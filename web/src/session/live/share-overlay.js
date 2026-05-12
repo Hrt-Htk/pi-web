@@ -7,7 +7,7 @@ function createOverlay(state, { documentImpl }) {
   closeOverlay(state);
   const overlay = documentImpl.createElement('div');
   state.shareOverlay = overlay;
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
+  overlay.className = 'share-overlay-backdrop';
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeOverlay(state);
   });
@@ -19,14 +19,14 @@ export function showShareCopiedNotice(label, text, state, { documentImpl = docum
   if (!notice) {
     notice = documentImpl.createElement('div');
     notice.id = 'share-copy-notice';
-    notice.style.cssText = 'position:fixed;top:8px;right:8px;z-index:400;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;';
+    notice.className = 'toast-notice';
     documentImpl.body.appendChild(notice);
   }
   notice.textContent = label + ' copied';
   notice.title = text;
   clearTimeoutImpl(state.shareCopyHideTimer);
-  notice.style.opacity = '1';
-  state.shareCopyHideTimer = setTimeoutImpl(() => { notice.style.opacity = '0'; }, 1200);
+  notice.classList.add('visible');
+  state.shareCopyHideTimer = setTimeoutImpl(() => { notice.classList.remove('visible'); }, 1200);
 }
 
 export function copyShareUrl(text, label, state, { documentImpl = document, navigatorImpl = navigator, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
@@ -51,16 +51,18 @@ export function copyShareUrl(text, label, state, { documentImpl = document, navi
 export function showShareResult(gistUrl, previewUrl, state, { documentImpl = document, escapeHtml = String, navigatorImpl = navigator, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
   const overlay = createOverlay(state, { documentImpl });
   const box = documentImpl.createElement('div');
-  box.style.cssText = 'background:var(--container-bg);border:1px solid var(--dim);border-radius:4px;padding:calc(var(--line-height)*2);max-width:500px;width:90%;font-family:inherit;';
-  box.innerHTML = '<h3 style="margin:0 0 var(--line-height);font-size:12px;color:var(--border-accent);">Session Shared</h3>' +
-    '<div style="margin-bottom:var(--line-height);"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Gist URL</label>' +
-    '<input readonly value="' + escapeHtml(gistUrl) + '" style="width:100%;padding:4px 8px;font-size:11px;font-family:inherit;background:var(--body-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;" onclick="this.select()"></div>' +
-    '<div style="margin-bottom:var(--line-height);"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Preview URL</label>' +
-    '<input readonly value="' + escapeHtml(previewUrl) + '" style="width:100%;padding:4px 8px;font-size:11px;font-family:inherit;background:var(--body-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;" onclick="this.select()"></div>' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-    '<button id="share-copy-gist" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--accent);color:var(--body-bg);border:none;border-radius:3px;cursor:pointer;">Copy Gist</button>' +
-    '<button id="share-copy-preview" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Copy Preview</button>' +
-    '<button id="share-close" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Close</button></div>';
+  box.className = 'share-dialog';
+  box.innerHTML = '<h3>Session Shared</h3>' +
+    '<div class="share-field"><label>Gist URL</label>' +
+    '<input readonly class="share-url-input" onclick="this.select()"></div>' +
+    '<div class="share-field"><label>Preview URL</label>' +
+    '<input readonly class="share-url-input" onclick="this.select()"></div>' +
+    '<div class="share-actions">' +
+    '<button id="share-copy-gist" class="share-btn-primary">Copy Gist</button>' +
+    '<button id="share-copy-preview" class="share-btn-secondary">Copy Preview</button>' +
+    '<button id="share-close" class="share-btn-secondary">Close</button></div>';
+  box.querySelectorAll('.share-url-input')[0].value = gistUrl;
+  box.querySelectorAll('.share-url-input')[1].value = previewUrl;
   overlay.appendChild(box);
   documentImpl.body.appendChild(overlay);
   documentImpl.getElementById('share-close').addEventListener('click', () => closeOverlay(state));
@@ -71,10 +73,10 @@ export function showShareResult(gistUrl, previewUrl, state, { documentImpl = doc
 export function showShareError(message, state, { documentImpl = document, escapeHtml = String } = {}) {
   const overlay = createOverlay(state, { documentImpl });
   const box = documentImpl.createElement('div');
-  box.style.cssText = 'background:var(--container-bg);border:1px solid var(--error);border-radius:4px;padding:calc(var(--line-height)*2);max-width:400px;width:90%;font-family:inherit;';
-  box.innerHTML = '<h3 style="margin:0 0 var(--line-height);font-size:12px;color:var(--error);">Share Failed</h3>' +
-    '<p style="font-size:11px;color:var(--text);margin:0 0 var(--line-height);white-space:pre-wrap;">' + escapeHtml(message) + '</p>' +
-    '<div style="display:flex;justify-content:flex-end;"><button id="share-close-err" style="padding:4px 10px;font-size:11px;font-family:inherit;background:var(--container-bg);color:var(--text);border:1px solid var(--dim);border-radius:3px;cursor:pointer;">Close</button></div>';
+  box.className = 'share-dialog error';
+  box.innerHTML = '<h3>Share Failed</h3>' +
+    '<p class="share-error-message">' + escapeHtml(message) + '</p>' +
+    '<div class="share-actions"><button id="share-close-err" class="share-btn-secondary">Close</button></div>';
   overlay.appendChild(box);
   documentImpl.body.appendChild(overlay);
   documentImpl.getElementById('share-close-err').addEventListener('click', () => closeOverlay(state));
