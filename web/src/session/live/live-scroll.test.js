@@ -4,13 +4,13 @@ import { createFollowButton, removeFollowButton, scrollToBottom, setFollowButton
 
 describe('live scroll helpers', () => {
   it('creates, labels, and removes follow button', () => {
-    const dom = new JSDOM('<body></body>');
+    const dom = new JSDOM('<body><main id="content"></main></body>');
     const btn = createFollowButton({ documentImpl: dom.window.document, requestAnimationFrameImpl: (cb) => cb() });
     setFollowButtonText(btn, 2);
     expect(btn.textContent).toBe('↓ 2 news');
-    expect(dom.window.document.body.contains(btn)).toBe(true);
+    expect(dom.window.document.getElementById('content').contains(btn)).toBe(true);
     removeFollowButton(btn, { windowImpl: { setTimeout: (cb) => cb() } });
-    expect(dom.window.document.body.contains(btn)).toBe(false);
+    expect(dom.window.document.getElementById('content').contains(btn)).toBe(false);
   });
 
   it('scrolls window to bottom', () => {

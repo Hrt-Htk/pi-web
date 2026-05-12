@@ -53,7 +53,12 @@ export function scrollElementAboveComposer(el, smooth, { documentImpl = document
 export function createFollowButton({ documentImpl = document, requestAnimationFrameImpl = requestAnimationFrame, onClick } = {}) {
   const button = documentImpl.createElement('button');
   button.className = 'follow-button';
-  documentImpl.body.appendChild(button);
+  const content = documentImpl.getElementById('content');
+  if (content) {
+    content.appendChild(button);
+  } else {
+    documentImpl.body.appendChild(button);
+  }
   requestAnimationFrameImpl(() => { button.classList.add('visible'); });
   if (onClick) button.addEventListener('click', onClick);
   return button;

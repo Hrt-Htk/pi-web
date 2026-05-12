@@ -104,12 +104,12 @@ export function setupShareButton({ documentImpl = document, fetchImpl = fetch, s
   }
 
   shareBtn.addEventListener('click', () => {
-    shareBtn.textContent = '...';
+    shareBtn.innerHTML = '<span class="working-dots"></span>';
     shareBtn.disabled = true;
     fetchImpl('/share?id=' + encodeURIComponent(sessionId), { method: 'POST' })
       .then((response) => response.json())
       .then((data) => {
-        shareBtn.textContent = '↗ Share';
+        shareBtn.innerHTML = '<span>↗</span>Share';
         shareBtn.disabled = false;
         if (data.error) {
           showShareError(data.error + (data.stderr ? '\n\n' + data.stderr : ''), state, { documentImpl, escapeHtml });
@@ -118,7 +118,7 @@ export function setupShareButton({ documentImpl = document, fetchImpl = fetch, s
         }
       })
       .catch((err) => {
-        shareBtn.textContent = '↗ Share';
+        shareBtn.innerHTML = '<span>↗</span>Share';
         shareBtn.disabled = false;
         showShareError(err.message || 'Network error', state, { documentImpl, escapeHtml });
       });

@@ -44,6 +44,17 @@ describe('share overlay', () => {
     expect(dom.window.document.getElementById('share-overlay').style.display).toBe('none');
   });
 
+  it('hides overlay and restores clickability of underlying elements', () => {
+    const dom = buildDom();
+    const state = { shareOverlay: null };
+    setupShareButton({ documentImpl: dom.window.document, fetchImpl: vi.fn(), sessionId: 's', state, escapeHtml: (x) => x, navigatorImpl: {} });
+    showShareResult('gist', 'preview', state, { documentImpl: dom.window.document });
+    expect(dom.window.document.getElementById('share-overlay').style.display).toBe('');
+    dom.window.document.getElementById('share-close').click();
+    expect(dom.window.document.getElementById('share-overlay').style.display).toBe('none');
+    expect(state.shareOverlay).toBe(null);
+  });
+
   it('renders share error', () => {
     const dom = buildDom();
     const state = { shareOverlay: null };
