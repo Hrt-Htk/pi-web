@@ -383,6 +383,8 @@ function buildShareUrl(entryId) {
 
   // Build the share URL
   const params = new URLSearchParams();
+  const sessionId = url.searchParams.get('id');
+  if (sessionId) params.set('id', sessionId);
   params.set('leafId', currentLeafId);
   params.set('targetId', entryId);
 

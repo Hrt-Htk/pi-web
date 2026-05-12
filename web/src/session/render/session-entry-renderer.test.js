@@ -64,6 +64,14 @@ describe('session entry renderer', () => {
     expect(r.buildShareUrl('target')).toContain('targetId=target');
   });
 
+  it('preserves session id query param in share url', () => {
+    const r = renderer();
+    const url = r.buildShareUrl('target');
+    expect(url).toContain('id=s');
+    expect(url).toContain('leafId=leaf');
+    expect(url).toContain('targetId=target');
+  });
+
   it('copies with clipboard feedback', async () => {
     const dom = new JSDOM('<body><button>copy</button></body>');
     const writeText = vi.fn(() => Promise.resolve());
