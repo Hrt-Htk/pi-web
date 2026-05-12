@@ -27,6 +27,7 @@ import * as chatPreview from './live/chat-preview.js';
 import * as updateIndicator from './live/update-indicator.js';
 import * as shareOverlay from './live/share-overlay.js';
 import * as resumeButton from './live/resume-button.js';
+import * as newSessionButton from './live/new-session-button.js';
 import * as liveEvents from './live/live-events.js';
 import * as liveRenderer from './live/live-renderer.js';
 export { buildSessionLookups, createSessionDataModel, decodeBase64JSON, getSessionSearchParams, loadSessionData, readSessionPayload } from './data/session-data.js';
@@ -219,7 +220,9 @@ export function runSessionApp({ target = window } = {}) {
     updateIndicator,
     chatPreview,
     shareOverlay,
-    resumeButton
+    resumeButton,
+    newSessionButton,
+    cwd: dataModel.header?.cwd || ''
   });
 }
 

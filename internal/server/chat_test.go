@@ -460,3 +460,52 @@ func TestHandleNewSessionPreinitializesWorker(t *testing.T) {
 		t.Fatal("expected session file to be created")
 	}
 }
+
+func TestHandleNewSessionWithoutChatSender(t *testing.T) {
+	root := t.TempDir()
+	s := &Server{sessionsDir: root}
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session", strings.NewReader(`{"path":"/tmp/no-sender"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["ok"] != true {
+		t.Fatalf("ok = %v, want true", body["ok"])
+	}
+	id, _ := body["id"].(string)
+	if id == "" {
+		t.Fatal("missing id in response")
+	}
+}
+
+func TestHandleNewSessionRejectsMissingPath(t *testing.T) {
+	root := t.TempDir()
+	s := &Server{sessionsDir: root}
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session", strings.NewReader(`{"path":""}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestHandleNewSessionRejectsGetMethod(t *testing.T) {
+	root := t.TempDir()
+	s := &Server{sessionsDir: root}
+	req := httptest.NewRequest(http.MethodGet, "/api/new-session", nil)
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
+	}
+}

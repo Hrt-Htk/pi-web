@@ -17,7 +17,9 @@ export function runLiveReload({
   updateIndicator,
   chatPreview,
   shareOverlay,
-  resumeButton
+  resumeButton,
+  newSessionButton,
+  cwd = ''
 } = {}) {
   const document = documentImpl;
   const window = windowImpl;
@@ -38,6 +40,7 @@ export function runLiveReload({
   const __piChatPreview = chatPreview;
   const __piShareOverlay = shareOverlay;
   const __piResumeButton = resumeButton;
+  const __piNewSessionButton = newSessionButton;
     var LIVE_ENTRY_STATE = {
       seen: __piLiveEntries.createSeenEntrySet({ documentImpl: document }),
       liveRendered: new Set()
@@ -222,6 +225,17 @@ export function runLiveReload({
     __piResumeButton.setupResumeButton({
       documentImpl: document,
       navigatorImpl: navigator,
+      state: {},
+      setTimeoutImpl: setTimeout,
+      clearTimeoutImpl: clearTimeout
+    });
+
+    // New session button
+    __piNewSessionButton.setupNewSessionButton({
+      documentImpl: document,
+      fetchImpl: fetch,
+      locationImpl: location,
+      cwd: cwd,
       state: {},
       setTimeoutImpl: setTimeout,
       clearTimeoutImpl: clearTimeout
