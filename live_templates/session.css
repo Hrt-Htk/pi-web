@@ -525,6 +525,7 @@
       display: flex;
       flex-direction: column;
       gap: var(--line-height);
+      min-width: 0;
     }
 
     .message-timestamp {
@@ -539,6 +540,8 @@
       padding: var(--line-height);
       border-radius: 4px;
       position: relative;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
 
     .assistant-message {
@@ -636,6 +639,8 @@
     .assistant-text {
       padding: var(--line-height);
       padding-bottom: 0;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
 
     .message-timestamp + .assistant-text,
@@ -706,7 +711,6 @@
       white-space: pre-wrap;
       word-wrap: break-word;
       overflow-wrap: break-word;
-      word-break: break-word;
     }
 
     .tool-output {
@@ -714,7 +718,6 @@
       color: var(--toolOutput);
       word-wrap: break-word;
       overflow-wrap: break-word;
-      word-break: break-word;
       font-family: inherit;
       overflow-x: auto;
     }
@@ -911,6 +914,7 @@
       font-size: 11px;
       overflow-x: auto;
       white-space: pre;
+      max-width: 100%;
     }
 
     .diff-added { color: var(--toolDiffAdded); }
@@ -1136,6 +1140,8 @@
     .error-text {
       color: var(--error);
       padding: 0 var(--line-height);
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
     .tool-error {
       color: var(--error);
@@ -1153,7 +1159,12 @@
       margin: var(--line-height) 0;
     }
 
-    /* Markdown content */
+    .markdown-content {
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+
+    /* Markdown headings */
     .markdown-content h1,
     .markdown-content h2,
     .markdown-content h3,
@@ -1185,12 +1196,15 @@
       padding: 0 4px;
       border-radius: 3px;
       font-family: inherit;
+      overflow-wrap: break-word;
     }
 
     .markdown-content pre {
       background: transparent;
       margin: var(--line-height) 0;
       overflow-x: auto;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .markdown-content pre code {
@@ -1320,6 +1334,23 @@
     }
 
     @media (max-width: 900px) {
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100svh;
+        overflow: hidden;
+      }
+
+      #app {
+        flex: 1;
+        min-height: 0;
+      }
+
       #sidebar {
         position: fixed;
         left: 0;
@@ -1329,6 +1360,7 @@
         top: 0;
         bottom: 0;
         height: 100vh;
+        height: 100svh;
         z-index: 99;
         transform: translateX(-100%);
         transition: transform 0.3s;
@@ -1351,11 +1383,23 @@
       }
 
       #content {
+        min-height: 0;
         padding: calc(var(--line-height) * 3) 16px var(--line-height);
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
       }
 
       #content > * {
         max-width: 100%;
+      }
+
+      .markdown-content table {
+        display: block;
+        overflow-x: auto;
+      }
+
+      .pi-chat-composer {
+        flex-shrink: 0;
       }
 
       .session-actions {
