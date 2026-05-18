@@ -29,7 +29,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
-	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
+	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {
 		switch {
 		case errors.Is(err, sessions.ErrInvalidSessionID):
@@ -46,7 +46,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {
-	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
+	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {
 		switch {
 		case errors.Is(err, sessions.ErrInvalidSessionID):

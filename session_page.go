@@ -99,15 +99,48 @@ func prepareSessionPageData(session sessions.Session, cssTemplate string) (dataB
 func renderLiveSessionPage(session sessions.Session) string {
 	dataBase64, css, bodyAttrs := prepareSessionPageData(session, liveSessionCss)
 
+	scriptSrc := template.HTMLEscapeString(sessionScriptPath)
+	preload := `<link rel="modulepreload" href="` + scriptSrc + `">`
+
 	html := liveSessionHtml
 	html = strings.Replace(html, "{{TITLE}}", template.HTMLEscapeString(session.Name), 1)
+	html = strings.Replace(html, "{{SESSION_PRELOAD}}", preload, 1)
 	html = strings.Replace(html, "{{CSS}}", css, 1)
 	html = strings.Replace(html, "{{BODY_ATTRS}}", bodyAttrs, 1)
 	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-	html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+template.HTMLEscapeString(sessionScriptPath)+`"></script>`, 1)
+	html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+scriptSrc+`"></script>`, 1)
+	html = strings.Replace(html, "{{FIRST_MESSAGE_STUB}}", firstMessageStub(session), 1)
 	html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
 
 	return html
+}
+
+// firstMessageStub returns a minimal HTML stub for the first user message so
+// the browser has an LCP candidate before the JS bundle finishes loading.
+// The navigator clears #messages and re-renders everything when JS runs.
+func firstMessageStub(session sessions.Session) string {
+	for _, entry := range session.Entries {
+		if entry["type"] != "message" {
+			continue
+		}
+		msg, ok := entry["message"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if role, _ := msg["role"].(string); role != "user" {
+			continue
+		}
+		text := sessions.ExtractMessageText(msg["content"])
+		if text == "" {
+			continue
+		}
+		if len(text) > 500 {
+			text = text[:500]
+		}
+		return `<div class="user-message" aria-hidden="true"><div class="markdown-content"><p>` +
+			template.HTMLEscapeString(text) + `</p></div></div>`
+	}
+	return ""
 }
 
 func chatComposerHtmlForSession(session sessions.Session) string {

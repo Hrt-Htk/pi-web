@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,31 @@ import (
 	"strings"
 	"time"
 )
+
+// Typed structs for ParseSummary — avoid map[string]any per line.
+type summaryLine struct {
+	Type      string      `json:"type"`
+	Timestamp string      `json:"timestamp"`
+	Name      string      `json:"name"`
+	CWD       string      `json:"cwd"`
+	ID        string      `json:"id"`
+	Message   *summaryMsg `json:"message"`
+}
+
+type summaryMsg struct {
+	Role    string          `json:"role"`
+	Content json.RawMessage `json:"content"`
+	Usage   summaryUsage    `json:"usage"`
+}
+
+type summaryUsage struct {
+	TotalTokens float64     `json:"totalTokens"`
+	Cost        summaryCost `json:"cost"`
+}
+
+type summaryCost struct {
+	Total float64 `json:"total"`
+}
 
 type SessionSummary struct {
 	ID                 string
@@ -34,10 +60,12 @@ type Session struct {
 }
 
 func SortSummariesByActivity(s []SessionSummary) {
+	times := make([]time.Time, len(s))
+	for i := range s {
+		times[i], _ = time.Parse(time.RFC3339, s[i].LastActivity)
+	}
 	sort.Slice(s, func(i, j int) bool {
-		ti, _ := time.Parse(time.RFC3339, s[i].LastActivity)
-		tj, _ := time.Parse(time.RFC3339, s[j].LastActivity)
-		return ti.After(tj)
+		return times[i].After(times[j])
 	})
 }
 
@@ -62,55 +90,46 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
 			continue
 		}
-		var raw map[string]any
-		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		var raw summaryLine
+		if err := json.Unmarshal(line, &raw); err != nil {
 			continue
 		}
-		if raw["type"] == "session" {
-			if n, _ := raw["name"].(string); n != "" {
-				headerName = n
+		switch raw.Type {
+		case "session":
+			if raw.Name != "" {
+				headerName = raw.Name
 			}
-			if cwd, _ := raw["cwd"].(string); cwd != "" {
-				headerCwd = cwd
+			if raw.CWD != "" {
+				headerCwd = raw.CWD
 			}
-			if sid, _ := raw["id"].(string); sid != "" {
-				s.SessionUUID = sid
+			if raw.ID != "" {
+				s.SessionUUID = raw.ID
 			}
-			continue
-		}
-		if raw["type"] == "session_info" {
-			if n, _ := raw["name"].(string); n != "" {
-				sessionInfoName = n
+		case "session_info":
+			if raw.Name != "" {
+				sessionInfoName = raw.Name
 			}
-			continue
-		}
-		if ts, ok := raw["timestamp"].(string); ok {
-			s.LastActivity = ts
-		}
-		if raw["type"] == "message" {
-			msg, ok := raw["message"].(map[string]any)
-			if !ok {
+		case "message":
+			if raw.Timestamp != "" {
+				s.LastActivity = raw.Timestamp
+			}
+			if raw.Message == nil {
 				continue
 			}
+			msg := raw.Message
 			s.MessageCount++
-			if usage, ok := msg["usage"].(map[string]any); ok {
-				if t, ok := usage["totalTokens"].(float64); ok {
-					s.TokenTotal += int(t)
-				}
-				if cost, ok := usage["cost"].(map[string]any); ok {
-					if total, ok := cost["total"].(float64); ok {
-						s.CostTotal += total
-					}
-				}
+			s.TokenTotal += int(msg.Usage.TotalTokens)
+			s.CostTotal += msg.Usage.Cost.Total
+			if firstUserText == "" && msg.Role == "user" {
+				firstUserText = extractRawText(msg.Content)
 			}
-			if firstUserText == "" {
-				if role, _ := msg["role"].(string); role == "user" {
-					firstUserText = extractMessageText(msg["content"])
-				}
+		default:
+			if raw.Timestamp != "" {
+				s.LastActivity = raw.Timestamp
 			}
 		}
 	}
@@ -145,6 +164,42 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 	return s, nil
 }
 
+// extractRawText pulls plain text from a json.RawMessage content value
+// (string or content-block array). Used by ParseSummary.
+func extractRawText(content json.RawMessage) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if content[0] == '"' {
+		var s string
+		if json.Unmarshal(content, &s) == nil {
+			return s
+		}
+	}
+	if content[0] == '[' {
+		var blocks []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(content, &blocks) == nil {
+			var buf strings.Builder
+			for _, b := range blocks {
+				if b.Type == "text" && b.Text != "" {
+					buf.WriteString(b.Text)
+				}
+			}
+			return buf.String()
+		}
+	}
+	return ""
+}
+
+// ExtractMessageText pulls plain text from a message content value (string or
+// content-block array). Used by both the parser and the session page renderer.
+func ExtractMessageText(content any) string {
+	return extractMessageText(content)
+}
+
 func extractMessageText(content any) string {
 	switch v := content.(type) {
 	case string:
@@ -172,18 +227,31 @@ func truncate(s string, n int) string {
 	return s[:n] + "…"
 }
 
+// ParseFile parses path in a single pass, collecting both the SessionSummary
+// fields and the full Entries slice. This avoids the double-read that would
+// result from calling ParseSummary followed by os.ReadFile.
 func ParseFile(path, dirName, fileName string) (Session, error) {
-	summary, err := ParseSummary(path, dirName, fileName)
+	f, err := os.Open(path)
 	if err != nil {
 		return Session{}, err
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Session{}, err
+	defer f.Close()
+
+	s := SessionSummary{
+		ID:            fileName,
+		Filename:      fileName,
+		Project:       cleanProjectName(dirName),
+		ChatAvailable: true,
 	}
-	sess := Session{SessionSummary: summary}
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		line = strings.TrimSpace(line)
+
+	var entries []map[string]any
+	var header map[string]any
+	var headerName, sessionInfoName, firstUserText, headerCwd string
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
@@ -191,12 +259,82 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			continue
 		}
-		sess.Entries = append(sess.Entries, raw)
-		if raw["type"] == "session" {
-			sess.Header = raw
+		entries = append(entries, raw)
+		switch raw["type"] {
+		case "session":
+			header = raw
+			if n, _ := raw["name"].(string); n != "" {
+				headerName = n
+			}
+			if cwd, _ := raw["cwd"].(string); cwd != "" {
+				headerCwd = cwd
+			}
+			if sid, _ := raw["id"].(string); sid != "" {
+				s.SessionUUID = sid
+			}
+		case "session_info":
+			if n, _ := raw["name"].(string); n != "" {
+				sessionInfoName = n
+			}
+		case "message":
+			if ts, ok := raw["timestamp"].(string); ok {
+				s.LastActivity = ts
+			}
+			msg, ok := raw["message"].(map[string]any)
+			if !ok {
+				continue
+			}
+			s.MessageCount++
+			if usage, ok := msg["usage"].(map[string]any); ok {
+				if t, ok := usage["totalTokens"].(float64); ok {
+					s.TokenTotal += int(t)
+				}
+				if cost, ok := usage["cost"].(map[string]any); ok {
+					if total, ok := cost["total"].(float64); ok {
+						s.CostTotal += total
+					}
+				}
+			}
+			if firstUserText == "" {
+				if role, _ := msg["role"].(string); role == "user" {
+					firstUserText = extractMessageText(msg["content"])
+				}
+			}
+		default:
+			if ts, ok := raw["timestamp"].(string); ok {
+				s.LastActivity = ts
+			}
 		}
 	}
-	return sess, nil
+	if err := scanner.Err(); err != nil {
+		return Session{}, err
+	}
+
+	if s.LastActivity == "" {
+		if info, err := os.Stat(path); err == nil {
+			s.LastActivity = info.ModTime().Format(time.RFC3339)
+		}
+	}
+
+	switch {
+	case sessionInfoName != "":
+		s.Name = sessionInfoName
+	case headerName != "":
+		s.Name = headerName
+	case firstUserText != "":
+		s.Name = truncate(firstUserText, 80)
+	default:
+		s.Name = fileName
+	}
+
+	if headerCwd != "" {
+		if _, err := os.Stat(headerCwd); err != nil {
+			s.ChatAvailable = false
+			s.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
+		}
+	}
+
+	return Session{SessionSummary: s, Header: header, Entries: entries}, nil
 }
 
 func cleanProjectName(dirName string) string {

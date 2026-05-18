@@ -74,6 +74,24 @@ export function createSessionEntryRenderer({
     return null;
   }
 
+  function highlightCode(code, lang) {
+    if (!hljs) return null; // not yet loaded
+    try {
+      return lang && hljs.getLanguage(lang)
+        ? hljs.highlight(code, { language: lang }).value
+        : hljs.highlightAuto(code).value;
+    } catch {
+      return null;
+    }
+  }
+
+  function codeEl(code, lang) {
+    const hl = highlightCode(code, lang);
+    const dataLang = lang ? ` data-lang="${escapeHtml(lang)}"` : '';
+    const pending = hl === null ? ` data-highlight-pending${dataLang}` : '';
+    return `<code class="hljs"${pending}>${hl !== null ? hl : escapeHtml(code)}</code>`;
+  }
+
   function formatExpandableOutput(text, maxLines, lang) {
     text = replaceTabs(text);
     const lines = text.split('\n');
@@ -81,29 +99,13 @@ export function createSessionEntryRenderer({
     const remaining = lines.length - maxLines;
 
     if (lang) {
-      let highlighted;
-      try {
-        highlighted = hljs.highlight(text, { language: lang }).value;
-      } catch {
-        highlighted = escapeHtml(text);
-      }
-
       if (remaining > 0) {
-        const previewCode = displayLines.join('\n');
-        let previewHighlighted;
-        try {
-          previewHighlighted = hljs.highlight(previewCode, { language: lang }).value;
-        } catch {
-          previewHighlighted = escapeHtml(previewCode);
-        }
-
         return `<div class="tool-output expandable" onclick="if(window.getSelection().toString())return;this.classList.toggle('expanded')">
-          <div class="output-preview"><pre><code class="hljs">${previewHighlighted}</code></pre>
+          <div class="output-preview"><pre>${codeEl(displayLines.join('\n'), lang)}</pre>
           <div class="expand-hint">... (${remaining} more lines)</div></div>
-          <div class="output-full"><pre><code class="hljs">${highlighted}</code></pre></div></div>`;
+          <div class="output-full"><pre>${codeEl(text, lang)}</pre></div></div>`;
       }
-
-      return `<div class="tool-output"><pre><code class="hljs">${highlighted}</code></pre></div>`;
+      return `<div class="tool-output"><pre>${codeEl(text, lang)}</pre></div>`;
     }
 
     // Plain text output

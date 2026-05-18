@@ -1,5 +1,4 @@
 import { marked } from 'marked';
-import hljs from 'highlight.js';
 
 import { loadSessionData } from './data/session-data.js';
 import { buildActivePathIds as buildActivePathIdsForModel, buildTree as buildTreeForModel, buildTreeNodeMap, buildTreePrefix, findNewestLeaf as findNewestLeafInTree, flattenTree, getPath as getPathForModel } from './tree/session-tree.js';
@@ -39,16 +38,32 @@ export { escapeHtml, formatToolCall, getTreeNodeDisplayHtml, shortenPath, trunca
 
 export const sessionEntrypointLoaded = true;
 
+function applyLazyHighlighting(documentImpl) {
+  import('highlight.js').then(({ default: hljs }) => {
+    documentImpl.querySelectorAll('code[data-highlight-pending]').forEach(el => {
+      const lang = el.dataset.lang;
+      const text = el.textContent;
+      try {
+        el.innerHTML = lang && hljs.getLanguage(lang)
+          ? hljs.highlight(text, { language: lang }).value
+          : hljs.highlightAuto(text).value;
+      } catch { /* keep plain text */ }
+      el.removeAttribute('data-highlight-pending');
+      el.removeAttribute('data-lang');
+    });
+  });
+}
+
 export function runSessionApp({ target = window } = {}) {
   const documentImpl = target.document;
   target.marked = target.marked || marked;
-  target.hljs = target.hljs || hljs;
   const dataModel = target.__piSessionDataModel || loadSessionData({
     documentImpl,
     windowImpl: target,
     atobImpl: target.atob?.bind(target)
   });
   target.__piSessionDataModel = dataModel;
+  const hljs = null; // loaded lazily after initial render via applyLazyHighlighting
 
   let filterMode = 'default';
   let searchQuery = '';
@@ -229,4 +244,5 @@ export function runSessionApp({ target = window } = {}) {
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.getElementById('session-data')) {
   runSessionApp();
+  applyLazyHighlighting(document);
 }

@@ -81,7 +81,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	srv.Register(mux)
-	if scripts, err := loadFrontendScripts(distFS(), indexEntry, sessionEntry, liveEntry); err == nil {
+	dfs := distFS()
+	if scripts, err := loadFrontendScripts(dfs, indexEntry, sessionEntry, liveEntry); err == nil {
 		for _, script := range scripts {
 			switch script.Entry {
 			case indexEntry:
@@ -93,6 +94,8 @@ func main() {
 			}
 			mux.HandleFunc(script.Path, serveIndexJS(script.JS, script.Path != "/static/assets/index.js"))
 		}
+		// Serve all other hashed assets (lazy chunks, runtime) from the embed FS.
+		mux.HandleFunc("/static/assets/", serveStaticAssets(dfs))
 	} else {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to load Vite frontend scripts: %v (frontend JS will be unavailable)\n", err)
 	}

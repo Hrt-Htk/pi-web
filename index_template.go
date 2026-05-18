@@ -27,9 +27,12 @@ func fmtCost(n float64) string {
 }
 
 var funcMap = template.FuncMap{
-	"fmtTokens":   fmtTokens,
-	"fmtCost":     fmtCost,
-	"indexScript": func() string { return indexScriptPath },
+	"fmtTokens":    fmtTokens,
+	"fmtCost":      fmtCost,
+	"indexScript":  func() string { return indexScriptPath },
+	"indexPreload": func() template.HTML {
+		return template.HTML(`<link rel="modulepreload" href="` + template.HTMLEscapeString(indexScriptPath) + `">`)
+	},
 }
 
 var indexTmpl = template.Must(template.New("index").Funcs(funcMap).Parse(indexTmplStr))

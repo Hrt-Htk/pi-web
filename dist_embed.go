@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -99,7 +101,64 @@ func loadFrontendScripts(distFS fs.FS, entryNames ...string) ([]frontendScript, 
 	return scripts, nil
 }
 
+func gzipJS(js string) []byte {
+	var buf bytes.Buffer
+	w, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
+	if err != nil {
+		return []byte(js)
+	}
+	_, _ = w.Write([]byte(js))
+	_ = w.Close()
+	return buf.Bytes()
+}
+
+type staticAsset struct {
+	raw        []byte
+	compressed []byte
+}
+
+// serveStaticAssets serves hashed JS chunks (lazy hljs chunk, rolldown
+// runtime) from the embed FS. All assets are pre-compressed at startup.
+func serveStaticAssets(dfs fs.FS) http.HandlerFunc {
+	// Pre-load and compress all assets at startup.
+	cache := make(map[string]staticAsset)
+	entries, _ := fs.ReadDir(dfs, "assets")
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		raw, err := fs.ReadFile(dfs, "assets/"+e.Name())
+		if err != nil {
+			continue
+		}
+		cache[e.Name()] = staticAsset{raw: raw, compressed: gzipJS(string(raw))}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := r.URL.Path[len("/static/assets/"):]
+		if name == "" || strings.Contains(name, "/") || strings.Contains(name, "..") {
+			http.NotFound(w, r)
+			return
+		}
+		asset, ok := cache[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			_, _ = w.Write(asset.compressed)
+		} else {
+			_, _ = w.Write(asset.raw)
+		}
+	}
+}
+
 func serveIndexJS(js string, immutable bool) http.HandlerFunc {
+	raw := []byte(js)
+	compressed := gzipJS(js)
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		if immutable {
@@ -107,6 +166,11 @@ func serveIndexJS(js string, immutable bool) http.HandlerFunc {
 		} else {
 			w.Header().Set("Cache-Control", "no-cache")
 		}
-		_, _ = w.Write([]byte(js))
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			_, _ = w.Write(compressed)
+		} else {
+			_, _ = w.Write(raw)
+		}
 	}
 }

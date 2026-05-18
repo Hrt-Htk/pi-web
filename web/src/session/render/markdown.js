@@ -50,21 +50,20 @@ export function configureSessionMarkdown({ marked, hljs, escapeHtml }) {
       code(token) {
         const code = token.text;
         const lang = token.lang;
-        let highlighted;
-        if (lang && hljs.getLanguage(lang)) {
-          try {
-            highlighted = hljs.highlight(code, { language: lang }).value;
-          } catch {
-            highlighted = escapeHtml(code);
+        if (hljs) {
+          let highlighted;
+          if (lang && hljs.getLanguage(lang)) {
+            try { highlighted = hljs.highlight(code, { language: lang }).value; }
+            catch { highlighted = escapeHtml(code); }
+          } else {
+            try { highlighted = hljs.highlightAuto(code).value; }
+            catch { highlighted = escapeHtml(code); }
           }
-        } else {
-          try {
-            highlighted = hljs.highlightAuto(code).value;
-          } catch {
-            highlighted = escapeHtml(code);
-          }
+          return `<pre><code class="hljs">${highlighted}</code></pre>`;
         }
-        return `<pre><code class="hljs">${highlighted}</code></pre>`;
+        // hljs not yet loaded: plain text, marked for lazy highlighting
+        const dataLang = lang ? ` data-lang="${escapeHtml(lang)}"` : '';
+        return `<pre><code class="hljs" data-highlight-pending${dataLang}>${escapeHtml(code)}</code></pre>`;
       },
       codespan(token) {
         return `<code>${escapeHtml(token.text)}</code>`;

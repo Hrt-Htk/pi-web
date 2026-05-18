@@ -12,6 +12,11 @@ export default defineConfig({
         index: resolve(__dirname, 'src/index/index.js'),
         session: resolve(__dirname, 'src/session/session.js'),
         live: resolve(__dirname, 'src/live/live.js')
+      },
+      output: {
+        manualChunks(id) {
+          if (id.includes('highlight.js')) return 'hljs';
+        }
       }
     }
   }
