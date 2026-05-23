@@ -228,16 +228,23 @@ setup_macos() {
     rm -f "$raw"
   fi
 
-  # Pass the generated token to launchd when present. This is required when
-  # pi-web auto-binds to a Tailscale/non-loopback address on macOS.
+  # Pass the generated environment to launchd. This includes PI_WEB_TOKEN and
+  # PATH so pi-web can find `pi` when serving browser chat requests.
   local env_file="${HOME}/.config/pi-web/env"
   if [[ -f "$env_file" ]]; then
-    local token
-    token="$(grep '^PI_WEB_TOKEN=' "$env_file" | head -1 | cut -d= -f2- || true)"
-    if [[ -n "$token" ]]; then
-      # Generated tokens are hex; escape the common XML entities for custom tokens.
-      token="$(printf '%s' "$token" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')"
-      perl -0pi -e "s|</dict>\s*</plist>|    <key>EnvironmentVariables</key>\n    <dict>\n        <key>PI_WEB_TOKEN</key>\n        <string>${token}</string>\n    </dict>\n</dict>\n</plist>|" "$generated"
+    local env_xml=""
+    while IFS='=' read -r key value; do
+      [[ -z "$key" || "$key" == \#* ]] && continue
+      case "$key" in
+        PI_WEB_TOKEN|PATH) ;;
+        *) continue ;;
+      esac
+      value="$(printf '%s' "$value" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')"
+      env_xml="${env_xml}        <key>${key}</key>\n        <string>${value}</string>\n"
+    done < "$env_file"
+
+    if [[ -n "$env_xml" ]]; then
+      perl -0pi -e "s|</dict>\s*</plist>|    <key>EnvironmentVariables</key>\n    <dict>\n${env_xml}    </dict>\n</dict>\n</plist>|" "$generated"
     fi
   fi
 
@@ -306,35 +313,47 @@ setup_linux() {
   }
 }
 
-# ── Token setup ─────────────────────────────────────────────────────
-setup_token_env() {
+# ── Environment setup ────────────────────────────────────────────────
+set_env_var() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+
+  if [[ -f "$file" ]] && grep -q "^${key}=" "$file"; then
+    local escaped
+    escaped="$(printf '%s' "$value" | sed 's/[&\\]/\\&/g')"
+    sed -i.bak "s|^${key}=.*|${key}=${escaped}|" "$file"
+    rm -f "${file}.bak"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
+
+setup_env() {
   local env_dir="${HOME}/.config/pi-web"
   local env_file="${env_dir}/env"
 
-  if [[ -n "${PI_WEB_TOKEN:-}" ]]; then
-    return 0
-  fi
-
-  if [[ -f "$env_file" ]] && grep -q '^PI_WEB_TOKEN=' "$env_file"; then
-    return 0
-  fi
-
   mkdir -p "$env_dir"
   chmod 700 "$env_dir" 2>/dev/null || true
-
-  local token
-  if command -v openssl &>/dev/null; then
-    token="$(openssl rand -hex 16)"
-  else
-    token="$(date +%s%N)-$RANDOM-$RANDOM"
-  fi
-
-  umask 077
-  printf 'PI_WEB_TOKEN=%s\n' "$token" > "$env_file"
+  touch "$env_file"
   chmod 600 "$env_file" 2>/dev/null || true
 
-  info "Generated PI_WEB_TOKEN in ${env_file}"
-  warn "Use this token when opening pi-web from another device: ${token}"
+  if [[ -z "${PI_WEB_TOKEN:-}" ]] && ! grep -q '^PI_WEB_TOKEN=' "$env_file"; then
+    local token
+    if command -v openssl &>/dev/null; then
+      token="$(openssl rand -hex 16)"
+    else
+      token="$(date +%s%N)-$RANDOM-$RANDOM"
+    fi
+
+    set_env_var "$env_file" "PI_WEB_TOKEN" "$token"
+    info "Generated PI_WEB_TOKEN in ${env_file}"
+    warn "Use this token when opening pi-web from another device: ${token}"
+  fi
+
+  # Services launched by systemd/launchd often have a minimal PATH. Preserve the
+  # install-time PATH so pi-web can find `pi` for browser chat (`pi --mode rpc`).
+  set_env_var "$env_file" "PATH" "${PATH}"
 }
 
 # ── Main ────────────────────────────────────────────────────────────
@@ -369,7 +388,7 @@ main() {
     exit 0
   fi
 
-  setup_token_env
+  setup_env
 
   case "$(uname -s)" in
     Darwin) setup_macos ;;
