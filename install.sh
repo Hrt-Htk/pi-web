@@ -61,20 +61,20 @@ detect_platform() {
 # ── Check latest release tag ────────────────────────────────────────
 latest_tag() {
   local latest_url="https://api.github.com/repos/${REPO}/releases/latest"
-  local releases_url="https://api.github.com/repos/${REPO}/releases?per_page=1"
+  local releases_url="https://api.github.com/repos/${REPO}/releases?per_page=100"
   local tag=""
 
   if command -v curl &>/dev/null; then
     tag="$(curl -fsS "$latest_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
     if [[ -z "$tag" ]]; then
-      # /latest ignores prereleases. Fall back to the newest release of any type.
-      tag="$(curl -fsS "$releases_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
+      # /latest ignores prereleases. Fall back to the highest semver release of any type.
+      tag="$(curl -fsS "$releases_url" 2>/dev/null | grep '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' | sort -V | tail -1 || true)"
     fi
   elif command -v wget &>/dev/null; then
     tag="$(wget -qO- "$latest_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
     if [[ -z "$tag" ]]; then
-      # /latest ignores prereleases. Fall back to the newest release of any type.
-      tag="$(wget -qO- "$releases_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
+      # /latest ignores prereleases. Fall back to the highest semver release of any type.
+      tag="$(wget -qO- "$releases_url" 2>/dev/null | grep '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' | sort -V | tail -1 || true)"
     fi
   else
     err "Neither curl nor wget found."
