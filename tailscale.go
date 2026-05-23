@@ -17,9 +17,10 @@ func piWebCertDir() (string, error) {
 	}
 	if runtime.GOOS == "darwin" {
 		// Tailscale.app on macOS can be sandboxed/Privacy-restricted when writing
-		// to hidden dot-directories. Application Support is the conventional
-		// user-writable location for app data and works better with Tailscale cert.
-		return filepath.Join(home, "Library", "Application Support", "pi-web", "certs"), nil
+		// into user home directories, including hidden dirs and Application Support.
+		// /tmp is writable by the Tailscale helper and the key is protected by the
+		// per-user 0700 directory created in ensureTailscaleCert.
+		return filepath.Join(os.TempDir(), fmt.Sprintf("pi-web-certs-%d", os.Getuid())), nil
 	}
 	return filepath.Join(home, ".pi", "agent", "certs"), nil
 }
