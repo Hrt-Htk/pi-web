@@ -6,8 +6,23 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
+
+func piWebCertDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if runtime.GOOS == "darwin" {
+		// Tailscale.app on macOS can be sandboxed/Privacy-restricted when writing
+		// to hidden dot-directories. Application Support is the conventional
+		// user-writable location for app data and works better with Tailscale cert.
+		return filepath.Join(home, "Library", "Application Support", "pi-web", "certs"), nil
+	}
+	return filepath.Join(home, ".pi", "agent", "certs"), nil
+}
 
 func tailscaleCLI() (string, error) {
 	if bin, err := exec.LookPath("tailscale"); err == nil {
@@ -73,11 +88,10 @@ func tailscaleSelfDNS() (string, error) {
 // Requires Tailscale HTTPS to be enabled in the admin console
 // (https://login.tailscale.com/admin/dns) under "HTTPS Certificates".
 func ensureTailscaleCert(hostname string) (certPath, keyPath string, err error) {
-	home, err := os.UserHomeDir()
+	certDir, err := piWebCertDir()
 	if err != nil {
 		return "", "", err
 	}
-	certDir := filepath.Join(home, ".pi", "agent", "certs")
 	if err := os.MkdirAll(certDir, 0700); err != nil {
 		return "", "", err
 	}
