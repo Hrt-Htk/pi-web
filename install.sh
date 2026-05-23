@@ -327,8 +327,7 @@ setup_linux() {
   generated_service="$(mktemp)"
   cp "$service_src" "$generated_service"
   if should_enable_https; then
-    perl -0pi -e 's|ExecStart=%h/\.pi/agent/bin/pi-web\n|ExecStart=%h/.pi/agent/bin/pi-web -pwa\n|' "$generated_service"
-    info "HTTPS/PWA enabled for Linux auto-start via Tailscale certs"
+    info "HTTPS/PWA available via Tailscale; start manually with -pwa if you want HTTPS."
   else
     info "HTTPS/PWA not enabled automatically (set PI_WEB_HTTPS=1 to force, PI_WEB_HTTPS=0 to disable)"
   fi
