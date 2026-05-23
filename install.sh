@@ -6,7 +6,7 @@ set -euo pipefail
 # Standalone (no pi required):
 #   curl -fsSL https://raw.githubusercontent.com/ygncode/pi-web/main/install.sh | bash
 #
-# Via pi package (also registers /web, /mobile, /refresh commands):
+# Via pi package (also registers /remote, /refresh commands):
 #   pi install git:github.com/ygncode/pi-web
 #
 # Updates are handled by re-running the same command.

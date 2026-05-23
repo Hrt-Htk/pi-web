@@ -23,7 +23,7 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 - Deep links to individual messages
 - Download a session as JSONL
 - Share static snapshots as secret GitHub Gists
-- `/web`, `/mobile`, `/refresh` pi extensions for browser, mobile QR, and session sync
+- `/remote`, `/refresh` pi extensions for remote QR and session sync
 
 ## Requirements
 
@@ -141,7 +141,7 @@ Open a session page and use the composer at the bottom to continue that exact se
 
 ## Pi integration
 
-pi-web is a [pi package](https://pi.dev/docs/packages). Install once to get the pi-web binary, auto-start setup, and the `/web`, `/mobile`, `/refresh` commands:
+pi-web is a [pi package](https://pi.dev/docs/packages). Install once to get the pi-web binary, auto-start setup, and the `/remote`, `/refresh` commands:
 
 ```bash
 pi install npm:@ygncode/pi-web
@@ -153,7 +153,7 @@ This single command:
 - Downloads the correct pi-web binary for your platform from GitHub Releases
 - Installs it to `~/.pi/agent/bin/pi-web` during pi/npm package installs
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
-- Registers the `/web`, `/mobile`, `/refresh` pi commands
+- Registers the `/remote`, `/refresh` pi commands
 
 On Linux, auto-start is configured as a user systemd service at `~/.config/systemd/user/pi-web.service`. Its `ExecStart` points at `%h/.pi/agent/bin/pi-web`, so after install systemd starts and restarts the user-local binary. If Tailscale is available at runtime, pi-web publishes the localhost server with Tailscale Serve HTTPS. If user systemd is unavailable, run it manually with `~/.pi/agent/bin/pi-web -o`.
 
@@ -161,9 +161,9 @@ Standalone shell installs still default to `/usr/local/bin/pi-web`; set `PI_WEB_
 
 Then restart pi (or run `/reload`), and use:
 
-- `/web` — open the current session in your default browser and show the URL in the pi UI (`/web-close` dismisses it)
-- `/mobile` — show a QR code and URL for mobile access over Tailscale
-- `/refresh` — pull new messages written from mobile back into the terminal session
+- `/pi-web` — show pi-web status, version, install path, start the server, or run `/pi-web remote`
+- `/remote` — show a QR code and URL for remote access over Tailscale
+- `/refresh` — pull new messages written from remote browsers back into the terminal session
 
 To install only for a specific project (shared with your team via `.pi/settings.json`):
 
