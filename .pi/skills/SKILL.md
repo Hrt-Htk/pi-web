@@ -1,3 +1,8 @@
+---
+name: pi-web
+description: Use this skill when the user wants to view, browse, or inspect their pi coding agent sessions in a web browser.
+---
+
 # Pi Web
 
 Use this skill when the user wants to view, browse, or inspect their pi coding agent sessions in a web browser.
