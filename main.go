@@ -26,6 +26,9 @@ import (
 const defaultPort = "31415"
 const tokenEnvVar = "PI_WEB_TOKEN"
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 // indexScriptPath is the URL path at which the index page's Vite module is
 // served. It defaults to a stable path and is overwritten at startup if a
 // hashed asset is found in the Vite manifest. The index template reads it via
@@ -40,7 +43,13 @@ func main() {
 	open := flag.Bool("o", false, "auto-open browser")
 	insecure := flag.Bool("insecure", false, "allow non-loopback bind without "+tokenEnvVar+" (DANGEROUS)")
 	pwa := flag.Bool("pwa", false, "serve HTTPS via a Tailscale-issued cert at https://<host>.<tailnet>.ts.net so the app is installable as a PWA")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	sessionsDir := filepath.Join(os.Getenv("HOME"), ".pi", "agent", "sessions")
 	if _, err := os.Stat(sessionsDir); os.IsNotExist(err) {

@@ -74,12 +74,13 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
+          VERSION: ${{ github.ref_name }}
         run: |
           output="pi-web-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             output="${output}.exe"
           fi
-          go build -ldflags="-s -w" -o "${output}" .
+          go build -ldflags="-s -w -X main.version=${VERSION}" -o "${output}" .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

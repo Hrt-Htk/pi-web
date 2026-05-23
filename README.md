@@ -127,11 +127,17 @@ Open a session page and use the composer at the bottom to continue that exact se
 
 ## Pi integration
 
-pi-web is a [pi package](https://pi.dev/docs/packages). Install once and get the `/web`, `/mobile`, and `/refresh` commands in every project:
+pi-web is a [pi package](https://pi.dev/docs/packages). Install once to get the pi-web binary, auto-start setup, and the `/web`, `/mobile`, `/refresh` commands:
 
 ```bash
 pi install git:github.com/ygncode/pi-web
 ```
+
+This single command:
+- Downloads the correct pi-web binary for your platform from GitHub Releases
+- Installs it to `/usr/local/bin/pi-web` (or `$PI_WEB_INSTALL_DIR`)
+- Sets up auto-start on login (launchd on macOS, systemd on Linux)
+- Registers the `/web`, `/mobile`, `/refresh` pi commands
 
 Then restart pi (or run `/reload`), and use:
 

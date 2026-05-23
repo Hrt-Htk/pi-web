@@ -7,7 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/setkyar/.pi/agent/bin/pi-web</string>
+        <string>/usr/local/bin/pi-web</string>
         <string>-p</string>
         <string>31415</string>
     </array>
