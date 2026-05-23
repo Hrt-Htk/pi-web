@@ -138,14 +138,16 @@ Open a session page and use the composer at the bottom to continue that exact se
 pi-web is a [pi package](https://pi.dev/docs/packages). Install once to get the pi-web binary, auto-start setup, and the `/web`, `/mobile`, `/refresh` commands:
 
 ```bash
-pi install git:github.com/ygncode/pi-web
+pi install npm:@ygncode/pi-web
 ```
 
 This single command:
 - Downloads the correct pi-web binary for your platform from GitHub Releases
-- Installs it to `/usr/local/bin/pi-web` (or `$PI_WEB_INSTALL_DIR`)
+- Installs it to `~/.pi/agent/bin/pi-web` during pi/npm package installs
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
 - Registers the `/web`, `/mobile`, `/refresh` pi commands
+
+Standalone shell installs still default to `/usr/local/bin/pi-web`; set `PI_WEB_INSTALL_DIR` to override either install location.
 
 Then restart pi (or run `/reload`), and use:
 
@@ -156,7 +158,7 @@ Then restart pi (or run `/reload`), and use:
 To install only for a specific project (shared with your team via `.pi/settings.json`):
 
 ```bash
-pi install -l git:github.com/ygncode/pi-web
+pi install -l npm:@ygncode/pi-web
 ```
 
 ## Sharing sessions
