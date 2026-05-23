@@ -228,6 +228,19 @@ setup_macos() {
     rm -f "$raw"
   fi
 
+  # Pass the generated token to launchd when present. This is required when
+  # pi-web auto-binds to a Tailscale/non-loopback address on macOS.
+  local env_file="${HOME}/.config/pi-web/env"
+  if [[ -f "$env_file" ]]; then
+    local token
+    token="$(grep '^PI_WEB_TOKEN=' "$env_file" | head -1 | cut -d= -f2- || true)"
+    if [[ -n "$token" ]]; then
+      # Generated tokens are hex; escape the common XML entities for custom tokens.
+      token="$(printf '%s' "$token" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')"
+      perl -0pi -e "s|</dict>\s*</plist>|    <key>EnvironmentVariables</key>\n    <dict>\n        <key>PI_WEB_TOKEN</key>\n        <string>${token}</string>\n    </dict>\n</dict>\n</plist>|" "$generated"
+    fi
+  fi
+
   # Check if plist changed
   if [[ -f "$plist_dst" ]]; then
     if cmp -s "$generated" "$plist_dst"; then
@@ -238,16 +251,18 @@ setup_macos() {
 
   if [[ "$needs_reload" == "true" ]]; then
     cp "$generated" "$plist_dst"
-    launchctl unload "$plist_dst" 2>/dev/null || true
-    launchctl load "$plist_dst"
+    launchctl bootout "gui/$(id -u)" "$plist_dst" 2>/dev/null || launchctl unload "$plist_dst" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$plist_dst" 2>/dev/null || launchctl load "$plist_dst"
     info "macOS auto-start configured (launchd)"
   fi
 
   rm -f "$generated"
 
   # Restart if already running
-  launchctl stop com.pi-web 2>/dev/null || true
-  launchctl start com.pi-web 2>/dev/null || true
+  launchctl kickstart -k "gui/$(id -u)/com.pi-web" 2>/dev/null || {
+    launchctl stop com.pi-web 2>/dev/null || true
+    launchctl start com.pi-web 2>/dev/null || true
+  }
 }
 
 # ── Linux auto-start (systemd user service) ──────────────────────────
