@@ -104,11 +104,23 @@ func ensureTailscaleCert(hostname string) (certPath, keyPath string, err error) 
 		return "", "", err
 	}
 
+	certArg := certPath
+	keyArg := keyPath
+	if runtime.GOOS == "darwin" {
+		// Tailscale.app on macOS can reject absolute output paths with EPERM.
+		// Run from the cert directory and pass relative output names instead.
+		certArg = filepath.Base(certPath)
+		keyArg = filepath.Base(keyPath)
+	}
+
 	cmd := exec.Command(bin, "cert",
-		"--cert-file="+certPath,
-		"--key-file="+keyPath,
+		"--cert-file="+certArg,
+		"--key-file="+keyArg,
 		hostname,
 	)
+	if runtime.GOOS == "darwin" {
+		cmd.Dir = certDir
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
