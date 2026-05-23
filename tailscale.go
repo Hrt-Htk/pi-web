@@ -9,14 +9,34 @@ import (
 	"strings"
 )
 
+func tailscaleCLI() (string, error) {
+	if bin, err := exec.LookPath("tailscale"); err == nil {
+		return bin, nil
+	}
+
+	for _, path := range []string{
+		"/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+		"/Applications/Tailscale.app/Contents/MacOS/tailscale",
+		"/opt/homebrew/bin/tailscale",
+		"/usr/local/bin/tailscale",
+		"/usr/bin/tailscale",
+	} {
+		if st, err := os.Stat(path); err == nil && !st.IsDir() && st.Mode()&0111 != 0 {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("tailscale CLI not found in PATH or common install locations")
+}
+
 // tailscaleSelfDNS returns the Tailscale MagicDNS name for this node
 // (e.g. "personal-laptop.tail9f98d.ts.net"). Returns an error if the
 // tailscale CLI is unavailable, the node is not connected, or HTTPS is
 // not enabled in the tailnet.
 func tailscaleSelfDNS() (string, error) {
-	bin, err := exec.LookPath("tailscale")
+	bin, err := tailscaleCLI()
 	if err != nil {
-		return "", fmt.Errorf("tailscale CLI not found in PATH: %w", err)
+		return "", err
 	}
 	out, err := exec.Command(bin, "status", "--json").Output()
 	if err != nil {
@@ -64,7 +84,12 @@ func ensureTailscaleCert(hostname string) (certPath, keyPath string, err error) 
 	certPath = filepath.Join(certDir, hostname+".crt")
 	keyPath = filepath.Join(certDir, hostname+".key")
 
-	cmd := exec.Command("tailscale", "cert",
+	bin, err := tailscaleCLI()
+	if err != nil {
+		return "", "", err
+	}
+
+	cmd := exec.Command(bin, "cert",
 		"--cert-file="+certPath,
 		"--key-file="+keyPath,
 		hostname,

@@ -200,8 +200,25 @@ should_enable_https() {
     0|false|no|off) return 1 ;;
   esac
 
-  command -v tailscale &>/dev/null || return 1
-  tailscale status --json 2>/dev/null | grep -q '"DNSName"[[:space:]]*:[[:space:]]*"[^"]' || return 1
+  local tailscale_bin=""
+  if command -v tailscale &>/dev/null; then
+    tailscale_bin="$(command -v tailscale)"
+  else
+    for candidate in \
+      "/Applications/Tailscale.app/Contents/MacOS/Tailscale" \
+      "/Applications/Tailscale.app/Contents/MacOS/tailscale" \
+      "/opt/homebrew/bin/tailscale" \
+      "/usr/local/bin/tailscale" \
+      "/usr/bin/tailscale"; do
+      if [[ -x "$candidate" ]]; then
+        tailscale_bin="$candidate"
+        break
+      fi
+    done
+  fi
+
+  [[ -n "$tailscale_bin" ]] || return 1
+  "$tailscale_bin" status --json 2>/dev/null | grep -q '"DNSName"[[:space:]]*:[[:space:]]*"[^"]' || return 1
 }
 
 # ── Fetch config file from repo (for standalone installs) ──────────
