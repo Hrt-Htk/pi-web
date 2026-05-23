@@ -299,6 +299,26 @@ func TestParseSummaryTruncatesNameAt80(t *testing.T) {
 	}
 }
 
+func TestParseSummaryTruncatesUnicodeNameAt80Runes(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "s.jsonl")
+	// Each "🎉" is a 4-byte UTF-8 sequence; 90 of them = 360 bytes but only 90 runes.
+	long := strings.Repeat("🎉", 90)
+	content := `{"type":"session","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
+		`{"type":"message","timestamp":"2026-05-08T10:00:01Z","message":{"role":"user","content":"` + long + `"}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Repeat("🎉", 80) + "…"
+	if s.Name != want {
+		t.Errorf("Name length = %d runes, want 81+ellipsis; got %q", len([]rune(s.Name)), s.Name)
+	}
+}
+
 func TestParseSummaryFallsBackToFilename(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "fallback.jsonl")

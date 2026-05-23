@@ -29,6 +29,11 @@ type fakeSender struct {
 	ensureWorkerSessionID   string
 	ensureWorkerSessionPath string
 	ensureWorkerCh          chan struct{}
+	setModelSessionID       string
+	setModelProvider        string
+	setModelID              string
+	setThinkingSessionID    string
+	setThinkingLevel        string
 }
 
 func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
@@ -39,10 +44,15 @@ func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, ch
 }
 
 func (f *fakeSender) SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error {
+	f.setModelSessionID = sessionID
+	f.setModelProvider = provider
+	f.setModelID = modelID
 	return nil
 }
 
 func (f *fakeSender) SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error {
+	f.setThinkingSessionID = sessionID
+	f.setThinkingLevel = level
 	return nil
 }
 
@@ -160,7 +170,7 @@ func TestHandleWorkerStatusUsesRecentSessionFileActivity(t *testing.T) {
 	s := &Server{
 		sessionsDir: root,
 		chatSender:  &fakeSender{},
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-1500 * time.Millisecond)},
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
 		now:         func() time.Time { return now },
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
@@ -215,6 +225,35 @@ func TestHandleWorkerStatusSkipsGetStateWhenLocalStatusRunning(t *testing.T) {
 	}
 	if got := w.Body.String(); got != "{\"state\":\"running\"}\n" {
 		t.Fatalf("body = %q", got)
+	}
+}
+
+// When an in-process chat worker has been resolved for the session
+// (Model populated) and reports idle, the activity-window fallback must
+// not override it — otherwise the Cancel button lingers after the
+// assistant finishes because the JSONL write keeps the file mtime fresh.
+func TestHandleWorkerStatusTrustsIdleWorkerOverRecentFileWrite(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
+	sender := &fakeSender{status: workers.WorkerStatus{State: workers.WorkerStateIdle, Model: "gpt-5.5"}}
+	s := &Server{
+		sessionsDir: root,
+		chatSender:  sender,
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-100 * time.Millisecond)},
+		now:         func() time.Time { return now },
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+
+	s.handleWorkerStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `"state":"idle"`) {
+		t.Fatalf("body = %q, want state=idle", body)
 	}
 }
 
@@ -461,6 +500,49 @@ func TestHandleNewSessionPreinitializesWorker(t *testing.T) {
 	}
 }
 
+func TestHandleNewSessionCopiesSourceModelAndThinking(t *testing.T) {
+	root := t.TempDir()
+	_ = writeSessionFile(t, root, "--tmp--source--", "source.jsonl")
+	fake := &fakeSender{state: workers.WorkerStatus{State: workers.WorkerStateIdle, ModelProvider: "openai", Model: "gpt-5", ThinkingLevel: "high"}}
+	s := &Server{sessionsDir: root, chatSender: fake}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/new-session", strings.NewReader(`{"path":"/tmp/test-project","sourceSessionId":"source.jsonl"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleNewSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	id, _ := body["id"].(string)
+	if id == "" {
+		t.Fatal("missing id in response")
+	}
+
+	waitForCondition(t, time.Second, func() bool {
+		return fake.ensureWorkerSessionID == id
+	})
+	if fake.setModelSessionID != "" || fake.setThinkingSessionID != "" {
+		t.Fatalf("new session initialization should not append visible setting changes, got setModel=%q setThinking=%q", fake.setModelSessionID, fake.setThinkingSessionID)
+	}
+	projectDir := filepath.Join(root, "--tmp-test-project--")
+	data, err := os.ReadFile(filepath.Join(projectDir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"type":"model_change"`) || !strings.Contains(content, `"implicit":true`) {
+		t.Fatalf("new session file missing implicit model setting: %s", content)
+	}
+	if !strings.Contains(content, `"type":"thinking_level_change"`) || !strings.Contains(content, `"thinkingLevel":"high"`) {
+		t.Fatalf("new session file missing implicit thinking setting: %s", content)
+	}
+}
+
 func TestHandleNewSessionWithoutChatSender(t *testing.T) {
 	root := t.TempDir()
 	s := &Server{sessionsDir: root}
@@ -507,5 +589,19 @@ func TestHandleNewSessionRejectsGetMethod(t *testing.T) {
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if fn() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !fn() {
+		t.Fatal("condition not met before timeout")
 	}
 }

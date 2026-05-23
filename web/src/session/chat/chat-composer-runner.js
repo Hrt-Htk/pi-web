@@ -54,9 +54,10 @@ export function runChatComposer({
     if (label) {
       btn.textContent = label;
       btn.style.display = '';
-    } else {
-      btn.style.display = 'none';
     }
+    // If label is empty (e.g. worker-status hasn't reported a model yet),
+    // preserve whatever was server-rendered so the badge doesn't flash
+    // hidden→shown when the first poll resolves.
   }
 
   const THINKING_LEVELS = __piChatSelectors.THINKING_LEVELS;
@@ -171,6 +172,80 @@ export function runChatComposer({
       new ResizeObserver(updateComposerHeightVar).observe(form);
     }
 
+    // Expand/collapse the composer for larger typing area. State persists
+    // per-session in localStorage.
+    const shell = form.querySelector('.pi-chat-shell');
+
+    // Auto-grow textarea: track scrollHeight up to the CSS max-height so the
+    // composer expands as the user types and shrinks when they delete content.
+    function autoResizeTextarea() {
+      if (!textarea || (shell && shell.classList.contains('expanded'))) return;
+      textarea.style.height = 'auto';
+      const cs = window.getComputedStyle(textarea);
+      const max = parseFloat(cs.maxHeight) || 200;
+      const min = parseFloat(cs.minHeight) || 48;
+      const next = Math.max(min, Math.min(textarea.scrollHeight, max));
+      textarea.style.height = next + 'px';
+      updateComposerHeightVar();
+    }
+
+    // Enable Send only when there is text or an attachment.
+    function hasComposerContent() {
+      const v = textarea ? textarea.value : '';
+      return (v && v.trim().length > 0) || (typeof selectedChatFiles !== 'undefined' && selectedChatFiles.length > 0);
+    }
+    function updateSendEnabled() {
+      if (!sendButton) return;
+      // Don't fight transient sending/disabled state set by sendChatMessage.
+      if (sendButton.dataset.sending === '1') return;
+      sendButton.disabled = !hasComposerContent();
+    }
+
+    if (textarea) {
+      textarea.addEventListener('input', () => {
+        autoResizeTextarea();
+        updateSendEnabled();
+      });
+      // Initial sizing in case the textarea was pre-filled (e.g. browser autofill).
+      autoResizeTextarea();
+    }
+    updateSendEnabled();
+
+    // Keyboard hint label (hidden on touch via CSS).
+    const sendHint = document.getElementById('pi-chat-send-hint');
+    if (sendHint) {
+      sendHint.textContent = '↵';
+      sendHint.title = 'Press Enter to send · Shift+Enter for newline';
+    }
+    const expandButton = document.getElementById('pi-chat-expand');
+    const EXPAND_STORAGE_KEY = 'pi-chat:composer-expanded:' + (sessionId || 'default');
+    function applyComposerExpanded(expanded) {
+      if (!shell) return;
+      shell.classList.toggle('expanded', !!expanded);
+      if (expandButton) {
+        const label = expanded ? 'Collapse composer' : 'Expand composer';
+        expandButton.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+        expandButton.setAttribute('aria-label', label);
+        expandButton.title = label;
+      }
+      updateComposerHeightVar();
+    }
+    let initialExpanded = false;
+    try {
+      initialExpanded = window.localStorage && window.localStorage.getItem(EXPAND_STORAGE_KEY) === '1';
+    } catch (_) { /* localStorage unavailable */ }
+    applyComposerExpanded(initialExpanded);
+    if (expandButton) {
+      expandButton.addEventListener('click', () => {
+        const willExpand = !shell.classList.contains('expanded');
+        applyComposerExpanded(willExpand);
+        try {
+          if (window.localStorage) window.localStorage.setItem(EXPAND_STORAGE_KEY, willExpand ? '1' : '0');
+        } catch (_) { /* localStorage unavailable */ }
+        if (willExpand && textarea && typeof textarea.focus === 'function') textarea.focus();
+      });
+    }
+
     function setStatus(text, cls) {
       setChatStatus(text, cls);
     }
@@ -245,6 +320,7 @@ export function runChatComposer({
         fragment.appendChild(item);
       });
       attachmentList.replaceChildren(fragment);
+      updateSendEnabled();
     }
 
     attachButton.addEventListener('click', () => fileInput.click());
@@ -332,6 +408,7 @@ export function runChatComposer({
       const body = new FormData();
       body.set('message', message);
       for (const file of files) body.append('images', file);
+      sendButton.dataset.sending = '1';
       sendButton.disabled = true;
       setStatus('sending', 'running');
       window.dispatchEvent(new CustomEvent('pi-chat-message-sent'));
@@ -345,7 +422,9 @@ export function runChatComposer({
         setStatus(error.message || String(error), 'error');
         return false;
       } finally {
+        delete sendButton.dataset.sending;
         sendButton.disabled = false;
+        updateSendEnabled();
       }
     }
 
@@ -358,6 +437,8 @@ export function runChatComposer({
         clearSelectedChatFiles();
         fileInput.value = '';
         renderAttachments();
+        autoResizeTextarea();
+        updateSendEnabled();
       }
     });
 
@@ -414,8 +495,16 @@ export function runChatComposer({
     });
 
     let workerStatusInflight = false;
+    let workerStatusPending = false;
+    let lastWorkerState = null;
     async function refreshWorkerStatus() {
-      if (workerStatusInflight) return;
+      if (workerStatusInflight) {
+        // Mark a follow-up so the in-flight response doesn't swallow a
+        // newer state change (e.g. assistant just finished while we were
+        // polling stale "running" state).
+        workerStatusPending = true;
+        return;
+      }
       workerStatusInflight = true;
       try {
         const response = await __piChatApi.getWorkerStatus(sessionId);
@@ -427,6 +516,12 @@ export function runChatComposer({
         if (data.state === 'running') setStatus('running', 'running');
         if (data.state === 'idle') setStatus('idle', '');
         if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
+        if (lastWorkerState === 'running' && data.state === 'idle') {
+          try {
+            window.dispatchEvent(new CustomEvent('pi-worker-done'));
+          } catch (_) {}
+        }
+        if (data.state) lastWorkerState = data.state;
         setModelLabel(knownModelLabel);
         setThinkingLabel(knownThinkingLevel);
         if (data.modelProvider && data.model && onWorkerModelUpdate) {
@@ -436,11 +531,24 @@ export function runChatComposer({
         setStatus('status unavailable', 'error');
       } finally {
         workerStatusInflight = false;
+        if (workerStatusPending) {
+          workerStatusPending = false;
+          // Drain follow-up immediately so a state change that arrived
+          // during the previous request gets reflected without waiting
+          // for the next poll tick.
+          refreshWorkerStatus();
+        }
       }
     }
 
-    setInterval(refreshWorkerStatus, 3000);
+    setInterval(refreshWorkerStatus, 1500);
     refreshWorkerStatus();
+
+    // Trigger an immediate status refresh whenever the session reloads (the
+    // file watcher fires this when the assistant's final message lands).
+    // Without this, the Cancel button + "running" status linger until the
+    // next poll tick, which feels broken right after a response completes.
+    window.addEventListener('pi-session-reload', () => { refreshWorkerStatus(); });
     return true;
   }
 

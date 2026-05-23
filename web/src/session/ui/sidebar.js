@@ -100,7 +100,10 @@ export function setupSidebarCollapse({ documentImpl = document, windowImpl = win
   });
 
   hideBtn?.addEventListener('click', () => {
-    if (isMobileLayout({ windowImpl })) return;
+    if (isMobileLayout({ windowImpl })) {
+      setSidebarOpen(false, { documentImpl });
+      return;
+    }
     setSidebarCollapsed(true, { documentImpl });
     saveSidebarCollapsed(true, { storage });
   });

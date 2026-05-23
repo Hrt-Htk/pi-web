@@ -34,6 +34,7 @@ describe('new session button', () => {
       fetchImpl,
       locationImpl,
       cwd: '/projects/foo',
+      sessionId: 'source.jsonl',
       state: {},
       setTimeoutImpl: () => {},
       clearTimeoutImpl: () => {}
@@ -43,7 +44,7 @@ describe('new session button', () => {
     expect(fetchImpl).toHaveBeenCalledWith('/api/new-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: '/projects/foo' })
+      body: JSON.stringify({ path: '/projects/foo', sourceSessionId: 'source.jsonl' })
     });
     expect(locationImpl.href).toBe('/session?id=abc123.jsonl');
   });

@@ -18,7 +18,7 @@ export function renderChatPreview(payload, state, {
     state.chatPreviewEl = documentImpl.createElement('div');
     state.chatPreviewEl.id = 'chat-preview-stream';
     state.chatPreviewEl.className = 'assistant-message chat-preview-stream';
-    state.chatPreviewEl.innerHTML = '<div class="message-content assistant-text"></div><div class="preview-label">working<span class="working-dots" aria-hidden="true"></span></div>';
+    state.chatPreviewEl.innerHTML = '<div class="message-content assistant-text markdown-content"></div><div class="preview-label">working<span class="working-dots" aria-hidden="true"></span></div>';
     container.appendChild(state.chatPreviewEl);
   }
   const content = state.chatPreviewEl.querySelector('.message-content');

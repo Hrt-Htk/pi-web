@@ -14,6 +14,7 @@ import * as sidebarApi from './ui/sidebar.js';
 import * as searchFiltersApi from './ui/search-filters.js';
 import { setupSessionUi } from './ui/session-ui-runner.js';
 import * as chatComposerRunner from './chat/chat-composer-runner.js';
+import * as doneNotifier from './chat/done-notifier.js';
 import * as chatApi from './chat/chat-api.js';
 import * as chatSelectors from './chat/chat-selectors.js';
 import * as thinkingSelector from './chat/thinking-selector.js';
@@ -195,6 +196,11 @@ export function runSessionApp({ target = window } = {}) {
   target.renderEntryToNode = renderEntryToNode;
   target.__piTreeRenderer = treeRenderer;
   target.__piSessionNavigator = navigatorInstance;
+
+  doneNotifier.setupDoneNotifyToggle({ documentImpl, windowImpl: target });
+  target.addEventListener('pi-worker-done', () => {
+    doneNotifier.notifyDone({ documentImpl, windowImpl: target });
+  });
 
   chatComposerRunner.runChatComposer({
     documentImpl,

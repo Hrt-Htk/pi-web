@@ -152,16 +152,27 @@ func chatComposerHtmlForSession(session sessions.Session) string {
 			cwd = c
 		}
 	}
+	// Pre-render the model badge from the last-known model in the session so
+	// the user doesn't see a flash when the worker-status fetch completes.
+	modelLabel := ""
+	if session.Model != "" {
+		modelLabel = session.Model
+		if session.ModelProvider != "" {
+			modelLabel = modelLabel + " @ " + session.ModelProvider
+		}
+	}
 	data := struct {
 		SessionID          string
 		ChatAvailable      bool
 		ChatDisabledReason string
 		Cwd                string
+		ModelLabel         string
 	}{
 		SessionID:          session.ID,
 		ChatAvailable:      chatAvailable,
 		ChatDisabledReason: session.ChatDisabledReason,
 		Cwd:                cwd,
+		ModelLabel:         modelLabel,
 	}
 	if !data.ChatAvailable && data.ChatDisabledReason == "" {
 		data.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."

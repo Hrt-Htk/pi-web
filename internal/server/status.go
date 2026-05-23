@@ -23,8 +23,21 @@ func (s *Server) computeRunningStatus(sessionID string) bool {
 	if status := s.readSessionStatus(sessionID); status != nil && status.State == workers.WorkerStateRunning {
 		return true
 	}
-	if s.chatSender != nil && s.chatSender.Status(sessionID).State == workers.WorkerStateRunning {
-		return true
+	if s.chatSender != nil {
+		workerStatus := s.chatSender.Status(sessionID)
+		if workerStatus.State == workers.WorkerStateRunning {
+			return true
+		}
+		// Authoritative: if we have an in-process chat worker for this
+		// session (Model set ⇒ EnsureWorker has resolved it) and it
+		// reports idle, trust it and skip the activity-window fallback.
+		// Without this short-circuit the JSONL write that records the
+		// assistant's final message keeps the session "running" for up
+		// to recentSessionActivityWindow, making the Cancel button
+		// linger after the response is clearly done.
+		if workerStatus.Model != "" {
+			return false
+		}
 	}
 	return s.hasRecentSessionActivity(sessionID)
 }
@@ -76,4 +89,11 @@ func (s *Server) recomputeAndBroadcastStatus(sessionID string) {
 
 	data, _ := json.Marshal(s.runningStatusPayload(sessionID, now))
 	s.broadcast(globalSessID, "event: status-delta\ndata: "+string(data))
+
+	// Transition running → idle: fire a push notification so subscribed
+	// clients learn the response is ready even when the tab is closed
+	// or the device is locked.
+	if was && !now && s.push != nil {
+		go s.push.NotifyDone(sessionID)
+	}
 }

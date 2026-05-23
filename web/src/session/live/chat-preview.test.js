@@ -19,6 +19,9 @@ describe('chat preview', () => {
 
     expect(dom.window.document.getElementById('chat-preview-stream')).toBeTruthy();
     expect(state.chatPreviewEl.querySelector('.message-content').innerHTML).toBe('<p>hello</p>');
+    // Must include markdown-content so the streaming preview picks up the
+    // same heading/hr/list/code styles as the settled assistant message.
+    expect(state.chatPreviewEl.querySelector('.message-content').classList.contains('markdown-content')).toBe(true);
     expect(forceFollowToBottom).toHaveBeenCalledWith(false);
 
     renderChatPreview({ content: 'done', done: true }, state, {

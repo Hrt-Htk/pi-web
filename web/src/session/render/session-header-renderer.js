@@ -27,6 +27,8 @@ export function computeSessionStats(entryList = []) {
         toolCalls += (msg.content || []).filter(c => c.type === 'toolCall').length;
       }
       if (msg.role === 'toolResult') toolResults++;
+    } else if (entry.type === 'model_change') {
+      if (entry.modelId) models.add(entry.provider ? `${entry.provider}/${entry.modelId}` : entry.modelId);
     } else if (entry.type === 'compaction') {
       compactions++;
     } else if (entry.type === 'branch_summary') {

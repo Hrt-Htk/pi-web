@@ -33,8 +33,22 @@ func TestMobileSessionActionsStayAtTopAndHideBehindSidebar(t *testing.T) {
 			t.Fatalf("mobile action UI missing %q", check)
 		}
 	}
-	if strings.Contains(liveSessionCss, "bottom: calc(12px + env(safe-area-inset-bottom));") {
-		t.Fatalf("mobile session actions should stay at top, not overlap the bottom chat composer")
+	// Session actions should use top, not bottom positioning, in mobile breakpoint.
+	// The .hide-sidebar button legitimately uses bottom positioning — that's unrelated.
+	// Assert .session-actions inside a mobile media query does NOT have bottom:
+	cssAfterMobile := liveSessionCss[strings.Index(liveSessionCss, "@media (max-width: 900px)"):]
+	sessionActionsIdx := strings.Index(cssAfterMobile, ".session-actions")
+	if sessionActionsIdx == -1 {
+		t.Fatalf("missing .session-actions in mobile media query")
+	}
+	// Find the closing brace of this .session-actions block
+	blockIdx := strings.Index(cssAfterMobile[sessionActionsIdx:], "}")
+	if blockIdx == -1 {
+		t.Fatalf("unclosed .session-actions block in mobile media query")
+	}
+	sessionActionsBlock := cssAfterMobile[sessionActionsIdx : sessionActionsIdx+blockIdx+1]
+	if strings.Contains(sessionActionsBlock, "bottom:") && !strings.Contains(sessionActionsBlock, "bottom: auto") {
+		t.Fatalf("mobile session actions should use top positioning, not bottom, to avoid overlapping chat composer")
 	}
 }
 

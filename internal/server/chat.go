@@ -69,7 +69,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{"ok": true, "status": "accepted"})
 }
 
-const recentSessionActivityWindow = 3 * time.Second
+// recentSessionActivityWindow is the grace period after a JSONL write during
+// which a session is still reported as "running" even when no in-process
+// chat worker and no session-status file claims it. Kept short so the
+// "running" status / Cancel button doesn't linger after the assistant
+// finishes streaming its final message.
+const recentSessionActivityWindow = 800 * time.Millisecond
 const sessionStatusTTL = 10 * time.Second
 
 type sessionStatusFile struct {

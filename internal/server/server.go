@@ -59,6 +59,7 @@ type Server struct {
 	models        func(ctx context.Context) (json.RawMessage, error)
 	lastKnown     map[string]struct{} // session ids currently broadcast as running
 	lastKnownMu   sync.Mutex
+	push          *PushManager
 	stopCh        chan struct{}
 	stopOnce      sync.Once
 	wg            sync.WaitGroup
@@ -83,6 +84,11 @@ func New(deps Deps) *Server {
 		models:        deps.Models,
 		lastKnown:     make(map[string]struct{}),
 		stopCh:        make(chan struct{}),
+	}
+	if pm, err := NewPushManager(); err != nil {
+		fmt.Fprintf(os.Stderr, "push notifications unavailable: %v\n", err)
+	} else {
+		s.push = pm
 	}
 	s.watchFiles()
 	if err := s.startSessionStatusWatcher(); err != nil {
@@ -121,6 +127,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/events", s.auth.Wrap(s.handleEvents))
 	mux.HandleFunc("/api/new-session", s.auth.Wrap(s.handleNewSession))
 	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
+	if s.push != nil {
+		s.push.Register(mux, s.auth.Wrap)
+	}
 }
 
 func (s *Server) loadSummaries() ([]sessions.SessionSummary, error) {

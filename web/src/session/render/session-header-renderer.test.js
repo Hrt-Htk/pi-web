@@ -10,6 +10,7 @@ describe('session header renderer', () => {
       { type: 'message', message: { role: 'user' } },
       { type: 'message', message: { role: 'assistant', provider: 'p', model: 'm', usage: { input: 1000 }, content: [{ type: 'toolCall' }] } },
       { type: 'message', message: { role: 'toolResult' } },
+      { type: 'model_change', provider: 'q', modelId: 'n' },
       { type: 'compaction' }
     ]);
     expect(stats.userMessages).toBe(1);
@@ -17,7 +18,7 @@ describe('session header renderer', () => {
     expect(stats.toolResults).toBe(1);
     expect(stats.compactions).toBe(1);
     expect(stats.toolCalls).toBe(1);
-    expect(stats.models).toEqual(['p/m']);
+    expect(stats.models).toEqual(['p/m', 'q/n']);
   });
 
   it('renders header, system prompt, and tools', () => {

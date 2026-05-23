@@ -66,8 +66,8 @@ func (c *modelsCache) get(ctx context.Context) (json.RawMessage, error) {
 		c.entry = &modelsCacheEntry{data: data, at: time.Now()}
 	}
 	c.pending = nil
-	c.mu.Unlock()
-	close(done)
+	close(done) // signal waiters while still holding the lock so no new fetch
+	c.mu.Unlock() // can race in and overwrite pendRes/pendErr before they read
 
 	if err != nil {
 		return nil, err

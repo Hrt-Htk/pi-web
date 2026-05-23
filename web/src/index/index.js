@@ -24,7 +24,7 @@ export function runIndexPage({
 
   const searchInput = documentImpl.getElementById('search');
   const modalOverlay = documentImpl.getElementById('modalOverlay');
-  const newSessionBtn = documentImpl.getElementById('newSessionBtn');
+  const newSessionBtns = Array.from(documentImpl.querySelectorAll('[data-new-session-btn]'));
   const cancelBtn = documentImpl.getElementById('cancelBtn');
   const createBtn = documentImpl.getElementById('createBtn');
   const sessionPathInput = documentImpl.getElementById('sessionPath');
@@ -48,30 +48,32 @@ export function runIndexPage({
     searchInput.addEventListener('input', debouncedFilter);
   }
 
-  if (newSessionBtn) {
-    newSessionBtn.addEventListener('click', async () => {
-      showModal();
-      page.modal = true;
-      const recent = await page.openModal();
-      if (recentLocations) {
-        recentLocations.innerHTML = '';
-        for (const loc of recent) {
-          const chip = documentImpl.createElement('span');
-          chip.className = 'recent-chip';
-          chip.textContent = loc;
-          chip.addEventListener('click', () => {
-            if (sessionPathInput) {
-              sessionPathInput.value = loc;
-              page.path = loc;
-              sessionPathInput.focus();
-            }
-          });
-          recentLocations.appendChild(chip);
-        }
+  async function openNewSessionModal() {
+    showModal();
+    page.modal = true;
+    const recent = await page.openModal();
+    if (recentLocations) {
+      recentLocations.innerHTML = '';
+      for (const loc of recent) {
+        const chip = documentImpl.createElement('span');
+        chip.className = 'recent-chip';
+        chip.textContent = loc;
+        chip.addEventListener('click', () => {
+          if (sessionPathInput) {
+            sessionPathInput.value = loc;
+            page.path = loc;
+            sessionPathInput.focus();
+          }
+        });
+        recentLocations.appendChild(chip);
       }
-      if (sessionPathInput) sessionPathInput.focus();
-    });
+    }
+    if (sessionPathInput) sessionPathInput.focus();
   }
+
+  newSessionBtns.forEach((btn) => {
+    btn.addEventListener('click', openNewSessionModal);
+  });
 
   if (cancelBtn) {
     cancelBtn.addEventListener('click', hideModal);

@@ -34,7 +34,9 @@ func (s *Server) startSessionStatusWatcher() error {
 		return err
 	}
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		defer w.Close()
 		for {
 			select {
@@ -51,6 +53,8 @@ func (s *Server) startSessionStatusWatcher() error {
 					return
 				}
 				fmt.Fprintf(os.Stderr, "session-status watcher: %v\n", err)
+			case <-s.stopCh:
+				return
 			}
 		}
 	}()

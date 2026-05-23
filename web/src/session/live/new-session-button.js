@@ -19,6 +19,7 @@ export function setupNewSessionButton({
   fetchImpl = fetch,
   locationImpl = location,
   cwd = '',
+  sessionId = '',
   state = {},
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout
@@ -40,7 +41,7 @@ export function setupNewSessionButton({
       const response = await fetchImpl('/api/new-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: cwd })
+        body: JSON.stringify({ path: cwd, sourceSessionId: sessionId })
       });
       const data = await response.json();
       if (data.error) {

@@ -56,4 +56,23 @@ describe('live events', () => {
     previewHandler({ data: '{bad' });
     expect(onError).toHaveBeenCalled();
   });
+
+  it('dispatches pi-session-reload window event on reload', () => {
+    const eventSource = { addEventListener: vi.fn() };
+    const dispatched = [];
+    const windowImpl = { dispatchEvent: (e) => { dispatched.push(e); return true; } };
+    class FakeCustomEvent { constructor(type) { this.type = type; } }
+    wireSessionEvents({
+      eventSource,
+      onReload: vi.fn(),
+      onChatPreview: vi.fn(),
+      windowImpl,
+      CustomEventImpl: FakeCustomEvent
+    });
+    eventSource.onmessage({ data: 'reload' });
+    expect(dispatched.length).toBe(1);
+    expect(dispatched[0].type).toBe('pi-session-reload');
+    eventSource.onmessage({ data: 'noop' });
+    expect(dispatched.length).toBe(1);
+  });
 });

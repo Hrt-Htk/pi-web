@@ -19,10 +19,49 @@ func TestHomePageMobilePreventsHorizontalOverflow(t *testing.T) {
 	}
 }
 
+func TestHomePageRunningCountHasDesktopAndMobilePlacements(t *testing.T) {
+	html := indexTmpl.Tree.Root.String()
+	checks := []string{
+		`<div class="header-top">`,
+		`<span class="stat-running" data-running-stat><span data-running-count>0</span><span class="stat-running-label"> active</span></span>`,
+		`<span class="stat-running" id="statRunning" data-running-stat><span data-running-count>0</span><span class="stat-running-label"> active</span></span>`,
+		".stats-bar .stat-running.visible { display: inline-flex; }",
+		".stats-bar .stat-running.visible { display: none; }",
+		".header-top .stat-running.visible {",
+		"document.querySelectorAll('[data-running-count]')",
+		"document.querySelectorAll('[data-running-stat]')",
+	}
+	for _, check := range checks {
+		if !strings.Contains(html, check) {
+			t.Fatalf("home running-count responsive UI missing %q", check)
+		}
+	}
+}
+
+func TestHomePageNewSessionButtonHasDesktopAndMobilePlacements(t *testing.T) {
+	html := indexTmpl.Tree.Root.String()
+	checks := []string{
+		`class="new-session-btn new-session-btn-desktop" data-new-session-btn`,
+		`class="new-session-btn new-session-btn-mobile" id="newSessionBtn" data-new-session-btn`,
+		".new-session-btn-mobile { display: none; }",
+		".new-session-btn-desktop { display: none; }",
+		".new-session-btn-mobile {",
+		"position: fixed;",
+		"bottom: calc(18px + env(safe-area-inset-bottom));",
+		"right: calc(18px + env(safe-area-inset-right));",
+		".content { padding: 20px 16px calc(92px + env(safe-area-inset-bottom)); }",
+	}
+	for _, check := range checks {
+		if !strings.Contains(html, check) {
+			t.Fatalf("home responsive new-session button CSS missing %q", check)
+		}
+	}
+}
+
 func TestNewSessionButtonExists(t *testing.T) {
 	checks := []string{
 		`id="newSessionBtn"`,
-		`class="new-session-btn"`,
+		`new-session-btn`,
 		`title="Start new session"`,
 		`+`,
 	}

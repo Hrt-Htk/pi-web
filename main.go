@@ -39,6 +39,7 @@ func main() {
 	hostOverride := flag.String("host", "", "host/IP to bind; defaults to Tailscale IP when available, otherwise 127.0.0.1")
 	open := flag.Bool("o", false, "auto-open browser")
 	insecure := flag.Bool("insecure", false, "allow non-loopback bind without "+tokenEnvVar+" (DANGEROUS)")
+	pwa := flag.Bool("pwa", false, "serve HTTPS via a Tailscale-issued cert at https://<host>.<tailnet>.ts.net so the app is installable as a PWA")
 	flag.Parse()
 
 	sessionsDir := filepath.Join(os.Getenv("HOME"), ".pi", "agent", "sessions")
@@ -47,9 +48,33 @@ func main() {
 		os.Exit(1)
 	}
 
+	var (
+		tsHostname           string
+		certFile, keyFile    string
+	)
+	if *pwa {
+		name, err := tailscaleSelfDNS()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "--pwa: %v\n", err)
+			os.Exit(1)
+		}
+		tsHostname = name
+		fmt.Printf("--pwa: provisioning Tailscale cert for %s ...\n", tsHostname)
+		c, k, err := ensureTailscaleCert(tsHostname)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "--pwa: %v\n", err)
+			os.Exit(1)
+		}
+		certFile, keyFile = c, k
+	}
+
 	bindHost, usedTailscale := chooseBindHost(*hostOverride, detectTailscaleIP)
 	token := os.Getenv(tokenEnvVar)
-	if token == "" && !isLoopbackHost(bindHost) && !*insecure {
+	// --pwa implies network access is gated by the tailnet, so the token
+	// requirement is relaxed the same way --insecure relaxes it. Users can
+	// still set PI_WEB_TOKEN for an additional layer.
+	tokenRequired := token == "" && !isLoopbackHost(bindHost) && !*insecure && !*pwa
+	if tokenRequired {
 		fmt.Fprintf(os.Stderr,
 			"refusing to bind %s without %s set: anyone reachable on this address could view sessions and drive pi.\n"+
 				"  set %s=$(openssl rand -hex 16) to require a token, or pass --insecure to override.\n",
@@ -81,6 +106,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	srv.Register(mux)
+	registerPWAHandlers(mux)
 	dfs := distFS()
 	if scripts, err := loadFrontendScripts(dfs, indexEntry, sessionEntry, liveEntry); err == nil {
 		for _, script := range scripts {
@@ -101,7 +127,15 @@ func main() {
 	}
 
 	addr := net.JoinHostPort(bindHost, *port)
-	url := "http://" + addr
+	scheme := "http"
+	if *pwa {
+		scheme = "https"
+	}
+	displayHost := bindHost
+	if *pwa && tsHostname != "" {
+		displayHost = tsHostname
+	}
+	url := fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(displayHost, *port))
 	fmt.Printf("Pi Sessions Viewer -> %s\n", url)
 	if !usedTailscale && *hostOverride == "" {
 		fmt.Println("Tailscale IP not detected; using localhost.")
@@ -153,8 +187,15 @@ func main() {
 		srv.Shutdown()
 	}()
 
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+	var serveErr error
+	if *pwa {
+		fmt.Println("TLS: serving with Tailscale-issued certificate")
+		serveErr = httpServer.ListenAndServeTLS(certFile, keyFile)
+	} else {
+		serveErr = httpServer.ListenAndServe()
+	}
+	if serveErr != nil && serveErr != http.ErrServerClosed {
+		fmt.Fprintf(os.Stderr, "server error: %v\n", serveErr)
 		os.Exit(1)
 	}
 }

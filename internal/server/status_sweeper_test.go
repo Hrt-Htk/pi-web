@@ -40,7 +40,7 @@ func TestSweepStatusKeepsStillRunning(t *testing.T) {
 		sessionsDir: t.TempDir(),
 		chatSender:  &fakeSender{},
 		clients:     make([]*sseClient, 0),
-		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-1 * time.Second)},
+		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
 		lastKnown:   map[string]struct{}{"a.jsonl": {}},
 		now:         func() time.Time { return now },
 	}

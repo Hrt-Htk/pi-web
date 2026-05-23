@@ -159,7 +159,9 @@ export function runLiveReload({
     }
 
     var sessId = __piLiveEvents.getSessionIdFromLocation({ locationImpl: location });
-    var es = __piLiveEvents.createSessionEventSource(sessId, { EventSourceImpl: EventSource });
+    var es = null;
+    var reconnectTimer = null;
+    var reconnectAttempt = 0;
     var UPDATE_INDICATOR_STATE = { indicator: null };
 
     function showIndicator() {
@@ -187,27 +189,85 @@ export function runLiveReload({
       });
     }
 
-    __piLiveEvents.wireSessionEvents({
-      eventSource: es,
-      onReload: function() {
-        __piLiveEvents.handleSessionReload({
-          sessionId: sessId,
-          fetchImpl: fetch,
-          entryState: LIVE_ENTRY_STATE,
-          clearChatPreview: clearChatPreview,
-          appendEntry: appendEntry,
-          upsertEntry: upsertEntry,
-          refreshEntriesAffectedByToolResult: refreshEntriesAffectedByToolResult,
-          showIndicator: showIndicator,
-          updateStats: updateStats,
-          isFollowing: function() { return FOLLOW; },
-          scrollAfterLayout: scrollAfterLayout,
-          incrementPending: function(count) { pendingCount += count; },
-          showFollowButton: showFollowButton
-        }).catch(function(err){ console.error('Live update failed:', err); });
-      },
-      onChatPreview: renderChatPreview,
-      onError: function() {}
+    function triggerReload() {
+      return __piLiveEvents.handleSessionReload({
+        sessionId: sessId,
+        fetchImpl: fetch,
+        entryState: LIVE_ENTRY_STATE,
+        clearChatPreview: clearChatPreview,
+        appendEntry: appendEntry,
+        upsertEntry: upsertEntry,
+        refreshEntriesAffectedByToolResult: refreshEntriesAffectedByToolResult,
+        showIndicator: showIndicator,
+        updateStats: updateStats,
+        isFollowing: function() { return FOLLOW; },
+        scrollAfterLayout: scrollAfterLayout,
+        incrementPending: function(count) { pendingCount += count; },
+        showFollowButton: showFollowButton
+      }).catch(function(err){ console.error('Live update failed:', err); });
+    }
+
+    function connect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      try { if (es) es.close(); } catch (_) {}
+      es = __piLiveEvents.createSessionEventSource(sessId, { EventSourceImpl: EventSource });
+      __piLiveEvents.wireSessionEvents({
+        eventSource: es,
+        onReload: triggerReload,
+        onChatPreview: renderChatPreview,
+        onError: function() {
+          // EventSource fires onerror both for transient blips (browser
+          // will auto-retry) and terminal closures (readyState===CLOSED,
+          // e.g. when the device wakes from sleep). We handle the latter
+          // by closing and scheduling a manual reconnect with backoff.
+          if (!es || es.readyState !== 2 /* CLOSED */) return;
+          scheduleReconnect();
+        }
+      });
+      reconnectAttempt = 0;
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      // 1s, 2s, 4s, … capped at 30s. Jitter avoids thundering herd if
+      // many sessions reconnect simultaneously after a network blip.
+      var base = Math.min(30000, 1000 * Math.pow(2, reconnectAttempt));
+      var delay = base + Math.floor(Math.random() * 500);
+      reconnectAttempt++;
+      reconnectTimer = setTimeout(function() {
+        reconnectTimer = null;
+        connect();
+        // Pull any entries we missed while disconnected.
+        triggerReload();
+      }, delay);
+    }
+
+    connect();
+
+    // When the user unlocks the phone / refocuses the tab, the SSE
+    // connection is often already dead (mobile browsers tear it down to
+    // save power). Force a reconnect+reload so the view catches up
+    // immediately instead of waiting for the next backoff tick.
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) return;
+      if (!es || es.readyState === 2 /* CLOSED */) {
+        reconnectAttempt = 0;
+        connect();
+        triggerReload();
+      } else {
+        // Connection still open — but we may have missed writes anyway
+        // (the browser sometimes pauses delivery without closing).
+        triggerReload();
+      }
+    });
+
+    window.addEventListener('online', function() {
+      reconnectAttempt = 0;
+      connect();
+      triggerReload();
     });
 
     // Share button
@@ -236,6 +296,7 @@ export function runLiveReload({
       fetchImpl: fetch,
       locationImpl: location,
       cwd: cwd,
+      sessionId: sessId,
       state: {},
       setTimeoutImpl: setTimeout,
       clearTimeoutImpl: clearTimeout

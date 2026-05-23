@@ -258,8 +258,10 @@ export function createLiveRenderer({ documentImpl = document, markedImpl = marke
       if (msg.role === 'toolResult') return '';
     }
     if (entry.type === 'model_change') {
+      if (entry.implicit) return '';
       return '<div class="model-change" id="'+eid+'">'+tsHtml+'Switched to model: <span class="model-name">'+escapeHtml(entry.provider)+'/'+escapeHtml(entry.modelId)+'</span></div>';
     }
+    if (entry.type === 'thinking_level_change' && entry.implicit) return '';
     if (entry.type === 'compaction') {
       return '<div class="compaction" id="'+eid+'"><div class="compaction-label">[compaction]</div><div class="compaction-collapsed">Compacted from '+entry.tokensBefore.toLocaleString()+' tokens</div></div>';
     }

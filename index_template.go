@@ -10,23 +10,6 @@ import (
 //go:embed live_templates/index.html
 var indexTmplStr string
 
-func fmtTokens(n int) string {
-	if n >= 1_000_000 {
-		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
-	}
-	if n >= 1_000 {
-		return fmt.Sprintf("%.1fk", float64(n)/1_000)
-	}
-	return fmt.Sprintf("%d", n)
-}
-
-func fmtCost(n float64) string {
-	if n == 0 {
-		return "—"
-	}
-	return fmt.Sprintf("$%.4f", n)
-}
-
 func fmtRelativeTime(ts string) string {
 	if ts == "" {
 		return "—"
@@ -62,8 +45,6 @@ func fmtRelativeTime(ts string) string {
 }
 
 var funcMap = template.FuncMap{
-	"fmtTokens":       fmtTokens,
-	"fmtCost":         fmtCost,
 	"fmtRelativeTime": fmtRelativeTime,
 	"indexScript":     func() string { return indexScriptPath },
 	"indexPreload": func() template.HTML {

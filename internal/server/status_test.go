@@ -46,7 +46,7 @@ func TestComputeRunningStatusFromRecentMtime(t *testing.T) {
 	s := &Server{
 		sessionsDir: t.TempDir(),
 		chatSender:  &fakeSender{},
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-1 * time.Second)},
+		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
 		now:         func() time.Time { return now },
 	}
 	if !s.computeRunningStatus("session.jsonl") {
@@ -75,7 +75,7 @@ func TestRecomputeAndBroadcastStatusEmitsDeltaOnFlip(t *testing.T) {
 		chatSender:  &fakeSender{},
 		clients:     make([]*sseClient, 0),
 		lastKnown:   make(map[string]struct{}),
-		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-1 * time.Second)},
+		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
 		now:         func() time.Time { return now },
 	}
 	c := s.addClient(globalSessID)

@@ -70,7 +70,8 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Path string `json:"path"`
+		Path            string `json:"path"`
+		SourceSessionID string `json:"sourceSessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid json body")
@@ -81,7 +82,8 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := sessions.CreateSessionFile(s.sessionsDir, body.Path)
+	settings := s.initialSettingsFromSource(r.Context(), body.SourceSessionID)
+	id, err := sessions.CreateSessionFileWithSettings(s.sessionsDir, body.Path, settings)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -89,9 +91,11 @@ func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 
 	// Pre-initialize a worker so the session page can read default model and
 	// thinking level immediately instead of waiting for the first chat message.
+	// If the request came from an existing session page, copy that session's
+	// current model and thinking level onto the new worker.
 	if s.chatSender != nil {
 		if resolved, err := sessions.ResolveByID(s.sessionsDir, id); err == nil {
-			go s.chatSender.EnsureWorker(context.Background(), resolved.Session.ID, resolved.Path)
+			go s.initializeNewSessionWorker(context.Background(), resolved.Session.ID, resolved.Path, settings)
 		}
 	}
 

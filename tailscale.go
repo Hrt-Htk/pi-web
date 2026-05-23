@@ -1,0 +1,78 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+// tailscaleSelfDNS returns the Tailscale MagicDNS name for this node
+// (e.g. "personal-laptop.tail9f98d.ts.net"). Returns an error if the
+// tailscale CLI is unavailable, the node is not connected, or HTTPS is
+// not enabled in the tailnet.
+func tailscaleSelfDNS() (string, error) {
+	bin, err := exec.LookPath("tailscale")
+	if err != nil {
+		return "", fmt.Errorf("tailscale CLI not found in PATH: %w", err)
+	}
+	out, err := exec.Command(bin, "status", "--json").Output()
+	if err != nil {
+		return "", fmt.Errorf("tailscale status failed: %w", err)
+	}
+	var status struct {
+		BackendState string `json:"BackendState"`
+		Self         struct {
+			DNSName string `json:"DNSName"`
+		} `json:"Self"`
+		CurrentTailnet struct {
+			MagicDNSEnabled bool   `json:"MagicDNSEnabled"`
+			MagicDNSSuffix  string `json:"MagicDNSSuffix"`
+		} `json:"CurrentTailnet"`
+	}
+	if err := json.Unmarshal(out, &status); err != nil {
+		return "", fmt.Errorf("parse tailscale status: %w", err)
+	}
+	if status.BackendState != "Running" {
+		return "", fmt.Errorf("tailscale not running (BackendState=%s)", status.BackendState)
+	}
+	name := strings.TrimSuffix(status.Self.DNSName, ".")
+	if name == "" {
+		return "", fmt.Errorf("tailscale Self.DNSName is empty; is MagicDNS enabled in your tailnet admin console?")
+	}
+	return name, nil
+}
+
+// ensureTailscaleCert provisions a TLS certificate for hostname using the
+// `tailscale cert` command and returns paths to (cert, key). Files are cached
+// under ~/.pi/agent/certs/ and reused across runs; tailscale will refresh
+// them transparently when they near expiry.
+//
+// Requires Tailscale HTTPS to be enabled in the admin console
+// (https://login.tailscale.com/admin/dns) under "HTTPS Certificates".
+func ensureTailscaleCert(hostname string) (certPath, keyPath string, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", "", err
+	}
+	certDir := filepath.Join(home, ".pi", "agent", "certs")
+	if err := os.MkdirAll(certDir, 0700); err != nil {
+		return "", "", err
+	}
+	certPath = filepath.Join(certDir, hostname+".crt")
+	keyPath = filepath.Join(certDir, hostname+".key")
+
+	cmd := exec.Command("tailscale", "cert",
+		"--cert-file="+certPath,
+		"--key-file="+keyPath,
+		hostname,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", "", fmt.Errorf("tailscale cert %s failed: %w\n\nEnable HTTPS in the Tailscale admin console:\n  https://login.tailscale.com/admin/dns\nunder \"HTTPS Certificates\".", hostname, err)
+	}
+	return certPath, keyPath, nil
+}

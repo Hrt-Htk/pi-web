@@ -264,10 +264,11 @@ func extractMessageText(content any) string {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return string(runes[:n]) + "…"
 }
 
 // ParseFile parses path in a single pass, collecting both the SessionSummary
@@ -460,7 +461,17 @@ func ListRecentLocations(sessionsDir string) ([]string, error) {
 	return locations, nil
 }
 
+type InitialSettings struct {
+	ModelProvider string
+	ModelID       string
+	ThinkingLevel string
+}
+
 func CreateSessionFile(sessionsDir, path string) (string, error) {
+	return CreateSessionFileWithSettings(sessionsDir, path, InitialSettings{})
+}
+
+func CreateSessionFileWithSettings(sessionsDir, path string, settings InitialSettings) (string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return "", errors.New("path is required")
@@ -507,7 +518,37 @@ func CreateSessionFile(sessionsDir, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filePath, append(data, '\n'), 0644); err != nil {
+	var fileData []byte
+	fileData = append(fileData, data...)
+	fileData = append(fileData, '\n')
+	if settings.ModelProvider != "" && settings.ModelID != "" {
+		line, err := json.Marshal(map[string]any{
+			"type":      "model_change",
+			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+			"provider":  settings.ModelProvider,
+			"modelId":   settings.ModelID,
+			"implicit":  true,
+		})
+		if err != nil {
+			return "", err
+		}
+		fileData = append(fileData, line...)
+		fileData = append(fileData, '\n')
+	}
+	if settings.ThinkingLevel != "" {
+		line, err := json.Marshal(map[string]any{
+			"type":          "thinking_level_change",
+			"timestamp":     time.Now().UTC().Format(time.RFC3339Nano),
+			"thinkingLevel": settings.ThinkingLevel,
+			"implicit":      true,
+		})
+		if err != nil {
+			return "", err
+		}
+		fileData = append(fileData, line...)
+		fileData = append(fileData, '\n')
+	}
+	if err := os.WriteFile(filePath, fileData, 0644); err != nil {
 		return "", err
 	}
 	return filename, nil

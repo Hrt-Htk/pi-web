@@ -5,16 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{TITLE}}</title>
   {{SESSION_PRELOAD}}
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgODAwIj48cGF0aCBmaWxsPSIjMDBkN2ZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNjUuMjkgMTY1LjI5IEg1MTcuMzYgVjQwMCBINDAwIFY1MTcuMzYgSDI4Mi42NSBWNjM0LjcyIEgxNjUuMjkgWiBNMjgyLjY1IDI4Mi42NSBWNDAwIEg0MDAgVjI4Mi42NSBaIi8+PHBhdGggZmlsbD0iIzAwZDdmZiIgZD0iTTUxNy4zNiA0MDAgSDYzNC43MiBWNjM0LjcyIEg1MTcuMzYgWiIvPjwvc3ZnPg==">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0e0e13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pi Sessions">
   <style>
 {{CSS}}
   </style>
 </head>
 <body{{BODY_ATTRS}}>
   <script>try{const c=localStorage.getItem('pi-share:v1:sidebar-collapsed');if(c==='true')document.body.classList.add('sidebar-collapsed');}catch(e){}</script>
+  <script>if('serviceWorker' in navigator && window.isSecureContext){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
   <div class="session-actions">
     <a href="/" class="session-action" title="Back to sessions"><span>←</span>Sessions</a>
     <button id="share-btn" class="session-action" title="Share session as GitHub Gist"><span>↗</span>Share</button>
+    <button id="notify-toggle" class="session-action" title="Notify when response is ready" aria-pressed="false"><span>🔔</span>Notify</button>
     <button id="resume-btn" class="session-action" title="Copy pi --session command to clipboard"><span>$_</span>Terminal</button>
     <button id="new-btn" class="session-action" title="New Session"><span>+</span>Session</button>
   </div>

@@ -187,8 +187,14 @@ func (d *debouncer) schedule(path string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if t, ok := d.timers[path]; ok {
-		t.Reset(d.delay)
-		return
+		if t.Reset(d.delay) {
+			// Timer was still pending; successfully rescheduled.
+			return
+		}
+		// Timer already fired but hasn't been removed from the map yet
+		// (the callback hasn't acquired d.mu yet). Remove it and fall
+		// through to create a fresh timer so we don't double-fire.
+		delete(d.timers, path)
 	}
 	d.timers[path] = time.AfterFunc(d.delay, func() {
 		d.mu.Lock()
