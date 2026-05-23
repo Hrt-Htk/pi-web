@@ -2,9 +2,16 @@
   "name": "pi-web",
   "description": "Remote control your pi coding agent from any browser on your network",
   "version": "0.0.1",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "extensions": ["./.pi/extensions"]
+    "extensions": [
+      "./.pi/extensions"
+    ],
+    "skills": [
+      "./.pi/skills"
+    ]
   },
   "scripts": {
     "postinstall": "bash install.sh"
