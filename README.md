@@ -183,12 +183,39 @@ Sharing returns:
 
 Shared gists are snapshots and do not live-update.
 
-## Auto-start on login (macOS)
+## Auto-start on login
+
+### macOS
 
 ```bash
 cp com.pi-web.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.pi-web.plist
 ```
+
+### Linux (systemd)
+
+```bash
+# Install the systemd user service
+mkdir -p ~/.config/systemd/user
+cp pi-web.service ~/.config/systemd/user/
+
+# Optional: set your PI_WEB_TOKEN for non-loopback binds
+mkdir -p ~/.config/pi-web
+echo 'PI_WEB_TOKEN=your-token-here' > ~/.config/pi-web/env
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable --now pi-web.service
+
+# Check status
+systemctl --user status pi-web.service
+
+# View logs
+journalctl --user -u pi-web.service -f
+```
+
+> For the service to start at boot (before login), use a system service instead:
+> copy `pi-web.service` to `/etc/systemd/system/` and use `sudo systemctl`.
 
 ## How it works
 
