@@ -127,46 +127,22 @@ Open a session page and use the composer at the bottom to continue that exact se
 
 ## Pi integration
 
-### `/web`, `/mobile`, `/refresh` commands
-
-**Project-local** (auto-discovered when you run `pi` inside this repo):
-
-Already included at `.pi/extensions/pi-web.ts`. Install the extension deps:
+pi-web is a [pi package](https://pi.dev/docs/packages). Install once and get the `/web`, `/mobile`, and `/refresh` commands in every project:
 
 ```bash
-cd .pi/extensions && npm install && cd ../..
+pi install git:github.com/ygncode/pi-web
 ```
 
-**Global** (available in all projects):
-
-```bash
-mkdir -p ~/.pi/agent/extensions/pi-web
-cp .pi/extensions/pi-web.ts ~/.pi/agent/extensions/pi-web/
-cat > ~/.pi/agent/extensions/pi-web/package.json <<'EOF'
-{
-  "name": "pi-web-extension",
-  "private": true,
-  "dependencies": {
-    "qrcode": "^1.5.4"
-  }
-}
-EOF
-cd ~/.pi/agent/extensions/pi-web && npm install
-```
-
-Restart pi (or run `/reload`), then:
+Then restart pi (or run `/reload`), and use:
 
 - `/web` — open the current session in your default browser
-- `/mobile` — show a QR code for mobile access over Tailscale (auto-installs `qrcode` on first use)
+- `/mobile` — show a QR code for mobile access over Tailscale
 - `/refresh` — pull new messages written from mobile back into the terminal session
 
-The extension automatically installs `qrcode` into `.pi/extensions/node_modules/` — no global npm packages needed.
-
-### Skill
+To install only for a specific project (shared with your team via `.pi/settings.json`):
 
 ```bash
-mkdir -p ~/.pi/agent/skills
-cp -r skill ~/.pi/agent/skills/pi-web
+pi install -l git:github.com/ygncode/pi-web
 ```
 
 ## Sharing sessions
