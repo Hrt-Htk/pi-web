@@ -1,5 +1,5 @@
 {
-  "name": "pi-web",
+  "name": "@ygncode/pi-web",
   "description": "Remote control your pi coding agent from any browser on your network",
   "version": "0.0.1",
   "keywords": [
