@@ -193,6 +193,17 @@ install_binary() {
   return 0
 }
 
+# ── HTTPS / PWA auto-detection ──────────────────────────────────────
+should_enable_https() {
+  case "${PI_WEB_HTTPS:-auto}" in
+    1|true|yes|on) return 0 ;;
+    0|false|no|off) return 1 ;;
+  esac
+
+  command -v tailscale &>/dev/null || return 1
+  tailscale status --json 2>/dev/null | grep -q '"DNSName"[[:space:]]*:[[:space:]]*"[^"]' || return 1
+}
+
 # ── Fetch config file from repo (for standalone installs) ──────────
 fetch_config() {
   local file="$1"
@@ -226,6 +237,13 @@ setup_macos() {
     fetch_config "com.pi-web.plist" "$raw"
     sed "s|/usr/local/bin/pi-web|${BINARY}|g" "$raw" > "$generated"
     rm -f "$raw"
+  fi
+
+  if should_enable_https; then
+    perl -0pi -e 's|(<string>31415</string>\s*</array>)|$1\n        <string>-pwa</string>|' "$generated"
+    info "HTTPS/PWA enabled for macOS auto-start via Tailscale certs"
+  else
+    info "HTTPS/PWA not enabled automatically (set PI_WEB_HTTPS=1 to force, PI_WEB_HTTPS=0 to disable)"
   fi
 
   # Pass the generated environment to launchd. This includes PI_WEB_TOKEN and
@@ -288,16 +306,26 @@ setup_linux() {
     fetch_config "pi-web.service" "$service_src"
   fi
 
+  local generated_service
+  generated_service="$(mktemp)"
+  cp "$service_src" "$generated_service"
+  if should_enable_https; then
+    perl -0pi -e 's|ExecStart=%h/\.pi/agent/bin/pi-web\n|ExecStart=%h/.pi/agent/bin/pi-web -pwa\n|' "$generated_service"
+    info "HTTPS/PWA enabled for Linux auto-start via Tailscale certs"
+  else
+    info "HTTPS/PWA not enabled automatically (set PI_WEB_HTTPS=1 to force, PI_WEB_HTTPS=0 to disable)"
+  fi
+
   # Check if service file changed
   if [[ -f "$service_dst" ]]; then
-    if cmp -s "$service_src" "$service_dst"; then
+    if cmp -s "$generated_service" "$service_dst"; then
       info "Service config unchanged."
       needs_reload=false
     fi
   fi
 
   if [[ "$needs_reload" == "true" ]]; then
-    cp "$service_src" "$service_dst"
+    cp "$generated_service" "$service_dst"
     systemctl --user daemon-reload 2>/dev/null || {
       warn "Could not reload user systemd; skipping auto-start setup."
       return 0
