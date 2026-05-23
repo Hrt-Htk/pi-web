@@ -33,6 +33,14 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 
 ## Install
 
+### Quick install (no build tools needed)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ygncode/pi-web/main/install.sh | bash
+```
+
+This downloads the latest pi-web binary, installs it to `/usr/local/bin`, and sets up auto-start on login. No Go, Node, or pi required.
+
 ### Download binary (recommended)
 
 Pre-built binaries are attached to each [GitHub Release](https://github.com/ygncode/pi-web/releases).

@@ -2,8 +2,14 @@
 set -euo pipefail
 
 # pi-web installer — downloads the binary and sets up auto-start
-# Runs automatically via npm postinstall after `pi install git:github.com/ygncode/pi-web`
-# Also runs on `pi update` when a new version is pulled.
+#
+# Standalone (no pi required):
+#   curl -fsSL https://raw.githubusercontent.com/ygncode/pi-web/main/install.sh | bash
+#
+# Via pi package (also registers /web, /mobile, /refresh commands):
+#   pi install git:github.com/ygncode/pi-web
+#
+# Updates are handled by re-running the same command.
 
 REPO="ygncode/pi-web"
 INSTALL_DIR="${PI_WEB_INSTALL_DIR:-/usr/local/bin}"
@@ -170,37 +176,57 @@ install_binary() {
   return 0
 }
 
+# ── Fetch config file from repo (for standalone installs) ──────────
+fetch_config() {
+  local file="$1"
+  local dest="$2"
+  local url="https://raw.githubusercontent.com/${REPO}/main/${file}"
+
+  if command -v curl &>/dev/null; then
+    curl -fsSL -o "$dest" "$url"
+  else
+    wget -q -O "$dest" "$url"
+  fi
+}
+
 # ── macOS auto-start ─────────────────────────────────────────────────
 setup_macos() {
-  local plist_src="${SRC_DIR}/com.pi-web.plist"
   local plist_dst="${HOME}/Library/LaunchAgents/com.pi-web.plist"
   local needs_reload=true
 
-  if [[ ! -f "$plist_src" ]]; then
-    warn "com.pi-web.plist not found in package — skipping macOS auto-start."
-    return 0
-  fi
-
   mkdir -p "${HOME}/Library/LaunchAgents"
+
+  # Generate plist from local file or fetch from repo
+  local generated
+  generated="$(mktemp)"
+  local plist_src="${SRC_DIR}/com.pi-web.plist"
+  if [[ -f "$plist_src" ]]; then
+    sed "s|/usr/local/bin/pi-web|${BINARY}|g" "$plist_src" > "$generated"
+  else
+    info "Fetching launchd config from repo..."
+    local raw
+    raw="$(mktemp)"
+    fetch_config "com.pi-web.plist" "$raw"
+    sed "s|/usr/local/bin/pi-web|${BINARY}|g" "$raw" > "$generated"
+    rm -f "$raw"
+  fi
 
   # Check if plist changed
   if [[ -f "$plist_dst" ]]; then
-    local tmp_dst
-    tmp_dst="$(mktemp)"
-    sed "s|/usr/local/bin/pi-web|${BINARY}|g" "$plist_src" > "$tmp_dst"
-    if cmp -s "$tmp_dst" "$plist_dst"; then
+    if cmp -s "$generated" "$plist_dst"; then
       info "Auto-start config unchanged."
       needs_reload=false
     fi
-    rm -f "$tmp_dst"
   fi
 
   if [[ "$needs_reload" == "true" ]]; then
-    sed "s|/usr/local/bin/pi-web|${BINARY}|g" "$plist_src" > "$plist_dst"
+    cp "$generated" "$plist_dst"
     launchctl unload "$plist_dst" 2>/dev/null || true
     launchctl load "$plist_dst"
     info "macOS auto-start configured (launchd)"
   fi
+
+  rm -f "$generated"
 
   # Restart if already running
   launchctl stop com.pi-web 2>/dev/null || true
@@ -209,17 +235,19 @@ setup_macos() {
 
 # ── Linux auto-start (systemd user service) ──────────────────────────
 setup_linux() {
-  local service_src="${SRC_DIR}/pi-web.service"
   local service_dir="${HOME}/.config/systemd/user"
   local service_dst="${service_dir}/pi-web.service"
   local needs_reload=true
 
-  if [[ ! -f "$service_src" ]]; then
-    warn "pi-web.service not found in package — skipping Linux auto-start."
-    return 0
-  fi
-
   mkdir -p "$service_dir"
+
+  # Get service file from local clone or fetch from repo
+  local service_src="${SRC_DIR}/pi-web.service"
+  if [[ ! -f "$service_src" ]]; then
+    info "Fetching systemd service file from repo..."
+    service_src="$(mktemp)"
+    fetch_config "pi-web.service" "$service_src"
+  fi
 
   # Check if service file changed
   if [[ -f "$service_dst" ]]; then
