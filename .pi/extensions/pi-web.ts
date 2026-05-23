@@ -24,7 +24,7 @@ async function detectHostPort(pi: ExtensionAPI): Promise<{ host: string; port: s
     try {
       process.kill(state.pid, 0);
     } catch {
-      // stale pidfile, fall through
+      throw new Error("stale pi-web pidfile");
     }
 
     return { host: state.host, port: state.port, tailscale: state.tailscale, tailscaleUrl: state.tailscaleUrl };
@@ -70,6 +70,19 @@ function isTailscaleHost(host: string): boolean {
     return parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127;
   }
   return ip.toLowerCase().startsWith("fd7a:115c:a1e0");
+}
+
+async function detectTailscaleHttpsUrl(pi: ExtensionAPI, port: string): Promise<string | null> {
+  try {
+    const result = await pi.exec("tailscale", ["status", "--json"]);
+    const status = JSON.parse(result.stdout);
+    if (status.BackendState && status.BackendState !== "Running") return null;
+    const dnsName = String(status.Self?.DNSName || "").replace(/\.$/, "");
+    if (!dnsName) return null;
+    return `https://${dnsName}:${port}`;
+  } catch {
+    return null;
+  }
 }
 
 async function healthCheck(host: string, port: string): Promise<boolean> {
@@ -258,7 +271,8 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      if (!tailscale) {
+      const detectedTailscaleUrl = tailscaleUrl || (await detectTailscaleHttpsUrl(pi, port));
+      if (!tailscale && !detectedTailscaleUrl) {
         ctx.ui.notify(
           "Tailscale HTTPS is not available. Install/sign in to Tailscale and restart pi-web so it can run `tailscale serve`.",
           "error"
@@ -267,7 +281,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       const sessionId = basename(sessionFile);
-      const baseUrl = tailscaleUrl || `http://${host}:${port}`;
+      const baseUrl = detectedTailscaleUrl || `http://${host}:${port}`;
       const url = withToken(`${baseUrl}/session?id=${encodeURIComponent(sessionId)}`);
 
       // Ensure qrcode is available (auto-install on first use)
