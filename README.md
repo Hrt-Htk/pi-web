@@ -142,10 +142,14 @@ pi install npm:@ygncode/pi-web
 ```
 
 This single command:
+- Installs the npm pi package under pi's package directory
+- Runs the package `postinstall` script (`bash install.sh`)
 - Downloads the correct pi-web binary for your platform from GitHub Releases
 - Installs it to `~/.pi/agent/bin/pi-web` during pi/npm package installs
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
 - Registers the `/web`, `/mobile`, `/refresh` pi commands
+
+On Linux, auto-start is configured as a user systemd service at `~/.config/systemd/user/pi-web.service`. Its `ExecStart` points at `%h/.pi/agent/bin/pi-web`, so after install systemd starts and restarts the user-local binary. If user systemd is unavailable, run it manually with `~/.pi/agent/bin/pi-web -o`.
 
 Standalone shell installs still default to `/usr/local/bin/pi-web`; set `PI_WEB_INSTALL_DIR` to override either install location.
 
