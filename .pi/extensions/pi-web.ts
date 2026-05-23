@@ -190,6 +190,17 @@ function openBrowser(pi: ExtensionAPI, url: string): Promise<void> {
 }
 
 export default function (pi: ExtensionAPI) {
+  // Start pi-web opportunistically when the extension loads so /web works on a
+  // fresh shell after `pi install npm:@ygncode/pi-web`.
+  void detectHostPort(pi)
+    .then((detected) => {
+      if (!detected) return;
+      return ensurePiWebRunning(pi, detected.host, detected.port);
+    })
+    .catch(() => {
+      // Keep startup quiet; /web and /mobile show actionable errors if needed.
+    });
+
   // ── /web ──────────────────────────────────────────────────────────
   pi.registerCommand("web", {
     description: "Open current session in pi-web browser",
