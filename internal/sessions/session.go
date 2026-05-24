@@ -291,6 +291,7 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 	var entries []map[string]any
 	var header map[string]any
 	var headerName, sessionInfoName, firstUserText, headerCwd string
+	seenSessionHeaders := make(map[string]bool)
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
@@ -302,6 +303,15 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 		var raw map[string]any
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			continue
+		}
+		if raw["type"] == "session" {
+			key := sessionHeaderKey(raw)
+			if key != "" && seenSessionHeaders[key] {
+				continue
+			}
+			if key != "" {
+				seenSessionHeaders[key] = true
+			}
 		}
 		entries = append(entries, raw)
 		switch raw["type"] {
@@ -392,6 +402,16 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 	}
 
 	return Session{SessionSummary: s, Header: header, Entries: entries}, nil
+}
+
+func sessionHeaderKey(raw map[string]any) string {
+	id, _ := raw["id"].(string)
+	timestamp, _ := raw["timestamp"].(string)
+	cwd, _ := raw["cwd"].(string)
+	if id == "" || timestamp == "" {
+		return ""
+	}
+	return id + "\x00" + timestamp + "\x00" + cwd
 }
 
 func cleanProjectName(dirName string) string {

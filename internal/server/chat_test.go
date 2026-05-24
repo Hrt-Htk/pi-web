@@ -34,12 +34,16 @@ type fakeSender struct {
 	setModelID              string
 	setThinkingSessionID    string
 	setThinkingLevel        string
+	sendCh                  chan struct{}
 }
 
 func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
 	f.sessionID = sessionID
 	f.sessionPath = sessionPath
 	f.chat = chat
+	if f.sendCh != nil {
+		f.sendCh <- struct{}{}
+	}
 	return nil
 }
 
@@ -88,10 +92,10 @@ func (f *fakeSender) EnsureWorker(ctx context.Context, sessionID, sessionPath st
 	return nil
 }
 
-func TestHandleChatSendsResolvedSession(t *testing.T) {
+func TestHandleChatQueuesResolvedSession(t *testing.T) {
 	root := t.TempDir()
 	wantPath := writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
-	fake := &fakeSender{}
+	fake := &fakeSender{sendCh: make(chan struct{}, 1)}
 	s := &Server{sessionsDir: root, chatSender: fake}
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
@@ -101,8 +105,20 @@ func TestHandleChatSendsResolvedSession(t *testing.T) {
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	w := httptest.NewRecorder()
 	s.handleChat(w, req)
-	if w.Code != http.StatusOK {
+	if w.Code != http.StatusAccepted {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["status"] != "queued" {
+		t.Fatalf("status body = %#v, want queued", got)
+	}
+	select {
+	case <-fake.sendCh:
+	case <-time.After(time.Second):
+		t.Fatal("Send was not called asynchronously")
 	}
 	if fake.sessionID != "session.jsonl" || fake.sessionPath != wantPath || fake.chat.Message != "hello" {
 		t.Fatalf("fake = %#v, want path %q", fake, wantPath)
@@ -415,7 +431,7 @@ func TestHandleWorkerStatusReturnsModelAndThinkingLevel(t *testing.T) {
 	}
 }
 
-func TestHandleWorkerStatusSpawnsWorkerWhenModelUnknown(t *testing.T) {
+func TestHandleWorkerStatusDoesNotSpawnWorkerWhenModelUnknown(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	sender := &fakeSender{
@@ -435,17 +451,8 @@ func TestHandleWorkerStatusSpawnsWorkerWhenModelUnknown(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d", w.Code)
 	}
-
-	select {
-	case <-sender.ensureWorkerCh:
-		if !sender.ensureWorkerCalled {
-			t.Fatal("EnsureWorker not marked as called")
-		}
-		if sender.ensureWorkerSessionID == "" {
-			t.Fatal("EnsureWorker called with empty sessionID")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("EnsureWorker was not called within 1s")
+	if sender.ensureWorkerCalled {
+		t.Fatal("worker-status should not prewarm/create workers")
 	}
 }
 

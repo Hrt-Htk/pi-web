@@ -39,16 +39,23 @@ type ChatWorker interface {
 type Factory func(sessionID, sessionPath string) (ChatWorker, error)
 
 type Manager struct {
-	mu      sync.Mutex
-	workers map[string]ChatWorker
-	factory Factory
+	mu       sync.Mutex
+	workers  map[string]ChatWorker
+	creating map[string]*createCall
+	factory  Factory
 
 	idleTTL    time.Duration
 	reaperStop chan struct{}
 	reaperDone chan struct{}
 }
 
-const defaultIdleTTL = 30 * time.Minute
+type createCall struct {
+	done   chan struct{}
+	worker ChatWorker
+	err    error
+}
+
+const defaultIdleTTL = 10 * time.Minute
 
 func NewManager(factory Factory) *Manager {
 	return NewManagerWithTTL(factory, defaultIdleTTL)
@@ -59,6 +66,7 @@ func NewManager(factory Factory) *Manager {
 func NewManagerWithTTL(factory Factory, ttl time.Duration) *Manager {
 	m := &Manager{
 		workers:    make(map[string]ChatWorker),
+		creating:   make(map[string]*createCall),
 		factory:    factory,
 		idleTTL:    ttl,
 		reaperStop: make(chan struct{}),
@@ -196,32 +204,48 @@ func (m *Manager) Close() error {
 }
 
 func (m *Manager) workerFor(sessionID, sessionPath string) (ChatWorker, error) {
-	m.mu.Lock()
-	if worker := m.workers[sessionID]; worker != nil {
-		if worker.Status().State != WorkerStateError {
+	for {
+		m.mu.Lock()
+		if worker := m.workers[sessionID]; worker != nil {
+			if worker.Status().State != WorkerStateError {
+				m.mu.Unlock()
+				return worker, nil
+			}
+			delete(m.workers, sessionID)
 			m.mu.Unlock()
-			return worker, nil
+			_ = worker.Close()
+			continue
 		}
-		delete(m.workers, sessionID)
+		if call := m.creating[sessionID]; call != nil {
+			m.mu.Unlock()
+			<-call.done
+			if call.err != nil {
+				return nil, call.err
+			}
+			return call.worker, nil
+		}
+		call := &createCall{done: make(chan struct{})}
+		m.creating[sessionID] = call
 		m.mu.Unlock()
-		_ = worker.Close()
-	} else {
+
+		worker, err := m.factory(sessionID, sessionPath)
+
+		m.mu.Lock()
+		if err == nil {
+			if existing := m.workers[sessionID]; existing != nil && existing.Status().State != WorkerStateError {
+				_ = worker.Close()
+				worker = existing
+			} else {
+				m.workers[sessionID] = worker
+			}
+		}
+		delete(m.creating, sessionID)
+		call.worker = worker
+		call.err = err
+		close(call.done)
 		m.mu.Unlock()
+		return worker, err
 	}
-
-	worker, err := m.factory(sessionID, sessionPath)
-	if err != nil {
-		return nil, err
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if existing := m.workers[sessionID]; existing != nil && existing.Status().State != WorkerStateError {
-		_ = worker.Close()
-		return existing, nil
-	}
-	m.workers[sessionID] = worker
-	return worker, nil
 }
 
 type idleReportable interface {

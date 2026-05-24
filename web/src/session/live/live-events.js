@@ -23,7 +23,6 @@ export async function handleSessionReload({
 } = {}) {
   const response = await fetchImpl('/api/session?id=' + encodeURIComponent(sessionId));
   const data = await response.json();
-  clearChatPreview();
   const entries = data.entries || [];
   let newCount = 0;
 
@@ -43,6 +42,11 @@ export async function handleSessionReload({
       refreshEntriesAffectedByToolResult(entry, entries);
     }
   });
+
+  // Clear optimistic pending user/assistant preview only after canonical
+  // entries have been appended/upserted. Clearing before append creates a
+  // visible blank/flicker when a cold worker finally writes the real message.
+  clearChatPreview();
 
   if (newCount > 0) {
     showIndicator();

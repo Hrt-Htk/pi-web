@@ -197,31 +197,17 @@ export function runSessionApp({ target = window } = {}) {
   target.__piTreeRenderer = treeRenderer;
   target.__piSessionNavigator = navigatorInstance;
 
+  // Replace the server-rendered first-message LCP stub with the canonical
+  // active path before live reload starts. Otherwise reload appends canonical
+  // entries below the stub and the conversation appears duplicated.
+  navigateTo(currentLeafId, dataModel.urlTargetId ? 'target' : 'bottom', dataModel.urlTargetId || null);
+
   doneNotifier.setupDoneNotifyToggle({ documentImpl, windowImpl: target });
   target.addEventListener('pi-worker-done', () => {
     doneNotifier.notifyDone({ documentImpl, windowImpl: target });
   });
 
-  chatComposerRunner.runChatComposer({
-    documentImpl,
-    windowImpl: target,
-    locationImpl: target.location,
-    localEntries: dataModel.entries,
-    leafId: dataModel.leafId,
-    urlTargetId: dataModel.urlTargetId,
-    byId: dataModel.byId,
-    navigateTo,
-    escapeHtml: sessionFormat.escapeHtml,
-    chatApi,
-    chatSelectors,
-    modelSelector,
-    thinkingSelector,
-    FormDataImpl: target.FormData,
-    URLSearchParamsImpl: target.URLSearchParams,
-    CustomEventImpl: target.CustomEvent,
-    setIntervalImpl: target.setInterval.bind(target)
-  });
-
+  globalThis.__PI_TEST_LIVE_RELOAD_HOOK__?.();
   liveReloadRunner.runLiveReload({
     documentImpl,
     windowImpl: target,
@@ -244,6 +230,30 @@ export function runSessionApp({ target = window } = {}) {
     resumeButton,
     newSessionButton,
     cwd: dataModel.header?.cwd || ''
+  });
+
+  // Initialize chat after live reload so the optimistic "message sent" event
+  // has a listener before the user can submit. Otherwise cold-start sends can
+  // clear/disable the composer without rendering the pending message preview.
+  globalThis.__PI_TEST_CHAT_COMPOSER_HOOK__?.();
+  chatComposerRunner.runChatComposer({
+    documentImpl,
+    windowImpl: target,
+    locationImpl: target.location,
+    localEntries: dataModel.entries,
+    leafId: dataModel.leafId,
+    urlTargetId: dataModel.urlTargetId,
+    byId: dataModel.byId,
+    navigateTo,
+    escapeHtml: sessionFormat.escapeHtml,
+    chatApi,
+    chatSelectors,
+    modelSelector,
+    thinkingSelector,
+    FormDataImpl: target.FormData,
+    URLSearchParamsImpl: target.URLSearchParams,
+    CustomEventImpl: target.CustomEvent,
+    setIntervalImpl: target.setInterval.bind(target)
   });
 }
 

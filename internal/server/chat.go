@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,11 +63,18 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if err := s.chatSender.Send(r.Context(), resolved.Session.ID, resolved.Path, chatReq); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if s.chatSender == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "chat unavailable")
 		return
 	}
-	writeJSON(w, 0, map[string]any{"ok": true, "status": "accepted"})
+	sessionID := resolved.Session.ID
+	sessionPath := resolved.Path
+	go func() {
+		if err := s.chatSender.Send(context.Background(), sessionID, sessionPath, chatReq); err != nil {
+			fmt.Fprintf(os.Stderr, "chat send failed for %s: %v\n", sessionID, err)
+		}
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]any{"ok": true, "status": "queued"})
 }
 
 // recentSessionActivityWindow is the grace period after a JSONL write during
@@ -147,12 +155,13 @@ func (s *Server) handleWorkerStatus(w http.ResponseWriter, r *http.Request) {
 	if s.computeRunningStatus(sessionID) {
 		status.State = workers.WorkerStateRunning
 	} else if s.chatSender != nil {
-		if s.chatSender.Status(sessionID).Model == "" {
-			if resolved, err := sessions.ResolveByID(s.sessionsDir, sessionID); err == nil {
-				go s.chatSender.EnsureWorker(context.Background(), resolved.Session.ID, resolved.Path)
-			}
-		}
-		if state, err := s.chatSender.GetState(r.Context(), sessionID); err == nil {
+		// Do not create/prewarm workers from status polling. A browser can poll
+		// many visible sessions at once; if one pi RPC switch_session hangs, eager
+		// prewarming accumulates stuck `pi --mode rpc` processes and starves real
+		// chat requests. Only report state for an already-created worker here.
+		stateCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if state, err := s.chatSender.GetState(stateCtx, sessionID); err == nil {
 			status.Model = state.Model
 			status.ModelName = state.ModelName
 			status.ModelProvider = state.ModelProvider

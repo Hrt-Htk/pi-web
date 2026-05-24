@@ -101,7 +101,7 @@ type Manager struct {
     mu         sync.Mutex
     workers    map[string]ChatWorker  // sessionID → worker
     factory    Factory                // (sessionID, sessionPath) → ChatWorker
-    idleTTL    time.Duration          // default 30m
+    idleTTL    time.Duration          // default 10m
     reaperStop chan struct{}
     reaperDone chan struct{}
 }

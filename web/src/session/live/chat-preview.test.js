@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { clearChatPreview, renderChatPreview } from './chat-preview.js';
+import { clearChatPreview, renderChatPreview, renderPendingChat } from './chat-preview.js';
 
 describe('chat preview', () => {
   it('renders, updates, follows, and clears preview', () => {
     const dom = new JSDOM('<body><div id="messages"></div></body>');
-    const state = { chatPreviewEl: null };
+    const state = { chatPreviewEl: null, pendingUserEl: null };
     const forceFollowToBottom = vi.fn();
     const scrollAfterLayout = vi.fn();
 
@@ -34,5 +34,28 @@ describe('chat preview', () => {
     clearChatPreview(state);
     expect(dom.window.document.getElementById('chat-preview-stream')).toBe(null);
     expect(state.chatPreviewEl).toBe(null);
+  });
+
+  it('renders pending user message and working placeholder immediately', () => {
+    const dom = new JSDOM('<body><div id="messages"></div></body>');
+    const state = { chatPreviewEl: null, pendingUserEl: null };
+    const forceFollowToBottom = vi.fn();
+
+    expect(renderPendingChat('hello **pi**', state, {
+      documentImpl: dom.window.document,
+      renderMarkdown: (text) => `<p>${text}</p>`,
+      shouldFollow: () => true,
+      forceFollowToBottom
+    })).toBe(true);
+
+    expect(dom.window.document.getElementById('chat-pending-user')).toBeTruthy();
+    expect(dom.window.document.getElementById('chat-pending-user').textContent).toContain('hello **pi**');
+    expect(dom.window.document.getElementById('chat-preview-stream')).toBeTruthy();
+    expect(dom.window.document.getElementById('chat-preview-stream').textContent).toContain('working');
+    expect(forceFollowToBottom).toHaveBeenCalledWith(false);
+
+    clearChatPreview(state);
+    expect(dom.window.document.getElementById('chat-pending-user')).toBe(null);
+    expect(dom.window.document.getElementById('chat-preview-stream')).toBe(null);
   });
 });

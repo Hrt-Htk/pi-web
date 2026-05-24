@@ -555,9 +555,18 @@
       position: relative;
     }
 
+    .chat-pending-user {
+      opacity: 0.88;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+
     .chat-preview-stream {
       color: var(--text);
       opacity: 0.92;
+    }
+
+    .chat-preview-waiting .message-content:empty {
+      display: none;
     }
 
     .chat-preview-stream .preview-label {

@@ -331,7 +331,9 @@ func (w *piRPCWorker) consume(r io.Reader) {
 	}
 	if err := scanner.Err(); err != nil {
 		w.setError(err)
+		return
 	}
+	w.setError(io.ErrUnexpectedEOF)
 }
 
 func (w *piRPCWorker) handleRPCLine(line string) {

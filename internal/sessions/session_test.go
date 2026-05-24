@@ -481,6 +481,28 @@ func TestParseFileUsesHeaderCwdAsProject(t *testing.T) {
 	}
 }
 
+func TestParseFileDeduplicatesRepeatedSessionHeader(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "session.jsonl")
+	header := `{"type":"session","id":"sid","timestamp":"2026-05-08T10:00:00Z","cwd":"` + root + `"}`
+	content := header + "\n" +
+		header + "\n" +
+		`{"type":"message","id":"u1","parentId":"sid","timestamp":"2026-05-08T10:00:01Z","message":{"role":"user","content":"hello"}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sess, err := ParseFile(path, "--tmp-project--", "session.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sess.Entries) != 2 {
+		t.Fatalf("entries = %d, want 2 (%#v)", len(sess.Entries), sess.Entries)
+	}
+	if sess.Entries[0]["type"] != "session" || sess.Entries[1]["type"] != "message" {
+		t.Fatalf("unexpected entries: %#v", sess.Entries)
+	}
+}
+
 func TestParseFileLeavesChatEnabledWhenCwdExists(t *testing.T) {
 	root := t.TempDir()
 	cwd := filepath.Join(root, "project")

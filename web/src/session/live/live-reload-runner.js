@@ -120,9 +120,13 @@ export function runLiveReload({
       scrollAfterLayout(!!smooth);
     }
 
-    window.addEventListener('pi-chat-message-sent', function() {
+    window.addEventListener('pi-chat-message-sent', function(event) {
       forcePreviewFollowUntil = Date.now() + 30000;
-      forceFollowToBottom(true);
+      if (event && event.detail && event.detail.message) {
+        renderPendingChat(event.detail.message);
+      } else {
+        forceFollowToBottom(true);
+      }
     });
 
     scrollToBottom(false);
@@ -173,7 +177,7 @@ export function runLiveReload({
       });
     }
 
-    var CHAT_PREVIEW_STATE = { chatPreviewEl: null };
+    var CHAT_PREVIEW_STATE = { chatPreviewEl: null, pendingUserEl: null };
 
     function clearChatPreview() {
       return __piChatPreview.clearChatPreview(CHAT_PREVIEW_STATE);
@@ -181,6 +185,16 @@ export function runLiveReload({
 
     function renderChatPreview(payload) {
       return __piChatPreview.renderChatPreview(payload, CHAT_PREVIEW_STATE, {
+        documentImpl: document,
+        renderMarkdown: renderMarkdown,
+        shouldFollow: function() { return FOLLOW || Date.now() < forcePreviewFollowUntil; },
+        forceFollowToBottom: forceFollowToBottom,
+        scrollAfterLayout: scrollAfterLayout
+      });
+    }
+
+    function renderPendingChat(message) {
+      return __piChatPreview.renderPendingChat(message, CHAT_PREVIEW_STATE, {
         documentImpl: document,
         renderMarkdown: renderMarkdown,
         shouldFollow: function() { return FOLLOW || Date.now() < forcePreviewFollowUntil; },

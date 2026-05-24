@@ -37,7 +37,7 @@ export function runChatComposer({
   function setChatStatus(text, cls) {
     const status = document.getElementById('pi-chat-status');
     const cancelButton = document.getElementById('pi-chat-cancel');
-    const isRunning = cls === 'running' || text === 'running' || text === 'sending' || text === 'accepted' || text === 'cancelling';
+    const isRunning = cls === 'running' || text === 'running' || text === 'sending' || text === 'queued' || text === 'accepted' || text === 'cancelling';
     if (status) {
       status.textContent = text;
       status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
@@ -411,12 +411,12 @@ export function runChatComposer({
       sendButton.dataset.sending = '1';
       sendButton.disabled = true;
       setStatus('sending', 'running');
-      window.dispatchEvent(new CustomEvent('pi-chat-message-sent'));
+      window.dispatchEvent(new CustomEvent('pi-chat-message-sent', { detail: { message } }));
       try {
         const response = await __piChatApi.sendChat(sessionId, body);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'chat request failed');
-        setStatus('accepted', 'running');
+        setStatus(data.status || 'queued', 'running');
         return true;
       } catch (error) {
         setStatus(error.message || String(error), 'error');
@@ -431,11 +431,27 @@ export function runChatComposer({
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = textarea.value.trim();
-      const sent = await sendChatMessage(message);
-      if (sent) {
-        textarea.value = '';
-        clearSelectedChatFiles();
-        fileInput.value = '';
+      const filesToSend = selectedChatFiles.slice();
+      if (!message && filesToSend.length === 0) {
+        setStatus('message or image required', 'error');
+        return;
+      }
+
+      // Optimistically move the draft out of the composer immediately. The
+      // live preview area shows the pending user message + "working…" while
+      // the backend starts/reuses the RPC worker. If the request fails before
+      // pi accepts it, restore the draft so the user can retry.
+      textarea.value = '';
+      clearSelectedChatFiles();
+      fileInput.value = '';
+      renderAttachments();
+      autoResizeTextarea();
+      updateSendEnabled();
+
+      const sent = await sendChatMessage(message, filesToSend);
+      if (!sent) {
+        textarea.value = message;
+        selectedChatFiles = filesToSend;
         renderAttachments();
         autoResizeTextarea();
         updateSendEnabled();

@@ -203,7 +203,7 @@ These update `lastStreamActivity` so `Status()` continues to report `running` un
 
 ### 8. Worker Lifecycle
 
-After 30 minutes of idle time (no user-initiated actions), the reaper goroutine closes idle workers to free resources.
+After 10 minutes of idle time (no user-initiated actions), the reaper goroutine closes idle workers to free resources.
 
 ### 9. Cancelling a Chat
 
