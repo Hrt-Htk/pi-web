@@ -590,7 +590,7 @@ body > * { position: relative; z-index: 1; }
   </div>
 </div>
 <button class="new-session-btn new-session-btn-mobile" id="newSessionBtn" data-new-session-btn title="Start new session">+</button>
-<div class="content">
+<div class="content" data-sessions-content>
   {{ $currentProject := "" }}
   {{ range . }}
     {{ if ne .Project $currentProject }}
@@ -716,14 +716,17 @@ body > * { position: relative; z-index: 1; }
       statEl.classList.toggle('visible', total > 0);
     });
   }
+  var runningObserver = null;
   function start() {
     initProjectGroups();
     updateRunningCounts();
-    var observer = new MutationObserver(updateRunningCounts);
+    if (runningObserver) runningObserver.disconnect();
+    runningObserver = new MutationObserver(updateRunningCounts);
     document.querySelectorAll('.session-card').forEach(function(card) {
-      observer.observe(card, { attributes: true, attributeFilter: ['class'] });
+      runningObserver.observe(card, { attributes: true, attributeFilter: ['class'] });
     });
   }
+  document.addEventListener('pi-index-sessions-rendered', start);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
   } else {

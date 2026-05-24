@@ -84,22 +84,17 @@ describe('createSessionsPage', () => {
     expect(document.querySelector('[data-session-id="beta.jsonl"]').classList.contains('session-card--running')).toBe(false);
   });
 
-  it('reloads the page on a new-session message', () => {
-    const original = Object.getOwnPropertyDescriptor(window, 'location');
-    const reloadSpy = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { reload: reloadSpy },
-    });
-    try {
-      const page = createSessionsPage();
-      page.subscribe();
-      const es = FakeEventSource.instances[0];
-      es.emit('message', 'new-session');
-      expect(reloadSpy).toHaveBeenCalled();
-    } finally {
-      if (original) Object.defineProperty(window, 'location', original);
-    }
+  it('soft-refreshes the session list on a new-session message', async () => {
+    document.body.innerHTML = '<div class="content" data-sessions-content></div>';
+    const fetchSessions = vi.fn(() => Promise.resolve({ sessions: [{ id: 'new.jsonl', name: 'New', project: '/tmp', lastActivity: new Date().toISOString(), chatAvailable: true }] }));
+    const page = createSessionsPage({ fetchSessions });
+    page.subscribe();
+    const es = FakeEventSource.instances[0];
+    es.emit('message', 'new-session');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetchSessions).toHaveBeenCalled();
+    expect(document.querySelector('[data-session-id="new.jsonl"]')).toBeTruthy();
   });
 
   it('rebuilds running set on a fresh status-snapshot after reconnect', () => {

@@ -45,6 +45,15 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, s.renderLiveSession(resolved.Session))
 }
 
+func (s *Server) handleApiSessions(w http.ResponseWriter, r *http.Request) {
+	summaries, err := s.loadSummaries()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, 0, map[string]any{"sessions": summaries})
+}
+
 func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {
 	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
 	if err != nil {

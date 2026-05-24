@@ -29,40 +29,40 @@ const globalSessID = "__all__"
 // list (which depends on a process-wide cache), and the chat sender (which
 // owns rpc workers).
 type Deps struct {
-	SessionsDir   string
-	Auth          *auth.Middleware
-	ChatSender    ChatSender
-	Cache         *sessions.Cache
-	RenderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
+	SessionsDir         string
+	Auth                *auth.Middleware
+	ChatSender          ChatSender
+	Cache               *sessions.Cache
+	RenderIndex         func(w io.Writer, summaries []sessions.SessionSummary) error
 	RenderLiveSession   func(s sessions.Session) string
 	RenderExportSession func(s sessions.Session) string
-	Models        func(ctx context.Context) (json.RawMessage, error)
-	Now           func() time.Time
+	Models              func(ctx context.Context) (json.RawMessage, error)
+	Now                 func() time.Time
 }
 
 // Server holds runtime state — connected SSE clients and last-seen modtimes
 // per session file. Construct via New; register HTTP routes via Register.
 type Server struct {
-	sessionsDir   string
-	clients       []*sseClient
-	clientsMu     sync.RWMutex
-	fileMod       map[string]time.Time
-	fileModMu     sync.RWMutex
-	chatSender    ChatSender
-	cache         *sessions.Cache
-	auth          *auth.Middleware
-	shareRunner   shareCmdRunner
-	now           func() time.Time
-	renderIndex   func(w io.Writer, summaries []sessions.SessionSummary) error
+	sessionsDir         string
+	clients             []*sseClient
+	clientsMu           sync.RWMutex
+	fileMod             map[string]time.Time
+	fileModMu           sync.RWMutex
+	chatSender          ChatSender
+	cache               *sessions.Cache
+	auth                *auth.Middleware
+	shareRunner         shareCmdRunner
+	now                 func() time.Time
+	renderIndex         func(w io.Writer, summaries []sessions.SessionSummary) error
 	renderLiveSession   func(s sessions.Session) string
 	renderExportSession func(s sessions.Session) string
-	models        func(ctx context.Context) (json.RawMessage, error)
-	lastKnown     map[string]struct{} // session ids currently broadcast as running
-	lastKnownMu   sync.Mutex
-	push          *PushManager
-	stopCh        chan struct{}
-	stopOnce      sync.Once
-	wg            sync.WaitGroup
+	models              func(ctx context.Context) (json.RawMessage, error)
+	lastKnown           map[string]struct{} // session ids currently broadcast as running
+	lastKnownMu         sync.Mutex
+	push                *PushManager
+	stopCh              chan struct{}
+	stopOnce            sync.Once
+	wg                  sync.WaitGroup
 }
 
 func New(deps Deps) *Server {
@@ -71,19 +71,19 @@ func New(deps Deps) *Server {
 		now = time.Now
 	}
 	s := &Server{
-		sessionsDir:   deps.SessionsDir,
-		clients:       make([]*sseClient, 0),
-		fileMod:       make(map[string]time.Time),
-		chatSender:    deps.ChatSender,
-		cache:         deps.Cache,
-		auth:          deps.Auth,
-		now:           now,
-		renderIndex:   deps.RenderIndex,
+		sessionsDir:         deps.SessionsDir,
+		clients:             make([]*sseClient, 0),
+		fileMod:             make(map[string]time.Time),
+		chatSender:          deps.ChatSender,
+		cache:               deps.Cache,
+		auth:                deps.Auth,
+		now:                 now,
+		renderIndex:         deps.RenderIndex,
 		renderLiveSession:   deps.RenderLiveSession,
 		renderExportSession: deps.RenderExportSession,
-		models:        deps.Models,
-		lastKnown:     make(map[string]struct{}),
-		stopCh:        make(chan struct{}),
+		models:              deps.Models,
+		lastKnown:           make(map[string]struct{}),
+		stopCh:              make(chan struct{}),
 	}
 	if pm, err := NewPushManager(); err != nil {
 		fmt.Fprintf(os.Stderr, "push notifications unavailable: %v\n", err)
@@ -117,6 +117,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/", s.auth.Wrap(s.handleIndex))
 	mux.HandleFunc("/session", s.auth.Wrap(s.handleSession))
 	mux.HandleFunc("/api/session", s.auth.Wrap(s.handleApiSession))
+	mux.HandleFunc("/api/sessions", s.auth.Wrap(s.handleApiSessions))
 	mux.HandleFunc("/api/chat", s.auth.Wrap(s.handleChat))
 	mux.HandleFunc("/api/chat/cancel", s.auth.Wrap(s.handleCancelChat))
 	mux.HandleFunc("/api/set-model", s.auth.Wrap(s.handleSetModel))

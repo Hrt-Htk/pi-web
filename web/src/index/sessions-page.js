@@ -1,9 +1,6 @@
 import { getJSON, postJSON } from '../shared/api.js';
 import { createStatusEvents as defaultCreateStatusEvents } from '../shared/status-events.js';
-
-function defaultReload() {
-  window.location.reload();
-}
+import { renderSessionCard } from './session-card.js';
 
 function defaultNavigate(url) {
   window.location = url;
@@ -35,6 +32,57 @@ function syncRunningCardClasses(runningSessionIds, runningStatuses = new Map(), 
   });
 }
 
+function normalizeSession(raw = {}) {
+  return {
+    id: raw.id || raw.ID || '',
+    sessionUUID: raw.sessionUUID || raw.SessionUUID || '',
+    project: raw.project || raw.Project || '',
+    lastActivity: raw.lastActivity || raw.LastActivity || '',
+    name: raw.name || raw.Name || '',
+    messageCount: raw.messageCount ?? raw.MessageCount ?? 0,
+    tokenTotal: raw.tokenTotal ?? raw.TokenTotal ?? 0,
+    costTotal: raw.costTotal ?? raw.CostTotal ?? 0,
+    model: raw.model || raw.Model || '',
+    modelProvider: raw.modelProvider || raw.ModelProvider || '',
+    chatAvailable: raw.chatAvailable ?? raw.ChatAvailable ?? true,
+    chatDisabledReason: raw.chatDisabledReason || raw.ChatDisabledReason || ''
+  };
+}
+
+function groupSessionsByProject(sessions = []) {
+  const groups = [];
+  let current = null;
+  for (const session of sessions) {
+    const project = session.project || '';
+    if (!current || current.project !== project) {
+      current = { project, sessions: [] };
+      groups.push(current);
+    }
+    current.sessions.push(session);
+  }
+  return groups;
+}
+
+function renderSessionsList(sessions = [], root = document) {
+  const container = root.querySelector('[data-sessions-content]');
+  if (!container) return false;
+  if (sessions.length === 0) {
+    container.innerHTML = '<div class="empty-state"><h3>No sessions yet</h3><p>Start a new session to begin.</p></div>';
+    return true;
+  }
+  container.innerHTML = groupSessionsByProject(sessions).map((group) => `
+    <div class="project-group" data-project="${group.project.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')}">
+      <button class="project-toggle" type="button" aria-expanded="true">
+        <svg class="project-chevron" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 4 L9 4 L6 8 Z"/></svg>
+        <span class="project-name">${group.project.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')}</span>
+        <span class="project-count" data-project-count data-running="0">${group.sessions.length}</span>
+      </button>
+      <div class="session-grid">${group.sessions.map(renderSessionCard).join('')}</div>
+    </div>`).join('');
+  root.dispatchEvent(new CustomEvent('pi-index-sessions-rendered', { bubbles: true }));
+  return true;
+}
+
 function filterSessionCards(query, root = document) {
   const q = query.toLowerCase();
   root.querySelectorAll('.session-card').forEach((card) => {
@@ -50,9 +98,9 @@ function filterSessionCards(query, root = document) {
 export function createSessionsPage({
   root = document,
   fetchRecent = () => getJSON('/api/recent-locations'),
+  fetchSessions = () => getJSON('/api/sessions'),
   createSession = (path) => postJSON('/api/new-session', { path }),
   createStatusEvents = defaultCreateStatusEvents,
-  reload = defaultReload,
   navigate = defaultNavigate,
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout
@@ -68,6 +116,7 @@ export function createSessionsPage({
     runningStatuses: new Map(),
     _statusEvents: null,
     _reloadTimer: null,
+    _refreshInflight: false,
 
     sessionCards() {
       return sessionCards(root);
@@ -119,6 +168,23 @@ export function createSessionsPage({
       }
     },
 
+    async refreshSessions() {
+      if (this._refreshInflight) return;
+      if (this.modal) return;
+      this._refreshInflight = true;
+      try {
+        const response = await fetchSessions();
+        const sessions = (response.sessions || []).map(normalizeSession);
+        renderSessionsList(sessions, root);
+        this.syncRunningCardClasses();
+        this.filter();
+      } catch {
+        // Keep the existing server-rendered list if soft refresh fails.
+      } finally {
+        this._refreshInflight = false;
+      }
+    },
+
     scheduleReload() {
       if (this._reloadTimer) {
         clearTimeoutImpl(this._reloadTimer);
@@ -128,8 +194,8 @@ export function createSessionsPage({
       if (this.query && this.query.trim() !== '') return;
       this._reloadTimer = setTimeoutImpl(() => {
         this._reloadTimer = null;
-        reload();
-      }, 5000);
+        this.refreshSessions();
+      }, 500);
     },
 
     cleanup() {
@@ -150,7 +216,7 @@ export function createSessionsPage({
           onSnapshot: (snapshot) => this.setRunningSessions(snapshot),
           onDelta: (status) => this.setSessionRunning(status.id, status.running, status),
           onMessage: (message) => {
-            if (message === 'new-session') reload();
+            if (message === 'new-session') this.refreshSessions();
             if (message === 'reload') this.scheduleReload();
           }
         });

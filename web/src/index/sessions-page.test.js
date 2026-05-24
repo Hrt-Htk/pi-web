@@ -69,9 +69,10 @@ describe('createSessionsPage scalable state', () => {
       options.onMessage('new-session');
       return { connect, cleanup };
     });
-    const reload = vi.fn();
+    document.body.innerHTML = '<div data-sessions-content></div>';
+    const fetchSessions = vi.fn(() => Promise.resolve({ sessions: [] }));
 
-    const page = createSessionsPage({ createStatusEvents, reload });
+    const page = createSessionsPage({ createStatusEvents, fetchSessions });
     page.subscribe();
 
     expect(createStatusEvents).toHaveBeenCalledWith(expect.objectContaining({
@@ -80,7 +81,7 @@ describe('createSessionsPage scalable state', () => {
       onMessage: expect.any(Function)
     }));
     expect(connect).toHaveBeenCalled();
-    expect(reload).toHaveBeenCalled();
+    expect(fetchSessions).toHaveBeenCalled();
     expect(page.isSessionRunning('beta.jsonl')).toBe(true);
     expect(page.isSessionRunning('gamma.jsonl')).toBe(true);
 
@@ -99,7 +100,7 @@ describe('createSessionsPage scalable state', () => {
       const idx = timers.findIndex(t => t.id === id);
       if (idx !== -1) timers.splice(idx, 1);
     });
-    const reload = vi.fn();
+    const fetchSessions = vi.fn(() => Promise.resolve({ sessions: [] }));
 
     let onMessageHandler;
     const createStatusEvents = vi.fn((options) => {
@@ -107,17 +108,17 @@ describe('createSessionsPage scalable state', () => {
       return { connect: vi.fn(), cleanup: vi.fn() };
     });
 
-    const page = createSessionsPage({ createStatusEvents, reload, setTimeoutImpl, clearTimeoutImpl });
+    const page = createSessionsPage({ createStatusEvents, fetchSessions, setTimeoutImpl, clearTimeoutImpl });
     page.subscribe();
 
     onMessageHandler('reload');
     expect(timers.length).toBe(1);
-    expect(timers[0].ms).toBe(5000);
-    expect(reload).not.toHaveBeenCalled();
+    expect(timers[0].ms).toBe(500);
+    expect(fetchSessions).not.toHaveBeenCalled();
 
     // Fire the timer
     timers[0].fn();
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(fetchSessions).toHaveBeenCalledTimes(1);
   });
 
   it('resets reload debounce when multiple reload messages arrive', () => {
