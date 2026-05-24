@@ -1,8 +1,17 @@
-    :root {
-{{THEME_VARS}}
+    :root, [data-theme="dark"] {
+{{THEME_VARS_DARK}}
       --body-bg: {{BODY_BG}};
       --container-bg: {{CONTAINER_BG}};
       --info-bg: {{INFO_BG}};
+      --hover: color-mix(in srgb, var(--selectedBg) 50%, transparent);
+    }
+
+    [data-theme="light"] {
+{{THEME_VARS_LIGHT}}
+      --body-bg: {{BODY_BG_LIGHT}};
+      --container-bg: {{CONTAINER_BG_LIGHT}};
+      --info-bg: {{INFO_BG_LIGHT}};
+      --hover: color-mix(in srgb, var(--selectedBg) 50%, transparent);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1471,7 +1480,6 @@
       background: var(--body-bg);
       border: 1px solid var(--dim);
       border-radius: 8px;
-      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
       position: relative;
       padding: 3px;
       transition: border-color 0.15s, box-shadow 0.2s;

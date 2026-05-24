@@ -6,14 +6,13 @@ import (
 )
 
 func TestHomePageMobilePreventsHorizontalOverflow(t *testing.T) {
-	html := indexTmpl.Tree.Root.String()
 	checks := []string{
 		"overflow-x: hidden;",
 		"min-width: 0;",
 		"overflow-wrap: anywhere;",
 	}
 	for _, check := range checks {
-		if !strings.Contains(html, check) {
+		if !strings.Contains(indexCSS, check) {
 			t.Fatalf("home page CSS missing %q; mobile home page can create horizontal scrollbar", check)
 		}
 	}
@@ -21,38 +20,54 @@ func TestHomePageMobilePreventsHorizontalOverflow(t *testing.T) {
 
 func TestHomePageRunningCountHasDesktopAndMobilePlacements(t *testing.T) {
 	html := indexTmpl.Tree.Root.String()
-	checks := []string{
+	htmlChecks := []string{
 		`<div class="header-top">`,
 		`<span class="stat-running" data-running-stat><span data-running-count>0</span><span class="stat-running-label"> active</span></span>`,
 		`<span class="stat-running" id="statRunning" data-running-stat><span data-running-count>0</span><span class="stat-running-label"> active</span></span>`,
-		".stats-bar .stat-running.visible { display: inline-flex; }",
-		".stats-bar .stat-running.visible { display: none; }",
-		".header-top .stat-running.visible {",
 		"document.querySelectorAll('[data-running-count]')",
 		"document.querySelectorAll('[data-running-stat]')",
 	}
-	for _, check := range checks {
+	for _, check := range htmlChecks {
 		if !strings.Contains(html, check) {
 			t.Fatalf("home running-count responsive UI missing %q", check)
+		}
+	}
+	cssChecks := []string{
+		".stats-bar .stat-running.visible {",
+		"display: inline-flex;",
+		"display: none;",
+		".header-top .stat-running.visible {",
+	}
+	for _, check := range cssChecks {
+		if !strings.Contains(indexCSS, check) {
+			t.Fatalf("home running-count responsive CSS missing %q", check)
 		}
 	}
 }
 
 func TestHomePageNewSessionButtonHasDesktopAndMobilePlacements(t *testing.T) {
 	html := indexTmpl.Tree.Root.String()
-	checks := []string{
+	htmlChecks := []string{
 		`class="new-session-btn new-session-btn-desktop" data-new-session-btn`,
 		`class="new-session-btn new-session-btn-mobile" id="newSessionBtn" data-new-session-btn`,
-		".new-session-btn-mobile { display: none; }",
-		".new-session-btn-desktop { display: none; }",
+	}
+	for _, check := range htmlChecks {
+		if !strings.Contains(html, check) {
+			t.Fatalf("home responsive new-session button HTML missing %q", check)
+		}
+	}
+	cssChecks := []string{
 		".new-session-btn-mobile {",
+		"display: none;",
+		".new-session-btn-desktop {",
 		"position: fixed;",
 		"bottom: calc(18px + env(safe-area-inset-bottom));",
 		"right: calc(18px + env(safe-area-inset-right));",
-		".content { padding: 20px 16px calc(92px + env(safe-area-inset-bottom)); }",
+		".content {",
+		"padding: 20px 16px calc(92px + env(safe-area-inset-bottom));",
 	}
-	for _, check := range checks {
-		if !strings.Contains(html, check) {
+	for _, check := range cssChecks {
+		if !strings.Contains(indexCSS, check) {
 			t.Fatalf("home responsive new-session button CSS missing %q", check)
 		}
 	}

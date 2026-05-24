@@ -20,6 +20,9 @@ var iconMaskableSVG string
 //go:embed live_templates/done.mp3
 var doneMP3 []byte
 
+//go:embed live_templates/index.css
+var indexCSS string
+
 // registerPWAHandlers serves the manifest, service worker, and icons.
 // Routes are registered without auth: a manifest/icon leaks nothing
 // sensitive, and the service worker must be reachable for installability
@@ -51,5 +54,10 @@ func registerPWAHandlers(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "audio/mpeg")
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		_, _ = w.Write(doneMP3)
+	})
+	mux.HandleFunc("/index.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		_, _ = w.Write([]byte(indexCSS))
 	})
 }

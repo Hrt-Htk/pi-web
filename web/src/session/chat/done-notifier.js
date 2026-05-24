@@ -124,6 +124,8 @@ export function setupDoneNotifyToggle({ documentImpl = document, windowImpl = wi
     btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
     btn.classList.toggle('active', enabled);
     btn.title = enabled ? 'Disable done notifications' : 'Notify when response is ready';
+    const span = btn.querySelector('span');
+    if (span) span.textContent = enabled ? '◉' : '◌';
   };
 
   render();

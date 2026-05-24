@@ -25,10 +25,19 @@ var chatComposerTmplStr string
 
 var chatComposerTmpl = template.Must(template.New("chat_composer").Parse(chatComposerTmplStr))
 
-var precomputedThemeVars = computeThemeVars()
+var precomputedThemeVarsDark, precomputedThemeVarsLight = computeThemeVars()
 
-func computeThemeVars() string {
-	vars := map[string]string{
+func themeVarLines(vars map[string]string) string {
+	var lines []string
+	for k, v := range vars {
+		lines = append(lines, fmt.Sprintf("      --%s: %s;", k, v))
+	}
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
+func computeThemeVars() (dark, light string) {
+	darkVars := map[string]string{
 		"cyan": "#00d7ff", "blue": "#5f87ff", "green": "#b5bd68", "red": "#cc6666",
 		"yellow": "#ffff00", "gray": "#808080", "dimGray": "#666666", "darkGray": "#505050",
 		"accent": "#8abeb7", "selectedBg": "#3a3a4a", "userMessageBg": "#343541",
@@ -45,15 +54,30 @@ func computeThemeVars() string {
 		"thinkingLow": "#5f87af", "thinkingMedium": "#81a2be", "thinkingHigh": "#b294bb",
 		"thinkingXhigh": "#d183e8", "bashMode": "#b5bd68", "success": "#b5bd68",
 		"error": "#cc6666", "warning": "#ffff00", "muted": "#808080", "dim": "#666666",
-		"text": "#c9d1d9", "border": "#5f87ff", "borderAccent": "#00d7ff", "borderMuted": "#505050",
+		"text": "#d4d4d4", "border": "#5f87ff", "borderAccent": "#00d7ff", "borderMuted": "#505050",
 		"toolOutput": "#808080",
 	}
-	var lines []string
-	for k, v := range vars {
-		lines = append(lines, fmt.Sprintf("      --%s: %s;", k, v))
+	lightVars := map[string]string{
+		"cyan": "#5a8080", "blue": "#547da7", "green": "#588458", "red": "#aa5555",
+		"yellow": "#9a7326", "gray": "#6c6c6c", "dimGray": "#767676", "darkGray": "#b0b0b0",
+		"accent": "#5a8080", "selectedBg": "#d0d0e0", "userMessageBg": "#e8e8e8",
+		"toolPendingBg": "#e8e8f0", "toolSuccessBg": "#e8f0e8", "toolErrorBg": "#f0e8e8",
+		"customMessageBg": "#ede7f6", "customMessageLabel": "#7e57c2", "thinkingText": "#6c6c6c",
+		"mdHeading": "#9a7326", "mdLink": "#547da7", "mdLinkUrl": "#767676",
+		"mdCode": "#5a8080", "mdCodeBlock": "#588458", "mdCodeBlockBorder": "#6c6c6c",
+		"mdQuote": "#6c6c6c", "mdQuoteBorder": "#6c6c6c", "mdHr": "#6c6c6c",
+		"mdListBullet": "#588458", "toolDiffAdded": "#588458", "toolDiffRemoved": "#aa5555",
+		"toolDiffContext": "#6c6c6c", "syntaxComment": "#008000", "syntaxKeyword": "#0000FF",
+		"syntaxFunction": "#795E26", "syntaxVariable": "#001080", "syntaxString": "#A31515",
+		"syntaxNumber": "#098658", "syntaxType": "#267F99", "syntaxOperator": "#000000",
+		"syntaxPunctuation": "#000000", "thinkingOff": "#b0b0b0", "thinkingMinimal": "#767676",
+		"thinkingLow": "#547da7", "thinkingMedium": "#5a8080", "thinkingHigh": "#875f87",
+		"thinkingXhigh": "#8b008b", "bashMode": "#588458", "success": "#588458",
+		"error": "#aa5555", "warning": "#9a7326", "muted": "#6c6c6c", "dim": "#767676",
+		"text": "#1f2328", "border": "#547da7", "borderAccent": "#5a8080", "borderMuted": "#b0b0b0",
+		"toolOutput": "#6c6c6c",
 	}
-	sort.Strings(lines)
-	return strings.Join(lines, "\n")
+	return themeVarLines(darkVars), themeVarLines(lightVars)
 }
 
 // prepareSessionPageData computes the shared payload (base64-encoded session
@@ -78,15 +102,15 @@ func prepareSessionPageData(session sessions.Session, cssTemplate string) (dataB
 	dataJSON, _ := json.Marshal(sessionData)
 	dataBase64 = base64.StdEncoding.EncodeToString(dataJSON)
 
-	bodyBg := "#18181e"
-	cardBg := "#1e1e24"
-	infoBg := "#3c3728"
-
 	css = cssTemplate
-	css = strings.Replace(css, "{{THEME_VARS}}", precomputedThemeVars, 1)
-	css = strings.Replace(css, "{{BODY_BG}}", bodyBg, 1)
-	css = strings.Replace(css, "{{CONTAINER_BG}}", cardBg, 1)
-	css = strings.Replace(css, "{{INFO_BG}}", infoBg, 1)
+	css = strings.Replace(css, "{{THEME_VARS_DARK}}", precomputedThemeVarsDark, 1)
+	css = strings.Replace(css, "{{THEME_VARS_LIGHT}}", precomputedThemeVarsLight, 1)
+	css = strings.Replace(css, "{{BODY_BG}}", "#18181e", 1)
+	css = strings.Replace(css, "{{CONTAINER_BG}}", "#1e1e24", 1)
+	css = strings.Replace(css, "{{INFO_BG}}", "#3c3728", 1)
+	css = strings.Replace(css, "{{BODY_BG_LIGHT}}", "#f8f8f8", 1)
+	css = strings.Replace(css, "{{CONTAINER_BG_LIGHT}}", "#ffffff", 1)
+	css = strings.Replace(css, "{{INFO_BG_LIGHT}}", "#fffae6", 1)
 
 	if session.SessionUUID != "" {
 		bodyAttrs = ` data-session-uuid="` + session.SessionUUID + `"`
