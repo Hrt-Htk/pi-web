@@ -27,27 +27,31 @@ var markedJs string
 //go:embed export/vendor/highlight.min.js
 var hljsJs string
 
+// Explicit export app JS manifest. The static export runtime is intentionally
+// not bundled by Vite, so keep load order here instead of relying on filename
+// sorting to silently do the right thing.
+var exportAppJSFiles = []string{
+	"00-data.js",
+	"10-tree.js",
+	"20-filter.js",
+	"30-format.js",
+	"40-render-tree.js",
+	"50-render-entry.js",
+	"60-header.js",
+	"70-navigation.js",
+	"80-ui.js",
+}
+
 // Concatenated export app JS bundle, wrapped in a single IIFE so all modules
-// share closure scope. Files are concatenated in lexical order — the numeric
-// prefix (00-data.js, 10-tree.js, ...) controls evaluation order.
+// share closure scope.
 var exportJs = buildExportJsBundle()
 
 func buildExportJsBundle() string {
-	entries, err := appJsFS.ReadDir("export/app")
-	if err != nil {
-		panic(fmt.Errorf("read export/app: %w", err))
-	}
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".js") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
+	verifyExportAppManifest()
 
 	var b strings.Builder
 	b.WriteString("(function() {\n'use strict';\n")
-	for _, name := range names {
+	for _, name := range exportAppJSFiles {
 		body, err := appJsFS.ReadFile("export/app/" + name)
 		if err != nil {
 			panic(fmt.Errorf("read %s: %w", name, err))
@@ -60,6 +64,34 @@ func buildExportJsBundle() string {
 	return b.String()
 }
 
+func verifyExportAppManifest() {
+	entries, err := appJsFS.ReadDir("export/app")
+	if err != nil {
+		panic(fmt.Errorf("read export/app: %w", err))
+	}
+
+	seen := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".js") {
+			seen[e.Name()] = true
+		}
+	}
+	for _, name := range exportAppJSFiles {
+		if !seen[name] {
+			panic(fmt.Errorf("export app manifest references missing file %s", name))
+		}
+		delete(seen, name)
+	}
+	if len(seen) > 0 {
+		extra := make([]string, 0, len(seen))
+		for name := range seen {
+			extra = append(extra, name)
+		}
+		sort.Strings(extra)
+		panic(fmt.Errorf("export app files missing from manifest: %s", strings.Join(extra, ", ")))
+	}
+}
+
 // renderExportSessionPage renders a self-contained HTML snapshot suitable for
 // GitHub Gist sharing. All JS is inlined and server-dependent chrome (buttons,
 // chat composer) is stripped.
@@ -67,14 +99,14 @@ func renderExportSessionPage(session sessions.Session) string {
 	dataBase64, css, bodyAttrs := prepareSessionPageData(session, exportSessionCss)
 
 	html := exportHtml
-	html = strings.Replace(html, "{{TITLE}}", template.HTMLEscapeString(session.Name), 1)
-	html = strings.Replace(html, "{{CSS}}", css, 1)
-	html = strings.Replace(html, "{{BODY_ATTRS}}", bodyAttrs, 1)
-	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
+	html = replaceRequired(html, "{{TITLE}}", template.HTMLEscapeString(session.Name))
+	html = replaceRequired(html, "{{CSS}}", css)
+	html = replaceRequired(html, "{{BODY_ATTRS}}", bodyAttrs)
+	html = replaceRequired(html, "{{SESSION_DATA}}", dataBase64)
 
 	inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + exportJs + "\n</script>"
-	html = strings.Replace(html, "{{SESSION_SCRIPT}}", inlineScript, 1)
-	html = strings.Replace(html, "{{CHAT_COMPOSER}}", "", 1)
+	html = replaceRequired(html, "{{SESSION_SCRIPT}}", inlineScript)
+	html = replaceRequired(html, "{{CHAT_COMPOSER}}", "")
 
 	return html
 }

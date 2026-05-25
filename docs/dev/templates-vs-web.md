@@ -21,7 +21,7 @@ The live app is a dynamic web UI served by the Go server. The export is a frozen
 | Go renderer | `session_page.go` | `export.go` |
 | HTML shell | `live_templates/session.html` | `export/index.html` |
 | JS runtime | `web/src/session/` (Vite) | `export/app/*.js` + `export/vendor/` |
-| CSS | `export/template.css` (shared) | `export/template.css` (shared) |
+| CSS | `live_templates/session.css` | `export/template.css` |
 | Chat composer | Yes | No |
 | Action buttons | Yes (baked into template) | No |
 | SSE/API | Yes | No |
@@ -72,7 +72,7 @@ The export intentionally has no chat composer, no action buttons, no SSE, no API
 - **Do not** use `export/index.html` for the live session page. It has no buttons, no chat composer placeholder, and no Vite module hook.
 - **Do not** inject live-only chrome (buttons, chat composer) into `export/index.html`. The export must remain server-independent.
 - **Do not** use `export/app/*.js` for the live app. The live app uses Vite-built `web/src/session/`.
-- **Do not** put `export/template.css` in `live_templates/`. The CSS is shared, but it lives in `export/` because the export needs it at build time.
+- **Do not** point the live page at `export/template.css`. Live and export CSS are separate; keep shared visual changes intentionally mirrored when both products need them.
 
 ## Why the Split Exists
 
@@ -89,7 +89,7 @@ The live app and export are **different products** with different constraints:
 | HTML shell | `live_templates/session.html` | `export/index.html` |
 | Go renderer | `session_page.go` | `export.go` |
 
-They share `export/template.css` because both need the same visual styling. They share `prepareSessionPageData()` because both need the same base64-encoded session data. Everything else is separate.
+They share `prepareSessionPageData()` because both need the same base64-encoded session data and theme variable injection. Their CSS files are separate because the live page includes server-only chrome such as chat controls, action buttons, and overlays. Everything else is separate.
 
 ## Remaining Duplication
 

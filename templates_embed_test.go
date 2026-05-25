@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -98,6 +99,79 @@ func TestIndexTemplateUsesViteModuleNotStandaloneScript(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "/static/assets/index.js") {
 		t.Fatal("rendered index page missing Vite module script /static/assets/index.js")
+	}
+}
+
+func TestRenderedSessionPagesReplaceKnownPlaceholders(t *testing.T) {
+	sessionScriptPath = "/static/assets/session-test.js"
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}
+	placeholders := []string{
+		"{{TITLE}}", "{{SESSION_PRELOAD}}", "{{CSS}}", "{{BODY_ATTRS}}",
+		"{{SESSION_DATA}}", "{{SESSION_SCRIPT}}", "{{FIRST_MESSAGE_STUB}}",
+		"{{CHAT_COMPOSER}}", "{{THEME_VARS_DARK}}", "{{THEME_VARS_LIGHT}}",
+		"{{BODY_BG}}", "{{CONTAINER_BG}}", "{{INFO_BG}}",
+		"{{BODY_BG_LIGHT}}", "{{CONTAINER_BG_LIGHT}}", "{{INFO_BG_LIGHT}}",
+	}
+	for name, html := range map[string]string{
+		"live":   renderLiveSessionPage(session),
+		"export": renderExportSessionPage(session),
+	} {
+		for _, placeholder := range placeholders {
+			if strings.Contains(html, placeholder) {
+				t.Fatalf("%s render leaked template placeholder %s", name, placeholder)
+			}
+		}
+	}
+}
+
+func TestRenderedSessionCSSDefinesUsedCustomProperties(t *testing.T) {
+	sessionScriptPath = "/static/assets/session-test.js"
+	session := sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl", Name: "Session"}}
+	for name, html := range map[string]string{
+		"live":   renderLiveSessionPage(session),
+		"export": renderExportSessionPage(session),
+	} {
+		assertCSSCustomPropertiesDefined(t, name, html)
+	}
+}
+
+func assertCSSCustomPropertiesDefined(t *testing.T, name, html string) {
+	t.Helper()
+	definedRE := regexp.MustCompile(`--([A-Za-z0-9_-]+)\s*:`)
+	usedRE := regexp.MustCompile(`var\(--([A-Za-z0-9_-]+)`)
+	defined := map[string]bool{}
+	for _, match := range definedRE.FindAllStringSubmatch(html, -1) {
+		defined[match[1]] = true
+	}
+	allowedRuntime := map[string]bool{
+		"pi-chat-composer-height": true,
+	}
+	for _, match := range usedRE.FindAllStringSubmatch(html, -1) {
+		if !defined[match[1]] && !allowedRuntime[match[1]] {
+			t.Fatalf("%s CSS uses undefined custom property --%s", name, match[1])
+		}
+	}
+}
+
+func TestExportAppJSManifestMatchesEmbeddedFiles(t *testing.T) {
+	entries, err := appJsFS.ReadDir("export/app")
+	if err != nil {
+		t.Fatalf("read export/app: %v", err)
+	}
+	files := map[string]bool{}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".js") {
+			files[entry.Name()] = true
+		}
+	}
+	for _, name := range exportAppJSFiles {
+		if !files[name] {
+			t.Fatalf("exportAppJSFiles references missing file %s", name)
+		}
+		delete(files, name)
+	}
+	if len(files) > 0 {
+		t.Fatalf("export/app has JS files missing from exportAppJSFiles manifest: %#v", files)
 	}
 }
 

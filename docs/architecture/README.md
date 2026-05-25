@@ -50,7 +50,7 @@ This directory contains the architecture documentation for **pi-web**, a local w
 
 2. **Live updates via SSE**: The browser opens an EventSource connection. The server watches session files via `fsnotify` (with polling fallback) and pushes `reload` events; session pages fetch `/api/session` to reconcile canonical JSONL entries. Browser chat can also receive best-effort `chat-preview` SSE events before JSONL reconciliation.
 
-3. **Chat via RPC workers**: Each session gets a dedicated `pi --mode rpc` subprocess. Workers are cached and reaped after 30 minutes of idle time.
+3. **Chat via RPC workers**: Each session gets a dedicated `pi --mode rpc` subprocess. Workers are cached and reaped after 10 minutes of idle time.
 
 4. **Dual frontend strategy**:
    - **Index page** (`/`): Built with Vite + vanilla JS, served from embedded `web/dist`

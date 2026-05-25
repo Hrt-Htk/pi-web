@@ -50,7 +50,7 @@ The most important doc for frontend work is **`docs/dev/templates-vs-web.md`** �
 - `export.go` — **Export/share snapshot** rendering (`export/index.html`, inlined JS, no server deps)
 - `live_templates/session.css` — Live session page CSS
 - `export/template.css` — Export snapshot CSS
-- `.pi/extensions/pi-web.ts` — Pi extension with `/web`, `/mobile`, `/refresh` commands
+- `.pi/extensions/pi-web.ts` — Pi extension with `/pi-web`, `/remote`, `/refresh` commands
 
 ### Live App vs. Export — DO NOT MIX THESE UP
 
@@ -88,13 +88,13 @@ make check    # test + build + vet
 
 - **Go:** Small focused packages; `internal/server` is the HTTP glue exception. Avoid global state — `main.go` wires `server.New(server.Deps{...})`. Use sentinel errors. `WriteTimeout` stays 0 for SSE.
 - **JS:** ES modules. Explicit DI (`documentImpl`, `windowImpl`) over globals. Keep `live_templates/` manually in sync with `web/src/session/live/` changes.
-- **CSS:** `export/template.css` is the single source of truth for session page styling.
+- **CSS:** live styling is in `live_templates/session.css`; export styling is in `export/template.css`. Keep shared visual changes intentionally mirrored when both products need them.
 
 ## Critical Rules
 
 1. **Live and export are separate products.** `live_templates/session.html` is for the live app. `export/index.html` is for Gist snapshots. Do not mix them.
 2. **Always keep `live_templates/` in sync** with `web/src/session/live/` changes.
 2. **Existing session data is append-only for rename.** Browser chat goes to a `pi --mode rpc` worker, which writes conversation entries. pi-web otherwise watches and broadcasts; its only direct write to existing session files is appending `session_info` for browser rename. New-session creation may write initial implicit `model_change` / `thinking_level_change` entries in the fresh file.
-3. **One worker per session.** Reused for subsequent messages. Crashed = evicted + replaced. Idle workers reaped after 30 min.
+3. **One worker per session.** Reused for subsequent messages. Crashed = evicted + replaced. Idle workers reaped after 10 min.
 4. **SSE topics:** `globalSessID = "__all__"` for index-wide events; session ID for per-session events.
 5. **Default port:** `31415`. State file: `~/.pi/agent/pi-web-state.json`.

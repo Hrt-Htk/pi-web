@@ -96,4 +96,4 @@ The session page listens to `/events?id=<sessionId>` for:
 
 ## Theme System
 
-Session colors are still defined by `computeThemeVars()` in `session_page.go` and injected into `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.
+Session colors are still defined by `computeThemeVars()` in `session_page.go` and injected into both `live_templates/session.css` and `export/template.css`. Moving live CSS into Vite-owned files is a remaining cleanup step.

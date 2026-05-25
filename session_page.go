@@ -34,6 +34,13 @@ func themeVarLines(vars map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
+func replaceRequired(s, placeholder, value string) string {
+	if !strings.Contains(s, placeholder) {
+		panic(fmt.Errorf("template placeholder %s not found", placeholder))
+	}
+	return strings.Replace(s, placeholder, value, 1)
+}
+
 func computeThemeVars() (dark, light string) {
 	darkVars := map[string]string{
 		"cyan": "#00d7ff", "blue": "#5f87ff", "green": "#b5bd68", "red": "#cc6666",
@@ -53,7 +60,8 @@ func computeThemeVars() (dark, light string) {
 		"thinkingXhigh": "#d183e8", "bashMode": "#b5bd68", "success": "#b5bd68",
 		"error": "#cc6666", "warning": "#ffff00", "muted": "#808080", "dim": "#666666",
 		"text": "#d4d4d4", "border": "#5f87ff", "borderAccent": "#00d7ff", "borderMuted": "#505050",
-		"toolOutput": "#808080",
+		"toolOutput": "#808080", "bg": "var(--body-bg)", "selected-bg": "#3a3a4a", "border-accent": "#00d7ff",
+		"userMessageText": "#d4d4d4", "customMessageText": "#d4d4d4",
 	}
 	lightVars := map[string]string{
 		"cyan": "#5a8080", "blue": "#547da7", "green": "#588458", "red": "#aa5555",
@@ -73,7 +81,8 @@ func computeThemeVars() (dark, light string) {
 		"thinkingXhigh": "#8b008b", "bashMode": "#588458", "success": "#588458",
 		"error": "#aa5555", "warning": "#9a7326", "muted": "#6c6c6c", "dim": "#767676",
 		"text": "#1f2328", "border": "#547da7", "borderAccent": "#5a8080", "borderMuted": "#b0b0b0",
-		"toolOutput": "#6c6c6c",
+		"toolOutput": "#6c6c6c", "bg": "var(--body-bg)", "selected-bg": "#d0d0e0", "border-accent": "#5a8080",
+		"userMessageText": "#1f2328", "customMessageText": "#1f2328",
 	}
 	return themeVarLines(darkVars), themeVarLines(lightVars)
 }
@@ -103,14 +112,14 @@ func prepareSessionPageData(session sessions.Session, cssTemplate string) (dataB
 	dataBase64 = base64.StdEncoding.EncodeToString(dataJSON)
 
 	css = cssTemplate
-	css = strings.Replace(css, "{{THEME_VARS_DARK}}", precomputedThemeVarsDark, 1)
-	css = strings.Replace(css, "{{THEME_VARS_LIGHT}}", precomputedThemeVarsLight, 1)
-	css = strings.Replace(css, "{{BODY_BG}}", "#18181e", 1)
-	css = strings.Replace(css, "{{CONTAINER_BG}}", "#1e1e24", 1)
-	css = strings.Replace(css, "{{INFO_BG}}", "#3c3728", 1)
-	css = strings.Replace(css, "{{BODY_BG_LIGHT}}", "#f8f8f8", 1)
-	css = strings.Replace(css, "{{CONTAINER_BG_LIGHT}}", "#ffffff", 1)
-	css = strings.Replace(css, "{{INFO_BG_LIGHT}}", "#fffae6", 1)
+	css = replaceRequired(css, "{{THEME_VARS_DARK}}", precomputedThemeVarsDark)
+	css = replaceRequired(css, "{{THEME_VARS_LIGHT}}", precomputedThemeVarsLight)
+	css = replaceRequired(css, "{{BODY_BG}}", "#18181e")
+	css = replaceRequired(css, "{{CONTAINER_BG}}", "#1e1e24")
+	css = replaceRequired(css, "{{INFO_BG}}", "#3c3728")
+	css = replaceRequired(css, "{{BODY_BG_LIGHT}}", "#f8f8f8")
+	css = replaceRequired(css, "{{CONTAINER_BG_LIGHT}}", "#ffffff")
+	css = replaceRequired(css, "{{INFO_BG_LIGHT}}", "#fffae6")
 
 	if session.SessionUUID != "" {
 		bodyAttrs = ` data-session-uuid="` + session.SessionUUID + `"`
@@ -128,13 +137,13 @@ func renderLiveSessionPage(session sessions.Session) string {
 
 	html := liveSessionHtml
 	html = strings.ReplaceAll(html, "{{TITLE}}", template.HTMLEscapeString(session.Name))
-	html = strings.Replace(html, "{{SESSION_PRELOAD}}", preload, 1)
-	html = strings.Replace(html, "{{CSS}}", css, 1)
-	html = strings.Replace(html, "{{BODY_ATTRS}}", bodyAttrs, 1)
-	html = strings.Replace(html, "{{SESSION_DATA}}", dataBase64, 1)
-	html = strings.Replace(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+scriptSrc+`"></script>`, 1)
-	html = strings.Replace(html, "{{FIRST_MESSAGE_STUB}}", firstMessageStub(session), 1)
-	html = strings.Replace(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session), 1)
+	html = replaceRequired(html, "{{SESSION_PRELOAD}}", preload)
+	html = replaceRequired(html, "{{CSS}}", css)
+	html = replaceRequired(html, "{{BODY_ATTRS}}", bodyAttrs)
+	html = replaceRequired(html, "{{SESSION_DATA}}", dataBase64)
+	html = replaceRequired(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+scriptSrc+`"></script>`)
+	html = replaceRequired(html, "{{FIRST_MESSAGE_STUB}}", firstMessageStub(session))
+	html = replaceRequired(html, "{{CHAT_COMPOSER}}", chatComposerHtmlForSession(session))
 
 	return html
 }
