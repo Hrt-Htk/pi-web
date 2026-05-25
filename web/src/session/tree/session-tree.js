@@ -2,7 +2,16 @@ export function buildTree(entries = [], labelMap = new Map()) {
   const nodeMap = new Map();
   const roots = [];
 
-  const treeEntries = entries.filter((entry) => entry?.id);
+  // Deduplicate by ID keeping the last occurrence (consistent with byId Map)
+  const seenIds = new Set();
+  const treeEntries = [];
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i];
+    if (!entry?.id) continue;
+    if (seenIds.has(entry.id)) continue;
+    seenIds.add(entry.id);
+    treeEntries.unshift(entry);
+  }
 
   for (const entry of treeEntries) {
     nodeMap.set(entry.id, { entry, children: [], label: labelMap.get(entry.id) });

@@ -68,7 +68,8 @@ export function recalculateVisualStructure(filteredNodes, allFlatNodes) {
     const nodeId = flatNode.node.entry.id;
     const ancestorId = findVisibleAncestor(nodeId);
     if (!visibleChildren.has(ancestorId)) visibleChildren.set(ancestorId, []);
-    visibleChildren.get(ancestorId).push(nodeId);
+    const siblings = visibleChildren.get(ancestorId);
+    if (!siblings.includes(nodeId)) siblings.push(nodeId);
   }
 
   const visibleRootIds = visibleChildren.get(null);

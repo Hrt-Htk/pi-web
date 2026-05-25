@@ -27,6 +27,24 @@ describe('session tree helpers', () => {
     expect(flat.map((f) => f.node.entry.id)).toEqual(['root', 'new', 'leaf', 'old', 'orphan']);
   });
 
+  it('deduplicates repeated ids before linking tree nodes', () => {
+    const duplicated = [
+      { id: 'session', timestamp: '2026-01-01T00:00:00Z', type: 'session' },
+      { id: 'model', parentId: null, timestamp: '2026-01-01T00:01:00Z', type: 'model_change', modelId: 'old' },
+      { id: 'thinking', parentId: 'model', timestamp: '2026-01-01T00:02:00Z', type: 'thinking_level_change', thinkingLevel: 'low' },
+      { id: 'model', parentId: null, timestamp: '2026-01-01T00:03:00Z', type: 'model_change', modelId: 'new' },
+      { id: 'thinking', parentId: 'model', timestamp: '2026-01-01T00:04:00Z', type: 'thinking_level_change', thinkingLevel: 'high' },
+      { id: 'leaf', parentId: 'thinking', timestamp: '2026-01-01T00:05:00Z', type: 'message', message: { role: 'user', content: 'hi' } }
+    ];
+
+    const roots = buildTree(duplicated);
+    const flat = flattenTree(roots, buildActivePathIds('leaf', new Map(duplicated.map((entry) => [entry.id, entry]))));
+
+    expect(flat.map((f) => f.node.entry.id)).toEqual(['model', 'thinking', 'leaf', 'session']);
+    expect(roots.find((node) => node.entry.id === 'model').entry.modelId).toBe('new');
+    expect(roots.find((node) => node.entry.id === 'model').children[0].entry.thinkingLevel).toBe('high');
+  });
+
   it('builds active path and path entries from leaf to root', () => {
     expect([...buildActivePathIds('leaf', byId())]).toEqual(['leaf', 'new', 'root']);
     expect(getPath('leaf', byId()).map((e) => e.id)).toEqual(['root', 'new', 'leaf']);
