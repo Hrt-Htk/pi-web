@@ -162,6 +162,14 @@ export function runLiveReload({
       return __piLiveStats.updateStatsDom(entries, { documentImpl: document });
     }
 
+    function updateTitle(name) {
+      var title = String(name || '').trim();
+      if (!title) return;
+      var titleEl = document.getElementById('session-header-title');
+      if (titleEl) titleEl.textContent = title;
+      document.title = title;
+    }
+
     var sessId = __piLiveEvents.getSessionIdFromLocation({ locationImpl: location });
     var es = null;
     var reconnectTimer = null;
@@ -214,6 +222,7 @@ export function runLiveReload({
         refreshEntriesAffectedByToolResult: refreshEntriesAffectedByToolResult,
         showIndicator: showIndicator,
         updateStats: updateStats,
+        updateTitle: updateTitle,
         isFollowing: function() { return FOLLOW; },
         scrollAfterLayout: scrollAfterLayout,
         incrementPending: function(count) { pendingCount += count; },

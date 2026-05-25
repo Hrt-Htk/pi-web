@@ -6,7 +6,7 @@ pi-web pushes real-time updates to the browser via **Server-Sent Events (SSE)**.
 
 There are two independent live-update mechanisms:
 
-1. **File Change Reload** — when a session JSONL file is modified, the session page fetches `/api/session` and reconciles canonical entries
+1. **File Change Reload** — when a session JSONL file is modified, the session page fetches `/api/session`, reconciles canonical entries, and refreshes the visible/browser session title from the returned `name`
 2. **Running Status Updates** — when a session starts/stops running, the index page updates card badges in real-time
 
 ## 1. File Change Reload
@@ -47,6 +47,7 @@ There are two independent live-update mechanisms:
      │             │                │                │───────────────▶
      │             │                │                │               │
      │             │                │                │               │─── fetch /api/session
+     │             │                │                │               │─── update document/header title from data.name
      │             │                │                │               │─── append/upsert canonical entries
      │             │                │                │               │
 ```
@@ -187,6 +188,7 @@ es.onmessage = (e) => {
   fetch('/api/session?id=' + encodeURIComponent(sessId))
     .then((r) => r.json())
     .then((data) => {
+      if (data.name) updateTitle(data.name)
       clearChatPreview()
       // append/upsert canonical entries
     })

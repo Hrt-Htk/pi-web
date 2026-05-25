@@ -142,7 +142,7 @@ The server:
 2. Sends `:ok\n\n` (SSE comment to confirm connection)
 3. Blocks reading from `client.ch` or `r.Context().Done()`
 
-When the session file changes, the file watcher calls `broadcast(sessID, "reload")`. The browser fetches `/api/session`, appends new canonical entries, upserts live-rendered entries, and clears any temporary chat preview.
+When the session file changes, the file watcher calls `broadcast(sessID, "reload")`. The browser fetches `/api/session`, updates the visible session header and browser `<title>` from the returned `name`, appends new canonical entries, upserts live-rendered entries, and clears any temporary chat preview.
 
 ## Rename Flow
 
@@ -155,7 +155,7 @@ Content-Type: application/json
 {"name":"New Name"}
 ```
 
-The server validates the name, resolves the session path, and appends a `session_info` JSONL line. Parsers use the latest `session_info.name` as `Session.Name`, so the rename survives reloads and appears on both detail and index pages after refresh/live reload.
+The server validates the name, resolves the session path, and appends a `session_info` JSONL line. Parsers use the latest `session_info.name` as `Session.Name`, so the rename survives reloads and appears on both detail and index pages after refresh/live reload. `/api/session` includes this computed `name`, allowing connected detail pages to update their header/title immediately on the next SSE reload without a manual browser refresh.
 
 ## Caching Behavior
 

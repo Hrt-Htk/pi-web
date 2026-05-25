@@ -154,6 +154,7 @@ This single command:
 - Installs it to `~/.pi/agent/bin/pi-web` during pi/npm package installs
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
 - Registers the `/remote`, `/refresh` pi commands
+- Registers `set_tab_title`, which updates the Pi/pi-web session title and auto-derives a short title from each user message
 
 On Linux, auto-start is configured as a user systemd service at `~/.config/systemd/user/pi-web.service`. Its `ExecStart` points at `%h/.pi/agent/bin/pi-web`, so after install systemd starts and restarts the user-local binary. If Tailscale is available at runtime, pi-web publishes the localhost server with Tailscale Serve HTTPS. If user systemd is unavailable, run it manually with `~/.pi/agent/bin/pi-web -o`.
 
@@ -164,6 +165,7 @@ Then restart pi (or run `/reload`), and use:
 - `/pi-web` — show pi-web status, version, install path, start/stop/restart/update the server, or run `/pi-web remote`
 - `/remote` — show a QR code and URL for remote access over Tailscale
 - `/refresh` — pull new messages written from remote browsers back into the terminal session
+- `set_tab_title` — tool-callable title updater; the extension also updates the title automatically when the user sends a new message
 
 To install only for a specific project (shared with your team via `.pi/settings.json`):
 

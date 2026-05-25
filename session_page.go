@@ -1,9 +1,9 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
-	_ "embed"
 	"fmt"
 	"html/template"
 	"sort"
@@ -17,8 +17,6 @@ var liveSessionHtml string
 
 //go:embed live_templates/session.css
 var liveSessionCss string
-
-
 
 //go:embed live_templates/chat_composer.html
 var chatComposerTmplStr string
@@ -94,6 +92,7 @@ func prepareSessionPageData(session sessions.Session, cssTemplate string) (dataB
 	sessionData := map[string]any{
 		"header":        session.Header,
 		"entries":       session.Entries,
+		"name":          session.Name,
 		"leafId":        leafID,
 		"systemPrompt":  nil,
 		"tools":         nil,

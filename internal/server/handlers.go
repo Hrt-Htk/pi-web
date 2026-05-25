@@ -70,6 +70,7 @@ func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{
 		"header":  resolved.Session.Header,
 		"entries": resolved.Session.Entries,
+		"name":    resolved.Session.Name,
 	})
 }
 

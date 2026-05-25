@@ -45,6 +45,30 @@ func TestHandleRenameSessionAppendsSessionInfo(t *testing.T) {
 	}
 }
 
+func TestHandleApiSessionIncludesSessionName(t *testing.T) {
+	root := t.TempDir()
+	path := writeSessionFile(t, root, "test-project", "session.jsonl")
+	if err := sessions.RenameSession(path, "Live Title", func() time.Time { return time.Date(2026, 5, 8, 10, 1, 2, 0, time.UTC) }); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{sessionsDir: root, cache: sessions.NewCache()}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/session?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleApiSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["name"] != "Live Title" {
+		t.Fatalf("name = %#v, want Live Title", payload["name"])
+	}
+}
+
 func TestHandleRenameSessionRejectsEmptyName(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")

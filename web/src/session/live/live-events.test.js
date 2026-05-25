@@ -9,14 +9,15 @@ describe('live events', () => {
     expect(EventSourceImpl).toHaveBeenCalledWith('/events?id=a%20b');
   });
 
-  it('handles reload entries and follow behavior', async () => {
+  it('handles reload entries, title, and follow behavior', async () => {
     const entries = [{ id: 'a' }, { id: 'r', message: { role: 'toolResult' } }];
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })));
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ name: 'New Title', entries }), { status: 200 })));
     const entryState = { seen: new Set(), liveRendered: new Set() };
     const appendEntry = vi.fn((entry) => { entryState.seen.add(entry.id); return true; });
     const refresh = vi.fn();
     const showIndicator = vi.fn();
     const updateStats = vi.fn();
+    const updateTitle = vi.fn();
     const scrollAfterLayout = vi.fn();
 
     const result = await handleSessionReload({
@@ -29,6 +30,7 @@ describe('live events', () => {
       refreshEntriesAffectedByToolResult: refresh,
       showIndicator,
       updateStats,
+      updateTitle,
       isFollowing: () => true,
       scrollAfterLayout
     });
@@ -38,6 +40,7 @@ describe('live events', () => {
     expect(refresh).toHaveBeenCalledWith(entries[1], entries);
     expect(showIndicator).toHaveBeenCalled();
     expect(updateStats).toHaveBeenCalledWith(entries);
+    expect(updateTitle).toHaveBeenCalledWith('New Title');
     expect(scrollAfterLayout).toHaveBeenCalledWith(true);
   });
 

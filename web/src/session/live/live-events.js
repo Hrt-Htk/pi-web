@@ -16,6 +16,7 @@ export async function handleSessionReload({
   refreshEntriesAffectedByToolResult,
   showIndicator = () => {},
   updateStats = () => {},
+  updateTitle = () => {},
   isFollowing = () => false,
   scrollAfterLayout = () => {},
   incrementPending = () => {},
@@ -24,6 +25,9 @@ export async function handleSessionReload({
   const response = await fetchImpl('/api/session?id=' + encodeURIComponent(sessionId));
   const data = await response.json();
   const entries = data.entries || [];
+  if (typeof data.name === 'string' && data.name.trim()) {
+    updateTitle(data.name);
+  }
   let newCount = 0;
 
   entries.forEach((entry) => {
