@@ -62,9 +62,9 @@ a { color: inherit; }
     -webkit-backdrop-filter: blur(16px);
 }
 .header-inner {
-    max-width: 1120px;
+    max-width: 1040px;
     margin: 0 auto;
-    padding: 18px 28px 22px;
+    padding: 16px 28px 18px;
 }
 .header-top {
     display: flex;
@@ -108,10 +108,13 @@ a { color: inherit; }
     transition: color 0.12s, background 0.12s, border-color 0.12s;
 }
 .nav-search-btn {
-    gap: 10px;
-    padding: 0 10px;
-    min-width: 112px;
+    gap: 18px;
+    padding: 0 10px 0 12px;
+    min-width: 190px;
     justify-content: space-between;
+    background: color-mix(in srgb, var(--surface) 68%, transparent);
+    border-color: color-mix(in srgb, var(--dim) 76%, transparent);
+    color: color-mix(in srgb, var(--muted) 88%, var(--text));
 }
 .nav-search-btn kbd {
     color: color-mix(in srgb, var(--muted) 78%, transparent);
@@ -134,7 +137,7 @@ a { color: inherit; }
     display: flex;
     align-items: center;
     gap: 14px;
-    margin-top: 44px;
+    margin-top: 28px;
     color: var(--muted);
     font-size: 13px;
 }
@@ -155,13 +158,13 @@ a { color: inherit; }
 }
 
 .content {
-    max-width: 1120px;
+    max-width: 1040px;
     margin: 0 auto;
-    padding: 34px 28px 72px;
+    padding: 28px 28px 72px;
     min-width: 0;
 }
 .project-group {
-    margin-bottom: 42px;
+    margin-bottom: 36px;
     min-width: 0;
 }
 .project-toggle {
@@ -171,9 +174,9 @@ a { color: inherit; }
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    padding: 0 0 12px;
-    margin-bottom: 14px;
-    border-bottom: 1px solid var(--dim);
+    padding: 0 0 9px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--dim) 34%, transparent);
     -webkit-tap-highlight-color: transparent;
 }
 .project-toggle:focus-visible {
@@ -214,11 +217,11 @@ a { color: inherit; }
 .session-card {
     display: block;
     min-width: 0;
-    padding: 18px 18px 16px;
+    padding: 15px 16px 14px;
     color: inherit;
     text-decoration: none;
-    background: var(--surface);
-    border: 1px solid var(--dim);
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--dim) 82%, transparent);
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s, transform 0.12s;
 }
@@ -230,13 +233,16 @@ a { color: inherit; }
     transform: translateY(-1px);
 }
 .session-card.hidden { display: none; }
-.session-card--running { border-color: color-mix(in srgb, var(--accent) 55%, var(--dim)); }
+.session-card--running {
+    background: color-mix(in srgb, var(--surface-2) 74%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--dim));
+}
 .session-title-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 22px;
+    margin-bottom: 16px;
 }
 .session-title {
     color: var(--text);
@@ -256,15 +262,7 @@ a { color: inherit; }
     gap: 7px;
     flex-shrink: 0;
 }
-.session-running-loader {
-    display: none;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--accent);
-}
-.session-running-loader svg { display: none; }
-.session-card--running .session-running-loader { display: inline-block; }
+.session-running-loader { display: none; }
 .session-card-badge {
     color: var(--muted);
     border: 1px solid var(--dim);
@@ -276,7 +274,7 @@ a { color: inherit; }
     color: var(--text-soft);
     font-size: 12px;
     line-height: 1.4;
-    margin-bottom: 22px;
+    margin-bottom: 16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -292,8 +290,15 @@ a { color: inherit; }
     overflow: hidden;
 }
 .session-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.session-active-status {
+    display: none;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+.session-active-status span { font-size: 9px; vertical-align: 0.08em; }
+.session-card--running .session-active-status { display: inline-flex; gap: 5px; align-items: center; }
 .session-run-model { display: none; color: var(--accent); }
-.session-card--running .session-run-model:not(:empty) { display: inline-block; }
+.session-card--running .session-run-model:not(:empty) { display: none; }
 .empty-state {
     padding: 72px 0;
     color: var(--muted);
@@ -303,7 +308,7 @@ a { color: inherit; }
 .web-menu {
     position: fixed;
     top: 58px;
-    right: max(28px, calc((100vw - 1120px) / 2 + 28px));
+    right: max(28px, calc((100vw - 1040px) / 2 + 28px));
     z-index: 50;
     width: 248px;
     padding: 6px;
@@ -473,7 +478,7 @@ a { color: inherit; }
 
 @media (max-width: 700px) {
     .header-inner { padding: 16px 16px 18px; }
-    .workspace-summary { margin-top: 30px; }
+    .workspace-summary { margin-top: 24px; }
     .content { padding: 24px 16px 56px; }
     .session-grid { grid-template-columns: 1fr; }
     .nav-search-btn { min-width: auto; }

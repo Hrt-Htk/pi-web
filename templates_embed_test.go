@@ -80,7 +80,7 @@ func TestIndexTemplateLoadedFromEmbeddedFile(t *testing.T) {
 	for _, marker := range []string{
 		`id="commandPalette"`,
 		`id="modalOverlay"`,
-		`session-running-loader`,
+		`session-active-status`,
 	} {
 		if !strings.Contains(rendered, marker) {
 			t.Fatalf("rendered index template missing %q", marker)

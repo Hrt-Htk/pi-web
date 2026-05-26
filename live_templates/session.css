@@ -81,8 +81,8 @@
       display: flex;
       flex-direction: column;
       position: sticky;
-      top: 44px;
-      height: calc(100vh - 44px);
+      top: 52px;
+      height: calc(100vh - 52px);
       border-right: 1px solid var(--dim);
     }
 
@@ -90,8 +90,8 @@
       width: var(--sidebar-resizer-width);
       flex-shrink: 0;
       position: sticky;
-      top: 44px;
-      height: calc(100vh - 44px);
+      top: 52px;
+      height: calc(100vh - 52px);
       cursor: col-resize;
       touch-action: none;
       background: transparent;
@@ -293,7 +293,7 @@
       flex: 1;
       min-width: 0;
       overflow-y: auto;
-      padding: calc(44px + var(--line-height)) calc(var(--line-height) * 2) var(--line-height);
+      padding: calc(52px + var(--line-height)) calc(var(--line-height) * 2) var(--line-height);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -301,7 +301,7 @@
 
     #content > * {
       width: 100%;
-      max-width: 800px;
+      max-width: 760px;
     }
 
     /* Help bar */
@@ -482,8 +482,8 @@
       left: 0;
       right: 0;
       z-index: 101;
-      height: 44px;
-      padding: 0 16px;
+      height: 52px;
+      padding: 0 18px;
       background: var(--container-bg);
       border-bottom: 1px solid var(--dim);
     }
@@ -508,7 +508,7 @@
       left: 50%;
       transform: translateX(-50%);
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 500;
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
@@ -538,17 +538,17 @@
     /* Desktop popover menu */
     .command-menu-popover {
       position: fixed;
-      top: 48px;
-      right: 12px;
+      top: 58px;
+      right: 14px;
       z-index: 201;
-      min-width: 220px;
-      max-width: 280px;
-      max-height: calc(100vh - 60px);
+      min-width: 236px;
+      max-width: 300px;
+      max-height: calc(100vh - 72px);
       overflow-y: auto;
       background: var(--container-bg);
-      border: 1px solid var(--dim);
+      border: 1px solid color-mix(in srgb, var(--dim) 72%, transparent);
       border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
       opacity: 0;
       transform: translateY(-4px) scale(0.98);
       transition: opacity 0.15s ease, transform 0.15s ease;
@@ -562,19 +562,17 @@
     }
 
     .command-menu-body {
-      padding: 4px 0;
+      padding: 6px;
     }
 
     .command-menu-section + .command-menu-section {
-      border-top: 1px solid var(--dim);
+      border-top: 0;
+      margin-top: 8px;
+      padding-top: 8px;
     }
 
     .command-menu-section-title {
-      padding: 8px 14px 2px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
+      display: none;
     }
 
     .command-menu-item {
@@ -582,29 +580,23 @@
       align-items: center;
       gap: 8px;
       width: 100%;
-      padding: 6px 14px;
-      font-size: 12px;
+      padding: 8px 10px;
+      font-size: 12.5px;
       font-family: inherit;
       color: var(--text);
       background: transparent;
       border: none;
       text-align: left;
       cursor: pointer;
-      transition: background 0.1s;
+      transition: background 0.1s, color 0.1s;
     }
 
     .command-menu-item:hover {
-      background: var(--hover);
+      background: color-mix(in srgb, var(--selectedBg) 38%, transparent);
     }
 
     .command-menu-item .command-menu-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      color: var(--muted);
-      font-size: 11px;
-      flex-shrink: 0;
+      display: none;
     }
 
     .command-menu-item-toggle {
@@ -614,16 +606,16 @@
     .command-menu-toggle {
       margin-left: auto;
       font-size: 10px;
-      padding: 1px 7px;
-      background: var(--dim);
+      padding: 0;
+      background: transparent;
       color: var(--muted);
-      border-radius: 999px;
+      border-radius: 0;
       flex-shrink: 0;
     }
 
     .command-menu-toggle.on {
-      background: var(--accent);
-      color: var(--body-bg);
+      background: transparent;
+      color: var(--accent);
     }
 
     .working-dots::after {
@@ -1557,7 +1549,7 @@
 
       #content {
         min-height: 0;
-        padding: calc(44px + env(safe-area-inset-top) + var(--line-height)) 16px calc(var(--pi-chat-composer-height, 0px) + var(--line-height));
+        padding: calc(52px + env(safe-area-inset-top) + var(--line-height)) 16px calc(var(--pi-chat-composer-height, 0px) + var(--line-height));
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
       }
@@ -1735,27 +1727,29 @@
       width: 100%;
       max-width: 100vw;
       box-sizing: border-box;
-      padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-      background: color-mix(in srgb, var(--container-bg) 94%, transparent);
-      border-top: 1px solid var(--dim);
+      display: block;
+      padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+      background: color-mix(in srgb, var(--container-bg) 96%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--dim) 55%, transparent);
       backdrop-filter: blur(8px);
     }
 
     .pi-chat-shell {
       width: 100%;
+      max-width: none;
       min-width: 0;
       box-sizing: border-box;
       overflow: visible;
       background: var(--body-bg);
       border: 1px solid var(--dim);
-      border-radius: 8px;
+      border-radius: 6px;
       position: relative;
       padding: 3px;
       transition: border-color 0.15s, box-shadow 0.2s;
     }
     .pi-chat-shell:focus-within {
       border-color: color-mix(in srgb, var(--accent, #8abeb7) 60%, var(--dim));
-      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18), 0 0 0 2px color-mix(in srgb, var(--accent, #8abeb7) 14%, transparent);
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.14);
     }
 
     .pi-chat-model-popup {
@@ -1798,9 +1792,9 @@
     #pi-chat-message {
       display: block;
       width: 100%;
-      min-height: 48px;
-      max-height: 200px;
-      height: 48px;
+      min-height: 92px;
+      max-height: 260px;
+      height: 92px;
       resize: none;
       overflow-y: auto;
       font-family: inherit;
@@ -1809,7 +1803,7 @@
       background: transparent;
       color: var(--text);
       border: 0;
-      padding: 9px 38px 9px 11px;
+      padding: 10px 38px 10px 12px;
       outline: none;
       transition: min-height 0.2s ease, max-height 0.2s ease;
     }
@@ -1877,20 +1871,21 @@
     .pi-chat-cwd-bar { padding-right: 38px; }
 
     .pi-chat-toolbar {
-      min-height: 35px;
+      min-height: 34px;
       min-width: 0;
       display: flex;
       align-items: center;
       gap: 8px;
       overflow: hidden;
-      padding: 5px 6px;
+      padding: 4px 6px;
       background: transparent;
-      border-top: none;
+      border-top: 1px solid color-mix(in srgb, var(--dim) 55%, transparent);
     }
     .pi-chat-cwd-bar {
-      padding: 4px 38px 4px 8px;
-      min-height: 26px;
+      padding: 5px 38px 4px 9px;
+      min-height: 24px;
       font-size: 10.5px;
+      border-top: none;
     }
     .pi-chat-cwd { color: var(--muted); opacity: 0.85; }
 
@@ -1968,7 +1963,7 @@
       gap: 8px;
       max-width: 100%;
       overflow-x: clip;
-      padding: 0 8px 7px;
+      padding: 0 8px 8px;
     }
 
     .pi-chat-attachments:empty { display: none; }
@@ -1983,7 +1978,7 @@
       color: var(--muted);
       background: var(--container-bg);
       border: 1px solid var(--dim);
-      border-radius: 12px;
+      border-radius: 5px;
       padding: 4px 6px 4px 4px;
       font-size: 11px;
     }
@@ -1998,11 +1993,11 @@
 
     .pi-chat-attachment-preview {
       width: auto;
-      height: clamp(118px, 22vh, 210px);
-      max-width: min(260px, calc(100vw - 68px));
+      height: clamp(72px, 14vh, 118px);
+      max-width: min(180px, calc(100vw - 68px));
       display: block;
       object-fit: contain;
-      border-radius: 8px;
+      border-radius: 4px;
       background: var(--bg);
     }
 

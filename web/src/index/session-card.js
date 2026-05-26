@@ -44,13 +44,13 @@ export function renderSessionCard(session = {}) {
       <div class="session-title-row">
         <div class="session-title">${escapeHtml(name)}</div>
         <div class="session-card-flags">
-          <span class="session-running-loader" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><g opacity="0"><path fill="#00B4FF" fill-rule="evenodd" d="M165.29 165.29 H517.36 V400 H400 V517.36 H282.65 V634.72 H165.29 Z M282.65 282.65 V400 H400 V282.65 Z"/><path fill="#00B4FF" d="M517.36 400 H634.72 V634.72 H517.36 Z"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3;0.32;0.7;0.71;1" dur="3s" repeatCount="indefinite"/></g></svg></span>
           ${chatAvailable ? '' : '<span class="session-card-badge" title="This session can be viewed, but chat is disabled because its working directory no longer exists.">View only</span>'}
         </div>
       </div>
       <div class="session-project">${escapeHtml(project)}</div>
       <div class="session-model" data-session-model>${escapeHtml(modelLabel)}</div>
       <div class="session-meta">
+        <span class="session-active-status" data-running-status><span aria-hidden="true">●</span> active</span>
         <span class="session-time" data-timestamp="${escapeHtml(lastActivity)}" title="${escapeHtml(lastActivity)}">${escapeHtml(formatRelativeTime(lastActivity))}</span>
         <span class="session-run-model" data-running-model></span>
       </div>
