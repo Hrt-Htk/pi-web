@@ -49,10 +49,57 @@ function normalizeSession(raw = {}) {
   };
 }
 
+function activityMs(session) {
+  const ms = Date.parse(session?.lastActivity || session?.LastActivity || '');
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 function groupSessionsByProject(sessions = []) {
   const groups = [];
-  let current = null;
+  const byProject = new Map();
   for (const session of sessions) {
+    const project = session.project || '';
+    let group = byProject.get(project);
+    if (!group) {
+      group = { project, sessions: [], latest: Number.NEGATIVE_INFINITY, index: groups.length };
+      byProject.set(project, group);
+      groups.push(group);
+    }
+    group.sessions.push(session);
+    group.latest = Math.max(group.latest, activityMs(session));
+  }
+  groups.forEach((group) => {
+    group.sessions.sort((a, b) => activityMs(b) - activityMs(a));
+  });
+  groups.sort((a, b) => (b.latest - a.latest) || (a.index - b.index));
+  return groups;
+}
+
+function renderProjectGroups(sessions = []) {
+  return groupSessionsByProject(sessions).map((group) => `
+    <div class="project-group" data-project="${escapeHtml(group.project)}">
+      <button class="project-toggle" type="button" aria-expanded="true">
+        <svg class="project-chevron" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 4 L9 4 L6 8 Z"/></svg>
+        <span class="project-name">${escapeHtml(group.project)}</span>
+        <span class="project-count" data-project-count data-running="0" data-total="${group.sessions.length}">${group.sessions.length} sessions</span>
+      </button>
+      <div class="session-grid">${group.sessions.map(renderSessionCard).join('')}</div>
+    </div>`).join('');
+}
+
+function renderTimeline(sessions = []) {
+  const sorted = [...sessions].sort((a, b) => activityMs(b) - activityMs(a));
+  const groups = [];
+  let current = null;
+  for (const session of sorted) {
     const project = session.project || '';
     if (!current || current.project !== project) {
       current = { project, sessions: [] };
@@ -60,25 +107,26 @@ function groupSessionsByProject(sessions = []) {
     }
     current.sessions.push(session);
   }
-  return groups;
+  return groups.map((group) => `
+    <div class="project-group timeline-group" data-project="${escapeHtml(group.project)}">
+      <button class="project-toggle" type="button" aria-expanded="true">
+        <svg class="project-chevron" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 4 L9 4 L6 8 Z"/></svg>
+        <span class="project-name">${escapeHtml(group.project)}</span>
+        <span class="project-count" data-project-count data-running="0" data-total="${group.sessions.length}">${group.sessions.length} sessions</span>
+      </button>
+      <div class="session-grid session-grid--timeline">${group.sessions.map(renderSessionCard).join('')}</div>
+    </div>`).join('');
 }
 
-function renderSessionsList(sessions = [], root = document) {
+function renderSessionsList(sessions = [], root = document, layout = 'projects') {
   const container = root.querySelector('[data-sessions-content]');
   if (!container) return false;
+  container.classList.toggle('content--timeline', layout === 'timeline');
   if (sessions.length === 0) {
     container.innerHTML = '<div class="empty-state"><h3>No sessions yet</h3><p>Start a new session to begin.</p></div>';
     return true;
   }
-  container.innerHTML = groupSessionsByProject(sessions).map((group) => `
-    <div class="project-group" data-project="${group.project.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')}">
-      <button class="project-toggle" type="button" aria-expanded="true">
-        <svg class="project-chevron" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 4 L9 4 L6 8 Z"/></svg>
-        <span class="project-name">${group.project.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')}</span>
-        <span class="project-count" data-project-count data-running="0" data-total="${group.sessions.length}">${group.sessions.length} sessions</span>
-      </button>
-      <div class="session-grid">${group.sessions.map(renderSessionCard).join('')}</div>
-    </div>`).join('');
+  container.innerHTML = layout === 'timeline' ? renderTimeline(sessions) : renderProjectGroups(sessions);
   root.dispatchEvent(new CustomEvent('pi-index-sessions-rendered', { bubbles: true }));
   return true;
 }
@@ -112,6 +160,7 @@ export function createSessionsPage({
     recent: [],
     creating: false,
     error: '',
+    layout: 'timeline',
     runningSessionIds: new Set(),
     runningStatuses: new Map(),
     _statusEvents: null,
@@ -175,7 +224,7 @@ export function createSessionsPage({
       try {
         const response = await fetchSessions();
         const sessions = (response.sessions || []).map(normalizeSession);
-        renderSessionsList(sessions, root);
+        renderSessionsList(sessions, root, this.layout);
         this.syncRunningCardClasses();
         this.filter();
       } catch {
@@ -224,6 +273,13 @@ export function createSessionsPage({
       } catch {
         /* EventSource unavailable — page degrades to no live status */
       }
+    },
+
+    async setLayout(layout) {
+      const next = layout === 'projects' ? 'projects' : 'timeline';
+      if (this.layout === next) return;
+      this.layout = next;
+      await this.refreshSessions();
     },
 
     filter() {

@@ -22,6 +22,10 @@
   var STORAGE_KEY = 'pi-web-theme';
   function applyTheme(t){ document.documentElement.dataset.theme = t || 'dark'; }
   try{ applyTheme(localStorage.getItem(STORAGE_KEY)); }catch(e){ applyTheme('dark'); }
+  try{
+    var savedLayout = localStorage.getItem('pi-sessions:view-layout');
+    document.documentElement.dataset.sessionLayout = savedLayout === 'projects' ? 'projects' : 'timeline';
+  }catch(e){ document.documentElement.dataset.sessionLayout = 'timeline'; }
   function updateBtn(){
     var btn = document.getElementById('theme-toggle');
     if(!btn) return;
@@ -56,13 +60,20 @@
     <div class="header-top">
       <h1><span class="pi-logo-mark" aria-hidden="true"></span><span>Sessions</span></h1>
       <div class="header-actions">
+        <button class="nav-new-session-btn" type="button" data-new-session-btn><span aria-hidden="true">+</span><span>New session</span></button>
         <button class="nav-search-btn" id="open-search" type="button" aria-haspopup="dialog" aria-controls="commandPalette"><span>Search sessions...</span><kbd>⌘K</kbd></button>
         <button class="nav-menu-btn" id="web-menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="web-menu">⋯</button>
       </div>
     </div>
     <div class="workspace-summary">
-      <span>{{ len . }} sessions</span>
-      <span class="stat-running" id="statRunning" data-running-stat><span class="status-dot" aria-hidden="true"></span><span data-running-count>0</span><span class="stat-running-label"> active</span></span>
+      <div class="workspace-stats">
+        <span>{{ len . }} sessions</span>
+        <span class="stat-running" id="statRunning" data-running-stat><span class="status-dot" aria-hidden="true"></span><span data-running-count>0</span><span class="stat-running-label"> active</span></span>
+      </div>
+      <div class="layout-toggle" aria-label="Session layout">
+        <button type="button" data-layout-btn="timeline" aria-pressed="true">Timeline</button>
+        <button type="button" data-layout-btn="projects">Projects</button>
+      </div>
     </div>
   </div>
 </div>
@@ -104,7 +115,13 @@
 </div>
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <h2>Start New Session</h2>
+    <div class="modal-sheet-header">
+      <button class="modal-sheet-back" id="modalBackBtn" type="button" aria-label="Close Start a new session">
+        <span aria-hidden="true">←</span>
+        <span>Start a new session</span>
+      </button>
+    </div>
+    <h2>Start a new session</h2>
     <div class="recent-locations" id="recentLocations"></div>
     <input type="text" id="sessionPath"
            placeholder="/path/to/project or ~/project">

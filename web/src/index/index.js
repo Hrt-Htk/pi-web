@@ -37,6 +37,7 @@ export function runIndexPage({
   const webMenu = documentImpl.getElementById('web-menu');
   const modalOverlay = documentImpl.getElementById('modalOverlay');
   const newSessionBtns = Array.from(documentImpl.querySelectorAll('[data-new-session-btn]'));
+  const modalBackBtn = documentImpl.getElementById('modalBackBtn');
   const cancelBtn = documentImpl.getElementById('cancelBtn');
   const createBtn = documentImpl.getElementById('createBtn');
   const sessionPathInput = documentImpl.getElementById('sessionPath');
@@ -44,15 +45,35 @@ export function runIndexPage({
   const modalError = documentImpl.getElementById('modalError');
   const notifyToggle = documentImpl.getElementById('index-notify-toggle');
   const notifyStatus = documentImpl.getElementById('index-notify-status');
+  const layoutBtns = Array.from(documentImpl.querySelectorAll('[data-layout-btn]'));
+  const layoutStorageKey = 'pi-sessions:view-layout';
+
+  let modalHideTimer = null;
 
   function showModal() {
     closePalette();
     closeMenu();
-    if (modalOverlay) modalOverlay.classList.add('open');
+    if (!modalOverlay) return;
+    if (modalHideTimer) {
+      clearTimeoutImpl(modalHideTimer);
+      modalHideTimer = null;
+    }
+    modalOverlay.classList.add('visible');
+    documentImpl.body?.classList.add('modal-sheet-open');
+    const requestFrame = windowImpl.requestAnimationFrame?.bind(windowImpl) || ((fn) => setTimeoutImpl(fn, 0));
+    requestFrame(() => modalOverlay.classList.add('open'));
   }
 
   function hideModal() {
-    if (modalOverlay) modalOverlay.classList.remove('open');
+    if (modalOverlay) {
+      modalOverlay.classList.remove('open');
+      if (modalHideTimer) clearTimeoutImpl(modalHideTimer);
+      modalHideTimer = setTimeoutImpl(() => {
+        modalOverlay.classList.remove('visible');
+        modalHideTimer = null;
+      }, 300);
+    }
+    documentImpl.body?.classList.remove('modal-sheet-open');
     page.modal = false;
   }
 
@@ -66,6 +87,17 @@ export function runIndexPage({
     const willOpen = webMenu.hidden;
     webMenu.hidden = !willOpen;
     menuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  }
+
+  function setLayoutButtonState(layout) {
+    documentImpl.documentElement.dataset.sessionLayout = layout;
+    layoutBtns.forEach((btn) => {
+      btn.setAttribute('aria-pressed', btn.dataset.layoutBtn === layout ? 'true' : 'false');
+    });
+  }
+
+  function markLayoutReady() {
+    documentImpl.querySelector('[data-sessions-content]')?.classList.add('index-layout-ready');
   }
 
   function visibleSessionCards() {
@@ -126,6 +158,17 @@ export function runIndexPage({
   if (openSearchBtn) {
     openSearchBtn.addEventListener('click', openPalette);
   }
+
+  layoutBtns.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const layout = btn.dataset.layoutBtn === 'projects' ? 'projects' : 'timeline';
+      try { windowImpl.localStorage.setItem(layoutStorageKey, layout); } catch (_) {}
+      setLayoutButtonState(layout);
+      await page.setLayout(layout);
+      markLayoutReady();
+      updatePaletteResults();
+    });
+  });
 
   if (paletteOverlay) {
     paletteOverlay.addEventListener('click', (e) => {
@@ -197,6 +240,10 @@ export function runIndexPage({
     btn.addEventListener('click', openNewSessionModal);
   });
 
+  if (modalBackBtn) {
+    modalBackBtn.addEventListener('click', hideModal);
+  }
+
   if (cancelBtn) {
     cancelBtn.addEventListener('click', hideModal);
   }
@@ -252,9 +299,23 @@ export function runIndexPage({
     createBtn.addEventListener('click', doCreate);
   }
 
+  let initialLayout = 'timeline';
+  try {
+    initialLayout = windowImpl.localStorage.getItem(layoutStorageKey) === 'projects' ? 'projects' : 'timeline';
+  } catch (_) {}
+  setLayoutButtonState(initialLayout);
+
   page.filter();
   updatePaletteResults();
   page.subscribe();
+  if (initialLayout === 'projects') {
+    page.setLayout('projects')
+      .then(updatePaletteResults)
+      .catch(() => {})
+      .finally(markLayoutReady);
+  } else {
+    markLayoutReady();
+  }
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.getElementById('search')) {

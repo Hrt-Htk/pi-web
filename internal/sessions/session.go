@@ -99,6 +99,57 @@ func SortSummariesByActivity(s []SessionSummary) {
 	}
 }
 
+// SortSummariesByProjectActivity makes project groups contiguous. Projects are
+// ordered by their newest session activity; sessions within each project are
+// ordered newest-first.
+func SortSummariesByProjectActivity(s []SessionSummary) {
+	type projectGroup struct {
+		project string
+		items   []SessionSummary
+		latest  time.Time
+		valid   bool
+		index   int
+	}
+
+	groups := make([]*projectGroup, 0)
+	byProject := make(map[string]*projectGroup)
+	for _, summary := range s {
+		project := summary.Project
+		group := byProject[project]
+		if group == nil {
+			group = &projectGroup{project: project, index: len(groups)}
+			byProject[project] = group
+			groups = append(groups, group)
+		}
+		group.items = append(group.items, summary)
+		if activity, err := time.Parse(time.RFC3339, summary.LastActivity); err == nil {
+			if !group.valid || activity.After(group.latest) {
+				group.latest = activity
+				group.valid = true
+			}
+		}
+	}
+
+	for _, group := range groups {
+		SortSummariesByActivity(group.items)
+	}
+
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].valid != groups[j].valid {
+			return groups[i].valid
+		}
+		if !groups[i].latest.Equal(groups[j].latest) {
+			return groups[i].latest.After(groups[j].latest)
+		}
+		return groups[i].index < groups[j].index
+	})
+
+	out := s[:0]
+	for _, group := range groups {
+		out = append(out, group.items...)
+	}
+}
+
 // ParseSummary streams path line-by-line, accumulating only the fields the
 // index page needs. Lines are discarded after parsing — unlike ParseFile,
 // the full conversation is not retained in memory.

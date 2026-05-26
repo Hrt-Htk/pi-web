@@ -100,6 +100,26 @@ func TestSortSummariesByActivityKeepsInvalidTimestampsLast(t *testing.T) {
 	}
 }
 
+func TestSortSummariesByProjectActivityGroupsProjects(t *testing.T) {
+	summaries := []SessionSummary{
+		{ID: "web-new", Project: "/pi/web", LastActivity: "2026-05-18T10:00:00Z"},
+		{ID: "web-mid", Project: "/pi/web", LastActivity: "2026-05-18T09:50:00Z"},
+		{ID: "milk", Project: "/milktea", LastActivity: "2026-05-18T09:40:00Z"},
+		{ID: "web-old", Project: "/pi/web", LastActivity: "2026-05-18T09:30:00Z"},
+	}
+
+	SortSummariesByProjectActivity(summaries)
+
+	got := make([]string, len(summaries))
+	for i := range summaries {
+		got[i] = summaries[i].ID
+	}
+	want := []string{"web-new", "web-mid", "web-old", "milk"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("sorted IDs = %v, want %v", got, want)
+	}
+}
+
 func TestListRecentLocationsReturnsNewestBoundedLocations(t *testing.T) {
 	tmp := t.TempDir()
 	base := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)

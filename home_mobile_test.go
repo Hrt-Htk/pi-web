@@ -54,6 +54,7 @@ func TestHomePageNewSessionEntryPointsExist(t *testing.T) {
 	html := buf.String()
 	htmlChecks := []string{
 		`data-new-session-btn`,
+		`class="nav-new-session-btn"`,
 		`New Session`,
 		`New session`,
 	}
@@ -77,10 +78,41 @@ func TestHomePageNewSessionEntryPointsExist(t *testing.T) {
 		".command-palette-overlay {",
 		".web-menu {",
 		".palette-action",
+		".nav-new-session-btn",
 	}
 	for _, check := range cssChecks {
 		if !strings.Contains(css, check) {
 			t.Fatalf("home new-session entry point CSS missing %q", check)
+		}
+	}
+}
+
+func TestHomePageLayoutToggleExists(t *testing.T) {
+	var buf bytes.Buffer
+	if err := indexTmpl.Execute(&buf, []sessions.Session{}); err != nil {
+		t.Fatalf("failed to render index template: %v", err)
+	}
+	html := buf.String()
+	checks := []string{
+		`data-layout-btn="timeline"`,
+		`data-layout-btn="projects"`,
+		`Session layout`,
+		`dataset.sessionLayout`,
+		`pi-sessions:view-layout`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(html, check) {
+			t.Fatalf("home layout toggle missing %q", check)
+		}
+	}
+	cssChecks := []string{
+		`.layout-toggle`,
+		`.layout-toggle button[aria-pressed="true"]`,
+		`[data-session-layout="projects"] [data-sessions-content]:not(.index-layout-ready)`,
+	}
+	for _, check := range cssChecks {
+		if !strings.Contains(indexCSS, check) {
+			t.Fatalf("home layout toggle CSS missing %q", check)
 		}
 	}
 }
@@ -108,6 +140,8 @@ func TestNewSessionModalExists(t *testing.T) {
 	checks := []string{
 		`id="modalOverlay"`,
 		`class="modal-overlay"`,
+		`id="modalBackBtn"`,
+		`Start a new session`,
 		`id="sessionPath"`,
 		`id="createBtn"`,
 		`id="cancelBtn"`,
@@ -115,6 +149,23 @@ func TestNewSessionModalExists(t *testing.T) {
 	for _, check := range checks {
 		if !strings.Contains(indexTmpl.Tree.Root.String(), check) {
 			t.Fatalf("index template missing %q", check)
+		}
+	}
+	cssChecks := []string{
+		`.modal-sheet-header`,
+		`height: 100svh;`,
+		`transform: translateY(100%);`,
+		`.modal-overlay.open .modal { transform: translateY(0); }`,
+		`.modal input {`,
+		`order: 1;`,
+		`.recent-locations {`,
+		`order: 2;`,
+		`.modal-actions .btn-secondary { display: none; }`,
+		`.modal-actions .btn-primary`,
+	}
+	for _, check := range cssChecks {
+		if !strings.Contains(indexCSS, check) {
+			t.Fatalf("index CSS missing mobile new-session sheet style %q", check)
 		}
 	}
 }

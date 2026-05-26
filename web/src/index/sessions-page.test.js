@@ -60,6 +60,27 @@ describe('createSessionsPage scalable state', () => {
     expect(document.querySelector('[data-session-id="beta.jsonl"] [data-session-model]').textContent).toBe('anthropic/Claude Sonnet 4.5');
   });
 
+  it('switches between timeline project runs and consolidated project groups', async () => {
+    document.body.innerHTML = '<div data-sessions-content></div>';
+    const fetchSessions = vi.fn(() => Promise.resolve({ sessions: [
+      { id: 'a-old.jsonl', name: 'A Old', project: '/a', lastActivity: '2026-01-01T00:00:00Z' },
+      { id: 'b-mid.jsonl', name: 'B Mid', project: '/b', lastActivity: '2026-01-02T00:00:00Z' },
+      { id: 'a-new.jsonl', name: 'A New', project: '/a', lastActivity: '2026-01-03T00:00:00Z' },
+    ] }));
+    const page = createSessionsPage({ fetchSessions });
+
+    await page.refreshSessions();
+
+    expect(document.querySelector('[data-sessions-content]').classList.contains('content--timeline')).toBe(true);
+    expect(Array.from(document.querySelectorAll('.project-group')).map((el) => el.dataset.project)).toEqual(['/a', '/b', '/a']);
+    expect(Array.from(document.querySelectorAll('.session-card')).map((el) => el.dataset.sessionId)).toEqual(['a-new.jsonl', 'b-mid.jsonl', 'a-old.jsonl']);
+
+    await page.setLayout('projects');
+
+    expect(document.querySelector('[data-sessions-content]').classList.contains('content--timeline')).toBe(false);
+    expect(Array.from(document.querySelectorAll('.project-group')).map((el) => el.dataset.project)).toEqual(['/a', '/b']);
+  });
+
   it('wires subscription callbacks without exposing EventSource details to page state', () => {
     const connect = vi.fn();
     const cleanup = vi.fn();
