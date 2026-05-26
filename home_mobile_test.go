@@ -54,7 +54,8 @@ func TestHomePageNewSessionEntryPointsExist(t *testing.T) {
 	html := buf.String()
 	htmlChecks := []string{
 		`data-new-session-btn`,
-		`class="nav-new-session-btn"`,
+		`class="new-session-btn new-session-btn-mobile"`,
+		`Start a new session`,
 		`New Session`,
 		`New session`,
 	}
@@ -78,7 +79,8 @@ func TestHomePageNewSessionEntryPointsExist(t *testing.T) {
 		".command-palette-overlay {",
 		".web-menu {",
 		".palette-action",
-		".nav-new-session-btn",
+		".new-session-btn-mobile",
+		"position: fixed;",
 	}
 	for _, check := range cssChecks {
 		if !strings.Contains(css, check) {
