@@ -20,11 +20,13 @@ export async function handleSessionReload({
   isFollowing = () => false,
   scrollAfterLayout = () => {},
   incrementPending = () => {},
-  showFollowButton = () => {}
+  showFollowButton = () => {},
+  onReloaded = () => {}
 } = {}) {
   const response = await fetchImpl('/api/session?id=' + encodeURIComponent(sessionId));
   const data = await response.json();
   const entries = data.entries || [];
+  onReloaded({ ...data, entries });
   if (typeof data.name === 'string' && data.name.trim()) {
     updateTitle(data.name);
   }

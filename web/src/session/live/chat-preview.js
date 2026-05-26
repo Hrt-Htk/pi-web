@@ -9,6 +9,15 @@ export function clearChatPreview(state) {
   state.chatPreviewEl = null;
 }
 
+export function finishChatPreview(state) {
+  if (!state?.chatPreviewEl) return false;
+  state.chatPreviewEl.classList.remove('chat-preview-waiting');
+  state.chatPreviewEl.classList.add('done');
+  const label = state.chatPreviewEl.querySelector('.preview-label');
+  if (label && label.parentNode) label.parentNode.removeChild(label);
+  return true;
+}
+
 export function renderPendingChat(message, state, {
   documentImpl = document,
   renderMarkdown,
@@ -61,7 +70,8 @@ export function renderChatPreview(payload, state, {
   state.chatPreviewEl.classList.remove('chat-preview-waiting');
   const content = state.chatPreviewEl.querySelector('.message-content');
   if (content) content.innerHTML = renderMarkdown(payload.content);
-  state.chatPreviewEl.classList.toggle('done', !!payload.done);
+  if (payload.done) finishChatPreview(state);
+  else state.chatPreviewEl.classList.remove('done');
   if (shouldFollow()) {
     forceFollowToBottom(false);
     scrollAfterLayout(false, state.chatPreviewEl);

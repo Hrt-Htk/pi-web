@@ -19,7 +19,8 @@ export function runLiveReload({
   shareOverlay,
   resumeButton,
   newSessionButton,
-  cwd = ''
+  cwd = '',
+  onSessionDataReload = () => {}
 } = {}) {
   const document = documentImpl;
   const window = windowImpl;
@@ -191,6 +192,12 @@ export function runLiveReload({
       return __piChatPreview.clearChatPreview(CHAT_PREVIEW_STATE);
     }
 
+    function finishChatPreview() {
+      if (__piChatPreview.finishChatPreview) {
+        __piChatPreview.finishChatPreview(CHAT_PREVIEW_STATE);
+      }
+    }
+
     function renderChatPreview(payload) {
       return __piChatPreview.renderChatPreview(payload, CHAT_PREVIEW_STATE, {
         documentImpl: document,
@@ -226,9 +233,18 @@ export function runLiveReload({
         isFollowing: function() { return FOLLOW; },
         scrollAfterLayout: scrollAfterLayout,
         incrementPending: function(count) { pendingCount += count; },
-        showFollowButton: showFollowButton
+        showFollowButton: showFollowButton,
+        onReloaded: function(data) { onSessionDataReload(data); }
       }).catch(function(err){ console.error('Live update failed:', err); });
     }
+
+    window.addEventListener('pi-worker-done', function() {
+      // If the final filesystem reload is missed or delayed, don't leave the
+      // streaming preview in its "working" state. Also proactively reconcile
+      // from /api/session so canonical entries replace the preview.
+      finishChatPreview();
+      triggerReload();
+    });
 
     function connect() {
       if (reconnectTimer) {

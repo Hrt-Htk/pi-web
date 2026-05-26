@@ -162,6 +162,16 @@ func (s *Server) handleFsEvent(w *fsnotify.Watcher, ev fsnotify.Event, deb *debo
 	}
 	if ev.Op&fsnotify.Create != 0 {
 		s.broadcast(globalSessID, "new-session")
+		// Mark newly-created session files as known before the debounced stat.
+		// Otherwise a user can open a just-created empty session, send the first
+		// chat before the create event is recorded, and the first write is treated
+		// as an initial observation instead of a change, so the session page never
+		// reloads with the new messages.
+		s.fileModMu.Lock()
+		if _, known := s.fileMod[filepath.Base(ev.Name)]; !known {
+			s.fileMod[filepath.Base(ev.Name)] = time.Time{}
+		}
+		s.fileModMu.Unlock()
 	}
 	deb.schedule(ev.Name)
 }

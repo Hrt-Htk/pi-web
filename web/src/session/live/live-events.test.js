@@ -19,6 +19,7 @@ describe('live events', () => {
     const updateStats = vi.fn();
     const updateTitle = vi.fn();
     const scrollAfterLayout = vi.fn();
+    const onReloaded = vi.fn();
 
     const result = await handleSessionReload({
       sessionId: 's',
@@ -32,11 +33,13 @@ describe('live events', () => {
       updateStats,
       updateTitle,
       isFollowing: () => true,
-      scrollAfterLayout
+      scrollAfterLayout,
+      onReloaded
     });
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/session?id=s');
     expect(result.newCount).toBe(2);
+    expect(onReloaded).toHaveBeenCalledWith({ name: 'New Title', entries });
     expect(refresh).toHaveBeenCalledWith(entries[1], entries);
     expect(showIndicator).toHaveBeenCalled();
     expect(updateStats).toHaveBeenCalledWith(entries);

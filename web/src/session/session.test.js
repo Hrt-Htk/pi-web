@@ -1,13 +1,92 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sessionEntrypointLoaded, runSessionApp } from './session.js';
 
 describe('session entrypoint', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+    window.history.pushState({}, '', '/');
+    delete window.__piSessionDataModel;
+    delete window.__piTreeRenderer;
+    delete window.__piSessionNavigator;
+    delete window.applyToggleStateToNode;
+    delete window.sessionToggleState;
+  });
+
   it('exports a load marker for smoke testing', () => {
     expect(sessionEntrypointLoaded).toBe(true);
   });
 
   it('owns direct module runtime bootstrap', () => {
     expect(runSessionApp).toBeInstanceOf(Function);
+  });
+
+  it('updates the sidebar tree when live reload receives new entries', async () => {
+    const initialEntries = [
+      {
+        id: 'root',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        message: { role: 'user', content: 'hello' }
+      }
+    ];
+    const reloadedEntries = [
+      ...initialEntries,
+      {
+        id: 'child',
+        parentId: 'root',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:01.000Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hi there' }] }
+      }
+    ];
+    const payload = { leafId: 'root', entries: initialEntries, header: { cwd: '/tmp' } };
+    document.body.innerHTML = `
+      <script id="session-data" type="application/json">${btoa(JSON.stringify(payload))}</script>
+      <button id="hamburger"></button>
+      <aside id="sidebar"></aside>
+      <div id="sidebar-overlay"></div>
+      <div id="sidebar-resizer"></div>
+      <button id="hide-sidebar"></button>
+      <input id="tree-search" />
+      <div id="tree-container"></div>
+      <div id="tree-status"></div>
+      <div id="content"><div id="header-container"></div><div id="messages"></div></div>
+    `;
+    window.history.pushState({}, '', '/session?id=sess1');
+    window.requestAnimationFrame = (fn) => { fn(); return 1; };
+    window.scrollTo = vi.fn();
+    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    Object.defineProperty(window, 'navigator', { value: {}, configurable: true });
+    window.fetch = vi.fn(async (url) => {
+      if (String(url).startsWith('/api/session')) {
+        return new Response(JSON.stringify({ entries: reloadedEntries }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    class FakeEventSource {
+      static instances = [];
+      constructor(url) {
+        this.url = url;
+        this.readyState = 1;
+        this.listeners = new Map();
+        FakeEventSource.instances.push(this);
+      }
+      addEventListener(type, handler) { this.listeners.set(type, handler); }
+      close() { this.readyState = 2; }
+    }
+    window.EventSource = FakeEventSource;
+
+    runSessionApp({ target: window });
+
+    expect([...document.querySelectorAll('.tree-node')].map((node) => node.dataset.id)).toEqual(['root']);
+    FakeEventSource.instances[0].onmessage({ data: 'reload' });
+
+    await vi.waitFor(() => {
+      expect([...document.querySelectorAll('.tree-node')].map((node) => node.dataset.id)).toEqual(['root', 'child']);
+    });
+    expect(document.getElementById('tree-status').textContent).toBe('2 / 2 entries');
   });
 
   it('initializes live reload before chat so optimistic send events are observed', () => {

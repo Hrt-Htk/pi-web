@@ -45,6 +45,104 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, s.renderLiveSession(resolved.Session))
 }
 
+func (s *Server) handleApiForkSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		EntryID string `json:"entryId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if body.EntryID == "" {
+		writeJSONError(w, http.StatusBadRequest, "entryId is required")
+		return
+	}
+
+	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, sessions.ErrInvalidSessionID):
+			writeJSONError(w, http.StatusBadRequest, "invalid session id")
+		case errors.Is(err, sessions.ErrSessionNotFound):
+			writeJSONError(w, http.StatusNotFound, "not found")
+		default:
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	id, err := sessions.ForkSessionFile(s.sessionsDir, resolved.Path, body.EntryID, s.now)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if s.chatSender != nil {
+		if resolved, err := sessions.ResolveByID(s.sessionsDir, id); err == nil {
+			go s.initializeNewSessionWorker(r.Context(), resolved.Session.ID, resolved.Path, sessions.InitialSettings{})
+		}
+	}
+
+	writeJSON(w, 0, map[string]any{"ok": true, "id": id})
+}
+
+func (s *Server) handleApiCloneSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		LeafID string `json:"leafId"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, sessions.ErrInvalidSessionID):
+			writeJSONError(w, http.StatusBadRequest, "invalid session id")
+		case errors.Is(err, sessions.ErrSessionNotFound):
+			writeJSONError(w, http.StatusNotFound, "not found")
+		default:
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	leafID := body.LeafID
+	if leafID == "" {
+		// Default to the last entry if no leaf was specified.
+		if len(resolved.Session.Entries) > 0 {
+			last := resolved.Session.Entries[len(resolved.Session.Entries)-1]
+			if id, ok := last["id"].(string); ok {
+				leafID = id
+			}
+		}
+	}
+	if leafID == "" {
+		writeJSONError(w, http.StatusBadRequest, "no leaf entry available")
+		return
+	}
+
+	id, err := sessions.CloneSessionFile(s.sessionsDir, resolved.Path, leafID, s.now)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if s.chatSender != nil {
+		if resolved, err := sessions.ResolveByID(s.sessionsDir, id); err == nil {
+			go s.initializeNewSessionWorker(r.Context(), resolved.Session.ID, resolved.Path, sessions.InitialSettings{})
+		}
+	}
+
+	writeJSON(w, 0, map[string]any{"ok": true, "id": id})
+}
+
 func (s *Server) handleApiSessions(w http.ResponseWriter, r *http.Request) {
 	summaries, err := s.loadSummaries()
 	if err != nil {

@@ -2665,3 +2665,55 @@
       font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
+
+    /* Fork modal */
+    .fork-modal-body {
+      padding: 8px 4px;
+    }
+
+    .fork-message-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .fork-message-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      background: color-mix(in srgb, var(--container-bg) 60%, var(--body-bg));
+      border: 1px solid var(--dim);
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .fork-message-item:hover {
+      background: color-mix(in srgb, var(--selectedBg) 40%, var(--container-bg));
+      border-color: var(--borderMuted);
+    }
+
+    .fork-message-item:active {
+      background: color-mix(in srgb, var(--selectedBg) 60%, var(--container-bg));
+    }
+
+    .fork-message-number {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+      min-width: 28px;
+      padding-top: 1px;
+    }
+
+    .fork-message-text {
+      flex: 1;
+      word-break: break-word;
+    }

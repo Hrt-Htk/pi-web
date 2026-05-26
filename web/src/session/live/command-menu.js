@@ -1,5 +1,10 @@
 import { isDoneNotifyEnabled } from '../chat/done-notifier.js';
 import { showModelUsageModal } from './model-usage-modal.js';
+import { showForkModal } from './fork-modal.js';
+
+function chatUrl(path, sessionId) {
+  return `${path}?id=${encodeURIComponent(sessionId)}`;
+}
 
 function applyTheme(windowImpl, next) {
   document.documentElement.dataset.theme = next || 'dark';
@@ -65,7 +70,6 @@ export function setupCommandMenu({
   windowImpl = window,
   setSidebarOpen = null,
   setSidebarCollapsed = null,
-  getEntries = null,
   escapeHtml = String,
   formatTokens = String,
   fetchImpl = fetch,
@@ -239,8 +243,62 @@ export function setupCommandMenu({
           });
         break;
       }
-      case 'fork':
-      case 'clone':
+      case 'fork': {
+        closeMenu();
+        // Fetch fresh entries — dataModel.entries is stale after live reload
+        fetchImpl(chatUrl('/api/session', sessionId))
+          .then((res) => res.json())
+          .then((data) => {
+            const entries = data.entries || [];
+            const forkSheet = showForkModal({
+              entries,
+              escapeHtml,
+              documentImpl,
+              windowImpl,
+              onSelect: (entryId) => {
+                fetchImpl(chatUrl('/api/fork-session', sessionId), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ entryId }),
+                })
+                  .then((res) => res.json())
+                  .then((data) => {
+                    if (data.id) {
+                      windowImpl.location.href = '/session?id=' + encodeURIComponent(data.id);
+                    } else {
+                      showToast(data.error || 'Fork failed', documentImpl, windowImpl);
+                    }
+                  })
+                  .catch(() => showToast('Fork failed', documentImpl, windowImpl));
+              },
+            });
+            if (!forkSheet) {
+              showToast('No user messages to fork from', documentImpl, windowImpl);
+            }
+          })
+          .catch(() => showToast('Failed to load messages', documentImpl, windowImpl));
+        break;
+      }
+      case 'clone': {
+        closeMenu();
+        // Let the backend determine the leaf from the fresh file —
+        // frontend currentLeafId is stale after live reload.
+        fetchImpl(chatUrl('/api/clone-session', sessionId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.id) {
+              windowImpl.location.href = '/session?id=' + encodeURIComponent(data.id);
+            } else {
+              showToast(data.error || 'Clone failed', documentImpl, windowImpl);
+            }
+          })
+          .catch(() => showToast('Clone failed', documentImpl, windowImpl));
+        break;
+      }
       case 'diff':
         showToast('Not yet implemented', documentImpl, windowImpl);
         closeMenu();

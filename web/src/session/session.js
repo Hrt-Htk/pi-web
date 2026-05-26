@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 
-import { loadSessionData } from './data/session-data.js';
+import { buildSessionLookups, loadSessionData } from './data/session-data.js';
 import { buildActivePathIds as buildActivePathIdsForModel, buildTree as buildTreeForModel, buildTreeNodeMap, buildTreePrefix, findNewestLeaf as findNewestLeafInTree, flattenTree, getPath as getPathForModel } from './tree/session-tree.js';
 import { extractContent, filterNodes as filterNodesForState, getSearchableText, hasTextContent, recalculateVisualStructure } from './tree/session-filter.js';
 import { escapeHtml, formatToolCall, getTreeNodeDisplayHtml as getTreeNodeDisplayHtmlForState, shortenPath, truncate } from './render/session-format.js';
@@ -82,6 +82,52 @@ export function runSessionApp({ target = window } = {}) {
       escapeHtmlImpl: (text) => escapeHtml(text, { documentImpl })
     })
   };
+
+  function replaceMapContents(targetMap, nextMap) {
+    targetMap.clear();
+    nextMap.forEach((value, key) => targetMap.set(key, value));
+  }
+
+  function syncDataModelEntries(entries = []) {
+    if (!Array.isArray(entries)) return;
+    dataModel.entries.splice(0, dataModel.entries.length, ...entries);
+    const lookups = buildSessionLookups(dataModel.entries);
+    replaceMapContents(dataModel.byId, lookups.byId);
+    replaceMapContents(dataModel.toolCallMap, lookups.toolCallMap);
+    replaceMapContents(dataModel.labelMap, lookups.labelMap);
+
+    const roots = buildTreeForModel(dataModel.entries, dataModel.labelMap);
+    const nodeMap = buildTreeNodeMap(roots);
+    let nextLeafId = currentLeafId && nodeMap.has(currentLeafId)
+      ? findNewestLeafInTree(currentLeafId, nodeMap)
+      : '';
+    if (!nextLeafId) {
+      for (let i = dataModel.entries.length - 1; i >= 0; i -= 1) {
+        if (dataModel.entries[i]?.id) {
+          nextLeafId = dataModel.entries[i].id;
+          break;
+        }
+      }
+    }
+    if (nextLeafId) {
+      dataModel.leafId = nextLeafId;
+      currentLeafId = nextLeafId;
+      if (!currentTargetId) currentTargetId = nextLeafId;
+      if (treeRenderer) {
+        treeRenderer.currentLeafId = currentLeafId;
+        treeRenderer.currentTargetId = currentTargetId;
+      }
+    }
+
+    // Live reload reconciles the data model when the session JSONL changes,
+    // but the tree renderer normally only patches active/path classes after
+    // its initial DOM build. Force a full rebuild so newly appended entries
+    // are added to the sidebar immediately.
+    if (treeRenderer) {
+      syncTreeRendererState();
+      treeRenderer.forceTreeRerender();
+    }
+  }
 
   const sessionTree = {
     buildTree: () => buildTreeForModel(dataModel.entries, dataModel.labelMap),
@@ -230,7 +276,8 @@ export function runSessionApp({ target = window } = {}) {
     shareOverlay,
     resumeButton,
     newSessionButton,
-    cwd: dataModel.header?.cwd || ''
+    cwd: dataModel.header?.cwd || '',
+    onSessionDataReload: (data) => syncDataModelEntries(data.entries)
   });
 
   setupCommandMenu({
@@ -239,6 +286,7 @@ export function runSessionApp({ target = window } = {}) {
     setSidebarOpen: (open) => sidebarApi.setSidebarOpen(open, { documentImpl }),
     setSidebarCollapsed: (collapsed) => sidebarApi.setSidebarCollapsed(collapsed, { documentImpl }),
     getEntries: () => dataModel.entries,
+    getLeafId: () => currentLeafId,
     escapeHtml: sessionFormat.escapeHtml,
     formatTokens: entryRenderer.formatTokens,
   });

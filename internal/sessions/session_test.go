@@ -563,3 +563,163 @@ func TestParseFileLeavesChatEnabledWhenCwdExists(t *testing.T) {
 		t.Fatalf("expected chat to be enabled, reason = %q", sess.ChatDisabledReason)
 	}
 }
+
+func TestForkSessionFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessDir := filepath.Join(tmpDir, "sessions")
+	projectPath := filepath.Join(tmpDir, "test-project")
+
+	// Create source session
+	id, err := CreateSessionFile(sessDir, projectPath)
+	if err != nil {
+		t.Fatalf("CreateSessionFile failed: %v", err)
+	}
+
+	projectDir := filepath.Join(sessDir, EncodeProjectName(projectPath))
+	sourcePath := filepath.Join(projectDir, id)
+
+	// Append some tree entries
+	entries := []string{
+		`{"type":"message","id":"a1b2c3d4","parentId":null,"timestamp":"2026-05-08T10:00:00Z","message":{"role":"user","content":"Hello"}}` + "\n",
+		`{"type":"message","id":"b2c3d4e5","parentId":"a1b2c3d4","timestamp":"2026-05-08T10:01:00Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}` + "\n",
+		`{"type":"message","id":"c3d4e5f6","parentId":"b2c3d4e5","timestamp":"2026-05-08T10:02:00Z","message":{"role":"user","content":"How are you?"}}` + "\n",
+		`{"type":"message","id":"d4e5f6g7","parentId":"c3d4e5f6","timestamp":"2026-05-08T10:03:00Z","message":{"role":"assistant","content":[{"type":"text","text":"Good!"}]}}` + "\n",
+	}
+	f, err := os.OpenFile(sourcePath, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if _, err := f.WriteString(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.Close()
+
+	now := func() time.Time { return time.Date(2026, 5, 8, 11, 0, 0, 0, time.UTC) }
+
+	// Fork from the second user message (c3d4e5f6)
+	newID, err := ForkSessionFile(sessDir, sourcePath, "c3d4e5f6", now)
+	if err != nil {
+		t.Fatalf("ForkSessionFile failed: %v", err)
+	}
+	if !strings.HasSuffix(newID, ".jsonl") {
+		t.Fatalf("expected .jsonl suffix, got %q", newID)
+	}
+
+	newPath := filepath.Join(projectDir, newID)
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("read forked file failed: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, `"type":"session"`) {
+		t.Fatalf("missing session header")
+	}
+	if !strings.Contains(content, `"parentSession"`) {
+		t.Fatalf("missing parentSession")
+	}
+	if !strings.Contains(content, `"forkedFrom"`) {
+		t.Fatalf("missing forkedFrom")
+	}
+	if !strings.Contains(content, `"id":"a1b2c3d4"`) {
+		t.Fatalf("missing first user message")
+	}
+	if !strings.Contains(content, `"id":"b2c3d4e5"`) {
+		t.Fatalf("missing assistant message")
+	}
+	if !strings.Contains(content, `"id":"c3d4e5f6"`) {
+		t.Fatalf("missing fork point message")
+	}
+	if strings.Contains(content, `"id":"d4e5f6g7"`) {
+		t.Fatalf("should not contain message after fork point")
+	}
+}
+
+func TestCloneSessionFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessDir := filepath.Join(tmpDir, "sessions")
+	projectPath := filepath.Join(tmpDir, "test-project")
+
+	id, err := CreateSessionFile(sessDir, projectPath)
+	if err != nil {
+		t.Fatalf("CreateSessionFile failed: %v", err)
+	}
+
+	projectDir := filepath.Join(sessDir, EncodeProjectName(projectPath))
+	sourcePath := filepath.Join(projectDir, id)
+
+	entries := []string{
+		`{"type":"message","id":"a1b2c3d4","parentId":null,"timestamp":"2026-05-08T10:00:00Z","message":{"role":"user","content":"Hello"}}` + "\n",
+		`{"type":"message","id":"b2c3d4e5","parentId":"a1b2c3d4","timestamp":"2026-05-08T10:01:00Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}` + "\n",
+		`{"type":"message","id":"c3d4e5f6","parentId":"b2c3d4e5","timestamp":"2026-05-08T10:02:00Z","message":{"role":"user","content":"How are you?"}}` + "\n",
+	}
+	f, err := os.OpenFile(sourcePath, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if _, err := f.WriteString(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.Close()
+
+	now := func() time.Time { return time.Date(2026, 5, 8, 11, 0, 0, 0, time.UTC) }
+
+	newID, err := CloneSessionFile(sessDir, sourcePath, "c3d4e5f6", now)
+	if err != nil {
+		t.Fatalf("CloneSessionFile failed: %v", err)
+	}
+	if !strings.HasSuffix(newID, ".jsonl") {
+		t.Fatalf("expected .jsonl suffix, got %q", newID)
+	}
+
+	newPath := filepath.Join(projectDir, newID)
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("read cloned file failed: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, `"type":"session"`) {
+		t.Fatalf("missing session header")
+	}
+	if !strings.Contains(content, `"parentSession"`) {
+		t.Fatalf("missing parentSession")
+	}
+	if strings.Contains(content, `"forkedFrom"`) {
+		t.Fatalf("clone should not have forkedFrom")
+	}
+	if !strings.Contains(content, `"id":"a1b2c3d4"`) {
+		t.Fatalf("missing first user message")
+	}
+	if !strings.Contains(content, `"id":"b2c3d4e5"`) {
+		t.Fatalf("missing assistant message")
+	}
+	if !strings.Contains(content, `"id":"c3d4e5f6"`) {
+		t.Fatalf("missing leaf message")
+	}
+}
+
+func TestForkSessionFileEntryNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessDir := filepath.Join(tmpDir, "sessions")
+	projectPath := filepath.Join(tmpDir, "test-project")
+
+	id, err := CreateSessionFile(sessDir, projectPath)
+	if err != nil {
+		t.Fatalf("CreateSessionFile failed: %v", err)
+	}
+
+	projectDir := filepath.Join(sessDir, EncodeProjectName(projectPath))
+	sourcePath := filepath.Join(projectDir, id)
+
+	now := func() time.Time { return time.Date(2026, 5, 8, 11, 0, 0, 0, time.UTC) }
+
+	_, err = ForkSessionFile(sessDir, sourcePath, "nonexistent", now)
+	if err == nil {
+		t.Fatal("expected error for nonexistent entry")
+	}
+}

@@ -619,6 +619,146 @@ func CreateSessionFileWithSettings(sessionsDir, path string, settings InitialSet
 	return filename, nil
 }
 
+// ForkSessionFile creates a new session file by copying entries from sourcePath
+// up to and including forkEntryID. The new session is placed in the same
+// project directory as the source and includes a parentSession reference.
+func ForkSessionFile(sessionsDir, sourcePath, forkEntryID string, now func() time.Time) (string, error) {
+	return createBranchSessionFile(sessionsDir, sourcePath, forkEntryID, now, true)
+}
+
+// CloneSessionFile creates a new session file by copying all entries on the
+// active branch from sourcePath (from leafEntryID back to root). The new
+// session is placed in the same project directory.
+func CloneSessionFile(sessionsDir, sourcePath, leafEntryID string, now func() time.Time) (string, error) {
+	return createBranchSessionFile(sessionsDir, sourcePath, leafEntryID, now, false)
+}
+
+func createBranchSessionFile(sessionsDir, sourcePath, targetEntryID string, now func() time.Time, isFork bool) (string, error) {
+	if now == nil {
+		now = time.Now
+	}
+
+	f, err := os.Open(sourcePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	var header map[string]any
+	var entries []map[string]any
+	seenSessionHeaders := make(map[string]bool)
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var raw map[string]any
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			continue
+		}
+		if raw["type"] == "session" {
+			key := sessionHeaderKey(raw)
+			if key != "" && seenSessionHeaders[key] {
+				continue
+			}
+			if key != "" {
+				seenSessionHeaders[key] = true
+			}
+			header = raw
+			continue
+		}
+		entries = append(entries, raw)
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	cwd, _ := header["cwd"].(string)
+	if cwd == "" {
+		return "", errors.New("source session missing cwd")
+	}
+
+	// Build by-id map
+	byID := make(map[string]map[string]any)
+	for _, e := range entries {
+		if id, ok := e["id"].(string); ok && id != "" {
+			byID[id] = e
+		}
+	}
+
+	// Walk from target back to root
+	var pathEntries []map[string]any
+	currentID := targetEntryID
+	for currentID != "" {
+		entry, ok := byID[currentID]
+		if !ok {
+			break
+		}
+		pathEntries = append(pathEntries, entry)
+		parentID, _ := entry["parentId"].(string)
+		if parentID == "" || parentID == currentID {
+			break
+		}
+		currentID = parentID
+	}
+
+	if len(pathEntries) == 0 {
+		return "", errors.New("target entry not found")
+	}
+
+	// Reverse to chronological order (root → target)
+	for i, j := 0, len(pathEntries)-1; i < j; i, j = i+1, j-1 {
+		pathEntries[i], pathEntries[j] = pathEntries[j], pathEntries[i]
+	}
+
+	projectDir := filepath.Join(sessionsDir, EncodeProjectName(cwd))
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		return "", err
+	}
+
+	id := randomUUID()
+	timestamp := now().UTC().Format("2006-01-02T15-04-05.000Z")
+	filename := timestamp + "_" + id + ".jsonl"
+	filePath := filepath.Join(projectDir, filename)
+
+	newHeader := map[string]any{
+		"type":          "session",
+		"version":       3,
+		"id":            id,
+		"timestamp":     now().UTC().Format(time.RFC3339Nano),
+		"cwd":           cwd,
+		"parentSession": sourcePath,
+	}
+	if isFork {
+		newHeader["forkedFrom"] = targetEntryID
+	}
+
+	var fileData []byte
+	hdata, err := json.Marshal(newHeader)
+	if err != nil {
+		return "", err
+	}
+	fileData = append(fileData, hdata...)
+	fileData = append(fileData, '\n')
+
+	for _, entry := range pathEntries {
+		line, err := json.Marshal(entry)
+		if err != nil {
+			continue
+		}
+		fileData = append(fileData, line...)
+		fileData = append(fileData, '\n')
+	}
+
+	if err := os.WriteFile(filePath, fileData, 0644); err != nil {
+		return "", err
+	}
+	return filename, nil
+}
+
 func randomUUID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {

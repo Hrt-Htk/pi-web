@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { clearChatPreview, renderChatPreview, renderPendingChat } from './chat-preview.js';
+import { clearChatPreview, finishChatPreview, renderChatPreview, renderPendingChat } from './chat-preview.js';
 
 describe('chat preview', () => {
   it('renders, updates, follows, and clears preview', () => {
@@ -30,6 +30,7 @@ describe('chat preview', () => {
       shouldFollow: () => false
     });
     expect(state.chatPreviewEl.classList.contains('done')).toBe(true);
+    expect(state.chatPreviewEl.textContent).not.toContain('working');
 
     clearChatPreview(state);
     expect(dom.window.document.getElementById('chat-preview-stream')).toBe(null);
@@ -57,5 +58,20 @@ describe('chat preview', () => {
     clearChatPreview(state);
     expect(dom.window.document.getElementById('chat-pending-user')).toBe(null);
     expect(dom.window.document.getElementById('chat-preview-stream')).toBe(null);
+  });
+
+  it('can finish a pending preview without removing assistant text', () => {
+    const dom = new JSDOM('<body><div id="messages"></div></body>');
+    const state = { chatPreviewEl: null, pendingUserEl: null };
+
+    renderChatPreview({ content: 'final answer', done: false }, state, {
+      documentImpl: dom.window.document,
+      renderMarkdown: (text) => text,
+    });
+
+    expect(finishChatPreview(state)).toBe(true);
+    expect(dom.window.document.getElementById('chat-preview-stream').textContent).toContain('final answer');
+    expect(dom.window.document.getElementById('chat-preview-stream').textContent).not.toContain('working');
+    expect(state.chatPreviewEl.classList.contains('done')).toBe(true);
   });
 });
