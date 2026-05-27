@@ -31,6 +31,7 @@ import * as newSessionButton from './live/new-session-button.js';
 import * as liveEvents from './live/live-events.js';
 import * as liveRenderer from './live/live-renderer.js';
 import { setupCommandMenu } from './live/command-menu.js';
+import { setupKeyboardNav } from '../shared/keyboard-nav.js';
 import { setupListSessionsPalette } from './live/list-sessions-palette.js';
 export { buildSessionLookups, createSessionDataModel, decodeBase64JSON, getSessionSearchParams, loadSessionData, readSessionPayload } from './data/session-data.js';
 export { buildActivePathIds, buildTree, buildTreeNodeMap, buildTreePrefix, findNewestLeaf, flattenTree, getPath } from './tree/session-tree.js';
@@ -280,6 +281,8 @@ export function runSessionApp({ target = window } = {}) {
     cwd: dataModel.header?.cwd || '',
     onSessionDataReload: (data) => syncDataModelEntries(data.entries)
   });
+
+  setupKeyboardNav({ windowImpl: target, documentImpl });
 
   setupCommandMenu({
     documentImpl,
