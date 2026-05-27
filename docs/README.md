@@ -6,5 +6,6 @@
 | How the system is built (packages, data flow, frontend/backend) | [architecture/](architecture/) |
 | What happens at runtime (startup, chat, live reload, sharing) | [sequence-flows/](sequence-flows/) |
 | Frontend build details (templates vs. web, export design) | [dev/](dev/) |
+| Keyboard shortcuts | [keyboard-shortcuts.md](keyboard-shortcuts.md) |
 
 The [architecture README](architecture/README.md) is the best starting point for understanding the codebase.
