@@ -47,27 +47,6 @@ That's it — it downloads the binary, sets up auto‑start, and registers the `
 
 For manual installs, binary downloads, or building from source, see [docs/install.md](docs/install.md).
 
-## Features
-
-### Remote control
-
-- Continue any session from the browser with text or image attachments
-- Start a brand-new session against any project path, right from the web UI
-- In-browser model switching and thinking-level selector, per session
-- Per-session worker status (idle / running / error) with auto-recovery on crash
-- Multiple sessions run in parallel — kick off work in one, watch another stream
-- `PI_WEB_TOKEN` for safe LAN exposure — required by default for any explicit non-loopback bind
-
-### Reading sessions
-
-- Browse sessions across projects with filters, search, and full branch navigation
-- Live incremental updates while pi is still running (via fsnotify; ~ms latency)
-- Follow mode for tailing active sessions
-- Deep links to individual messages
-- Download a session as JSONL
-- Share static snapshots as secret GitHub Gists
-- `/remote`, `/refresh` pi extensions for remote QR and session sync
-
 ## Pi Integration
 
 After `pi install npm:@ygncode/pi-web`, you get:
@@ -80,16 +59,6 @@ After `pi install npm:@ygncode/pi-web`, you get:
 | `set_tab_title` | Tool that updates the session title; also auto‑derives a short title from each user message |
 
 The package also installs the pi-web binary to `~/.pi/agent/bin/pi-web` and sets up auto-start on login.
-
-## How It Works
-
-pi-web reads session JSONL files from `~/.pi/agent/sessions/` and renders them with pi's own export templates, embedded into the binary at build time. Three moving parts:
-
-- **Live reload and chat preview.** A `fsnotify` watcher tails the sessions directory and pushes SSE reload events to connected browsers when pi appends to the file. Session pages fetch `/api/session` and upsert canonical JSONL entries in place. Browser-started chat also streams best-effort assistant previews over the same SSE connection.
-- **Per-session workers.** When you send a message from the browser, pi-web spawns a headless `pi --mode rpc` subprocess scoped to that session, switches it to the session file, and forwards your prompt. Subsequent messages reuse the same worker. If the worker crashes it's evicted and replaced; idle workers are reaped after 10 minutes.
-- **Sharing.** Renders a self-contained HTML snapshot and shells out to `gh gist create --public=false`. Snapshots don't live-update.
-
-A single binary, no database, no daemon — just a Go HTTP server reading the same JSONL pi already writes.
 
 ## Auto-Start on Login
 

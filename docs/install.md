@@ -1,5 +1,26 @@
 # Installation & Usage
 
+## Features
+
+### Remote control
+
+- Continue any session from the browser with text or image attachments
+- Start a brand-new session against any project path, right from the web UI
+- In-browser model switching and thinking-level selector, per session
+- Per-session worker status (idle / running / error) with auto-recovery on crash
+- Multiple sessions run in parallel — kick off work in one, watch another stream
+- `PI_WEB_TOKEN` for safe LAN exposure — required by default for any explicit non-loopback bind
+
+### Reading sessions
+
+- Browse sessions across projects with filters, search, and full branch navigation
+- Live incremental updates while pi is still running (via fsnotify; ~ms latency)
+- Follow mode for tailing active sessions
+- Deep links to individual messages
+- Download a session as JSONL
+- Share static snapshots as secret GitHub Gists
+- `/remote`, `/refresh` pi extensions for remote QR and session sync
+
 ## Requirements
 
 - [Go](https://go.dev) 1.25+
