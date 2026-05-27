@@ -2,6 +2,20 @@
 
 ## Index page (`/`)
 
+### Page scrolling (vim-style)
+
+Same vim-style shortcuts work on all pages when focus is **not** in an input, textarea, or contenteditable element.
+
+| Shortcut | Action |
+|----------|--------|
+| `j` | Scroll down 300px |
+| `k` | Scroll up 300px |
+| `g g` | Scroll to top of page |
+| `G` (Shift+G) | Scroll to bottom of page |
+| `Escape` | Blur the active input so j/k navigation works |
+
+### Index commands
+
 | Shortcut | Context | Action |
 |----------|---------|--------|
 | `⌘K` / `Ctrl+K` | Page-level | Open search/sessions palette |
@@ -11,6 +25,19 @@
 > `⌘K` / `Ctrl+K` is also Chrome's "focus address bar" shortcut. The browser may intercept it unless focus is inside a text input.
 
 ## Session detail page (`/session?id=...`)
+
+### Page scrolling (vim-style)
+
+These work on both index and session pages when focus is **not** in an input, textarea, or contenteditable element.
+
+| Shortcut | Action |
+|----------|--------|
+| `j` | Scroll down 300px |
+| `k` | Scroll up 300px |
+| `g g` | Scroll to top of page |
+| `G` (Shift+G) | Scroll to bottom of page |
+| `I` (Shift+I) | Focus the chat composer textarea |
+| `Escape` | Blur the active input so j/k navigation works |
 
 ### Sidebar & navigation
 
