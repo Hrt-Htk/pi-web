@@ -7,13 +7,13 @@ pi-web is a local Go server that renders pi sessions in the browser using pi's o
 ## Screenshots
 
 <div align="center">
-  <img src="assets/desktop-dark-mode.png" alt="Desktop — dark mode" width="70%" /><br />
+  <img src="assets/desktop-dark-mode.png" alt="Desktop — dark mode" width="90%" /><br />
   <em>Desktop — dark mode</em>
   <br /><br />
-  <img src="assets/desktop-white-mode.png" alt="Desktop — light mode" width="70%" /><br />
+  <img src="assets/desktop-white-mode.png" alt="Desktop — light mode" width="90%" /><br />
   <em>Desktop — light mode</em>
   <br /><br />
-  <img src="assets/mobile-pwa.png" alt="Mobile PWA" width="45%" /><br />
+  <img src="assets/mobile-pwa.png" alt="Mobile PWA" width="55%" /><br />
   <em>Mobile PWA</em>
 </div>
 
