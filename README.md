@@ -4,6 +4,19 @@ Drive your [pi](https://pi.dev) coding agent from any browser on your network �
 
 pi-web is a local Go server that renders pi sessions in the browser using pi's own export UI, streams live updates as pi works, and lets you steer or start sessions from the same page. It listens on localhost and, when Tailscale is available, publishes an HTTPS endpoint with Tailscale Serve.
 
+## Screenshots
+
+<div align="center">
+  <img src="assets/desktop-dark-mode.png" alt="Desktop — dark mode" width="70%" /><br />
+  <em>Desktop — dark mode</em>
+  <br /><br />
+  <img src="assets/desktop-white-mode.png" alt="Desktop — light mode" width="70%" /><br />
+  <em>Desktop — light mode</em>
+  <br /><br />
+  <img src="assets/mobile-pwa.png" alt="Mobile PWA" width="45%" /><br />
+  <em>Mobile PWA</em>
+</div>
+
 ## Features
 
 ### Remote control
