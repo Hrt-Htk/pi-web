@@ -316,7 +316,9 @@ export function runSessionApp({ target = window } = {}) {
         sidebarApi.setSidebarOpen(!isOpen, { documentImpl });
       } else {
         const isCollapsed = documentImpl.body?.classList.contains('sidebar-collapsed');
-        sidebarApi.setSidebarCollapsed(!isCollapsed, { documentImpl });
+        const next = !isCollapsed;
+        sidebarApi.setSidebarCollapsed(next, { documentImpl });
+        sidebarApi.saveSidebarCollapsed(next);
       }
     }
   });
