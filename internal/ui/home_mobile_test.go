@@ -155,7 +155,8 @@ func TestNewSessionModalExists(t *testing.T) {
 	}
 	cssChecks := []string{
 		`.modal-sheet-header`,
-		`height: 100svh;`,
+		`height: 100%;`,
+		`max-height: none;`,
 		`transform: translateY(100%);`,
 		`.modal-overlay.open .modal { transform: translateY(0); }`,
 		`.modal input {`,
@@ -168,6 +169,24 @@ func TestNewSessionModalExists(t *testing.T) {
 	for _, check := range cssChecks {
 		if !strings.Contains(indexCSS, check) {
 			t.Fatalf("index CSS missing mobile new-session sheet style %q", check)
+		}
+	}
+}
+
+func TestHomePageMobileSheetsFillOverlayHeight(t *testing.T) {
+	checks := []struct {
+		name string
+		css  string
+	}{
+		{name: "new session modal", css: indexCSS},
+		{name: "command palette", css: paletteCSS},
+	}
+	for _, check := range checks {
+		if !strings.Contains(check.css, `height: 100%;`) {
+			t.Fatalf("%s mobile sheet should fill its fixed overlay height", check.name)
+		}
+		if strings.Contains(check.css, `height: 100svh;`) {
+			t.Fatalf("%s mobile sheet should not rely on 100svh, which can leave a top gap on iOS", check.name)
 		}
 	}
 }
