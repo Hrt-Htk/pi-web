@@ -10,7 +10,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 build: setup frontend-build
 	go build -ldflags="-s -w -X main.version=$(VERSION)" -o $(BINARY) ./cmd/pi-web
 
-setup: frontend-setup go-setup root-setup
+setup: frontend-setup go-setup
 
 frontend-setup:
 	@if [ ! -d "$(NODE_MODULES)" ]; then \
@@ -26,7 +26,7 @@ go-setup:
 root-setup:
 	@if [ ! -d "$(ROOT_NODE_MODULES)" ]; then \
 		echo "Installing root dependencies..."; \
-		npm install; \
+		npm install --ignore-scripts; \
 	else \
 		echo "Root dependencies already installed."; \
 	fi
