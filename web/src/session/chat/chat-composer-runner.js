@@ -355,6 +355,20 @@ export function runChatComposer({
         event.preventDefault();
         form.requestSubmit();
       }
+      // Shift+Tab: cycle thinking level (matching pi CLI behavior)
+      if (event.key === 'Tab' && event.shiftKey) {
+        event.preventDefault();
+        if (_thinkingSelectorApi && _thinkingSelectorApi.cycle) {
+          _thinkingSelectorApi.cycle();
+        }
+      }
+      // Ctrl+L: open model selector, focus returns to textarea after selection
+      if (event.ctrlKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        if (_modelSelectorApi && _modelSelectorApi.open) {
+          _modelSelectorApi.open();
+        }
+      }
     });
 
     textarea.addEventListener('paste', (event) => {
@@ -564,11 +578,14 @@ export function runChatComposer({
     return true;
   }
 
+  let _modelSelectorApi = null;
+  let _thinkingSelectorApi = null;
+
   function initPiChatControls() {
     setupCwdCopy();
     if (!setupPiChatComposer()) return;
-    loadModelSelector();
-    setupThinkingLevelSelector();
+    _modelSelectorApi = loadModelSelector();
+    _thinkingSelectorApi = setupThinkingLevelSelector();
   }
 
   if (document.readyState === 'loading') {
@@ -578,7 +595,7 @@ export function runChatComposer({
   }
 
   // Model selector
-  async function loadModelSelector() {
+  function loadModelSelector() {
     const sessionId = new URLSearchParams(window.location.search).get('id') || (document.getElementById('pi-chat-composer') || {}).dataset?.sessionId || '';
     return __piModelSelector.setupModelSelector({
       documentImpl: document,
@@ -598,7 +615,7 @@ export function runChatComposer({
   // ── Thinking level selector ──────────────────────────────────────────
   function setupThinkingLevelSelector() {
     const sessionId = new URLSearchParams(window.location.search).get('id') || (document.getElementById('pi-chat-composer') || {}).dataset?.sessionId || '';
-    return __piThinkingSelector.setupThinkingLevelSelector({
+    const api = __piThinkingSelector.setupThinkingLevelSelector({
       documentImpl: document,
       windowImpl: window,
       sessionId,
@@ -610,6 +627,7 @@ export function runChatComposer({
       setChatStatus,
       chatApi: __piChatApi
     });
+    return api;
   }
 
   // Initial render

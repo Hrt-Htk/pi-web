@@ -82,11 +82,36 @@ export function setupThinkingLevelSelector({
     }
   });
 
+  // Cycle to the next supported thinking level without opening the popup.
+  async function cycleThinkingLevel() {
+    const supported = supportedThinkingLevels(getCurrentModel(), THINKING_LEVELS);
+    const current = getKnownThinkingLevel() || '';
+    const idx = supported.indexOf(current);
+    const nextIdx = (idx + 1) % supported.length;
+    const next = supported[nextIdx];
+    if (!next || next === current) return;
+    try {
+      const res = await chatApi.setThinkingLevel(sessionId, next);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'set thinking level failed');
+      const effectiveLevel = data.thinkingLevel || next;
+      setKnownThinkingLevel(effectiveLevel);
+      setThinkingLabel(effectiveLevel);
+      setChatStatus('thinking: ' + effectiveLevel, 'ok');
+    } catch (err) {
+      setChatStatus(err.message || String(err), 'error');
+    }
+  }
+
   const detectedThinkingLevel = detectCurrentThinkingLevel(entries);
   if (detectedThinkingLevel) {
     setKnownThinkingLevel(detectedThinkingLevel);
     setThinkingLabel(detectedThinkingLevel);
   }
 
-  return true;
+  return {
+    open: openThinkingPopup,
+    close: closeThinkingPopup,
+    cycle: cycleThinkingLevel,
+  };
 }
