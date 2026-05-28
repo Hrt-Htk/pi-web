@@ -152,7 +152,7 @@ func RenderLiveSessionPage(session sessions.Session) string {
 		ID:       "sessionPalette",
 		Label:    "List sessions",
 		SearchID: "session-palette-search",
-		Actions:  false,
+		Actions:  true,
 	})))
 	html = replaceRequired(html, "{{SESSION_DATA}}", dataBase64)
 	html = replaceRequired(html, "{{SESSION_SCRIPT}}", `<script type="module" src="`+scriptSrc+`"></script>`)

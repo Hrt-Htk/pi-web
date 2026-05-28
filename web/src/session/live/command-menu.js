@@ -1,7 +1,6 @@
 import { isDoneNotifyEnabled } from '../chat/done-notifier.js';
 import { showModelUsageModal } from './model-usage-modal.js';
 import { showForkModal } from './fork-modal.js';
-import { setupListSessionsPalette } from './list-sessions-palette.js';
 
 function chatUrl(path, sessionId) {
   return `${path}?id=${encodeURIComponent(sessionId)}`;

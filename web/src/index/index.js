@@ -7,16 +7,9 @@ import {
   unregisterPushSubscription,
 } from '../session/chat/done-notifier.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
+import { sessionsFromCards, setupSessionListPalette } from '../shared/session-list-palette.js';
 
 export { createSessionsPage };
-
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
 
 export function runIndexPage({
   documentImpl = document,
@@ -32,11 +25,7 @@ export function runIndexPage({
 
   setupKeyboardNav({ windowImpl, documentImpl });
 
-  const searchInput = documentImpl.getElementById('search');
   const openSearchBtn = documentImpl.getElementById('open-search');
-  const paletteOverlay = documentImpl.getElementById('commandPalette');
-  const paletteResults = documentImpl.querySelector('[data-palette-results]');
-  const paletteCloseBtns = Array.from(documentImpl.querySelectorAll('[data-palette-close]'));
   const menuBtn = documentImpl.getElementById('web-menu-btn');
   const webMenu = documentImpl.getElementById('web-menu');
   const modalOverlay = documentImpl.getElementById('modalOverlay');
@@ -53,6 +42,7 @@ export function runIndexPage({
   const layoutStorageKey = 'pi-sessions:view-layout';
 
   let modalHideTimer = null;
+  let sessionPalette = null;
 
   function showModal() {
     closePalette();
@@ -104,70 +94,30 @@ export function runIndexPage({
     documentImpl.querySelector('[data-sessions-content]')?.classList.add('index-layout-ready');
   }
 
-  function visibleSessionCards() {
-    return Array.from(documentImpl.querySelectorAll('.session-card[data-session-id]:not(.hidden)'));
-  }
-
-  function updatePaletteResults() {
-    if (!paletteResults) return;
-    const cards = visibleSessionCards().slice(0, 8);
-    if (cards.length === 0) {
-      paletteResults.innerHTML = '<div class="palette-empty">No sessions found</div>';
-      return;
-    }
-    paletteResults.innerHTML = '';
-    for (const card of cards) {
-      const btn = documentImpl.createElement('button');
-      btn.type = 'button';
-      btn.className = 'palette-result';
-      const title = card.querySelector('.session-title')?.textContent?.trim() || card.dataset.sessionId || 'Session';
-      const meta = card.querySelector('[data-session-model]')?.textContent?.trim()
-        || card.querySelector('.session-time')?.textContent?.trim()
-        || '';
-      btn.innerHTML = `<span class="palette-result-title"></span><span class="palette-result-meta"></span>`;
-      btn.querySelector('.palette-result-title').textContent = title;
-      btn.querySelector('.palette-result-meta').textContent = meta;
-      btn.addEventListener('click', () => {
-        const href = card.getAttribute('href');
-        if (href) windowImpl.location.href = href;
-      });
-      paletteResults.appendChild(btn);
-    }
-  }
-
   function openPalette() {
     closeMenu();
-    if (!paletteOverlay) return;
-    paletteOverlay.classList.add('open');
-    paletteOverlay.setAttribute('aria-hidden', 'false');
-    documentImpl.body?.classList.add('pi-palette-open');
-    updatePaletteResults();
-    if (searchInput) searchInput.focus();
+    if (sessionPalette) sessionPalette.open();
   }
 
   function closePalette() {
-    if (!paletteOverlay) return;
-    paletteOverlay.classList.remove('open');
-    paletteOverlay.setAttribute('aria-hidden', 'true');
-    documentImpl.body?.classList.remove('pi-palette-open');
+    if (sessionPalette) sessionPalette.close();
   }
 
-  if (searchInput) {
-    const debouncedFilter = debounce(() => {
-      page.query = searchInput.value;
+  sessionPalette = setupSessionListPalette({
+    documentImpl,
+    windowImpl,
+    overlayId: 'commandPalette',
+    searchInputId: 'search',
+    loadSessions: () => sessionsFromCards(documentImpl),
+    onQueryChange: (query) => {
+      page.query = query;
       page.filter();
-      updatePaletteResults();
-    }, 50);
-    searchInput.addEventListener('input', debouncedFilter);
-  }
+    },
+  });
 
   if (openSearchBtn) {
     openSearchBtn.addEventListener('click', openPalette);
   }
-
-  paletteCloseBtns.forEach((btn) => {
-    btn.addEventListener('click', closePalette);
-  });
 
   layoutBtns.forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -176,15 +126,9 @@ export function runIndexPage({
       setLayoutButtonState(layout);
       await page.setLayout(layout);
       markLayoutReady();
-      updatePaletteResults();
+      sessionPalette.refresh();
     });
   });
-
-  if (paletteOverlay) {
-    paletteOverlay.addEventListener('click', (e) => {
-      if (e.target === paletteOverlay) closePalette();
-    });
-  }
 
   if (menuBtn) {
     menuBtn.addEventListener('click', (e) => {
@@ -271,6 +215,7 @@ export function runIndexPage({
       return;
     }
     if (e.key === 'Escape') {
+      const paletteOverlay = documentImpl.getElementById('commandPalette');
       if (paletteOverlay?.classList.contains('open')) closePalette();
       else if (webMenu && !webMenu.hidden) closeMenu();
       else if (page.modal) hideModal();
@@ -316,11 +261,11 @@ export function runIndexPage({
   setLayoutButtonState(initialLayout);
 
   page.filter();
-  updatePaletteResults();
+  sessionPalette.refresh();
   page.subscribe();
   if (initialLayout === 'projects') {
     page.setLayout('projects')
-      .then(updatePaletteResults)
+      .then(() => sessionPalette.refresh())
       .catch(() => {})
       .finally(markLayoutReady);
   } else {

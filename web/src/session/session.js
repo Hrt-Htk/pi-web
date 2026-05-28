@@ -32,7 +32,7 @@ import * as liveEvents from './live/live-events.js';
 import * as liveRenderer from './live/live-renderer.js';
 import { setupCommandMenu } from './live/command-menu.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
-import { setupListSessionsPalette } from './live/list-sessions-palette.js';
+import { setupSessionListPalette } from '../shared/session-list-palette.js';
 export { buildSessionLookups, createSessionDataModel, decodeBase64JSON, getSessionSearchParams, loadSessionData, readSessionPayload } from './data/session-data.js';
 export { buildActivePathIds, buildTree, buildTreeNodeMap, buildTreePrefix, findNewestLeaf, flattenTree, getPath } from './tree/session-tree.js';
 export { createTreeRenderer } from './tree/tree-renderer.js';
@@ -296,9 +296,15 @@ export function runSessionApp({ target = window } = {}) {
   });
 
   // Set up session list palette (Cmd+K / "List Sessions" menu item)
-  setupCommandMenu._palette = setupListSessionsPalette({
+  setupCommandMenu._palette = setupSessionListPalette({
     documentImpl,
     windowImpl: target,
+    overlayId: 'sessionPalette',
+    searchInputId: 'session-palette-search',
+    onNewSession: () => {
+      const newBtn = documentImpl.getElementById('new-btn');
+      if (newBtn) newBtn.click();
+    },
   });
 
   // Cmd+K keyboard shortcut for session list palette
