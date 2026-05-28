@@ -14,7 +14,8 @@
     ]
   },
   "scripts": {
-    "postinstall": "bash install.sh"
+    "postinstall": "bash install.sh",
+    "test:extensions": "vitest run --config tests/extensions/vitest.config.ts"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
@@ -27,5 +28,8 @@
     "type": "git",
     "url": "https://github.com/ygncode/pi-web"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
 }

@@ -32,7 +32,7 @@ import {
   TITLE_STOP_WORDS,
   withToken,
   readPiWebToken,
-} from './pi-web.js';
+} from '../../.pi/extensions/pi-web.ts';
 
 declare global {
   var __MOCK_PI_WEB_TOKEN__: string | null | undefined;
