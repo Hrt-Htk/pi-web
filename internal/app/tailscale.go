@@ -1,12 +1,16 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+const tailscaleTimeout = 10 * time.Second
 
 func tailscaleCLI() (string, error) {
 	if bin, err := exec.LookPath("tailscale"); err == nil {
@@ -36,7 +40,9 @@ func tailscaleSelfDNS() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(bin, "status", "--json").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bin, "status", "--json").Output()
 	if err != nil {
 		return "", fmt.Errorf("tailscale status failed: %w", err)
 	}
@@ -47,7 +53,12 @@ func tailscaleSelfDNS() (string, error) {
 		} `json:"Self"`
 	}
 	if err := json.Unmarshal(out, &status); err != nil {
-		return "", fmt.Errorf("parse tailscale status: %w", err)
+		// Include raw output in error so we can see what tailscale actually returned
+		preview := string(out)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return "", fmt.Errorf("parse tailscale status: %w (raw: %q)", err, preview)
 	}
 	if status.BackendState != "Running" {
 		return "", fmt.Errorf("tailscale not running (BackendState=%s)", status.BackendState)
@@ -92,7 +103,9 @@ func configureTailscaleServe(port string) (string, bool, error) {
 		return "", false, fmt.Errorf("tailscale HTTPS port %s is already configured for another service; not overwriting it. To replace it, run: tailscale serve --bg --https=%s %s", port, port, target)
 	}
 
-	cmd := exec.Command(bin, "serve", "--bg", "--https="+port, target)
+	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "serve", "--bg", "--https="+port, target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -102,7 +115,9 @@ func configureTailscaleServe(port string) (string, bool, error) {
 }
 
 func tailscaleServeRuleState(bin, port, target string) (serveRuleState, error) {
-	out, err := exec.Command(bin, "serve", "status", "--json").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bin, "serve", "status", "--json").Output()
 	if err != nil {
 		return serveRuleMissing, fmt.Errorf("tailscale serve status failed: %w", err)
 	}

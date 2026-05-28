@@ -109,11 +109,24 @@ func Main(version string) {
 	var tailscaleURL string
 	var tailscaleServe bool
 	if *hostOverride == "" {
-		if tsURL, ok, err := configureTailscaleServe(*port); err == nil && ok {
-			tailscaleURL = tsURL
-			tailscaleServe = true
-		} else if err != nil {
-			fmt.Fprintf(os.Stderr, "Tailscale Serve unavailable: %v\n", err)
+		tsDone := make(chan struct{})
+		var tsURL string
+		var tsOk bool
+		var tsErr error
+		go func() {
+			tsURL, tsOk, tsErr = configureTailscaleServe(*port)
+			close(tsDone)
+		}()
+		select {
+		case <-tsDone:
+			if tsErr == nil && tsOk {
+				tailscaleURL = tsURL
+				tailscaleServe = true
+			} else if tsErr != nil {
+				fmt.Fprintf(os.Stderr, "Tailscale Serve unavailable: %v\n", tsErr)
+			}
+		case <-time.After(12 * time.Second):
+			fmt.Fprintf(os.Stderr, "Tailscale Serve timed out after 12s; continuing without it\n")
 		}
 	}
 	fmt.Printf("Pi Sessions Viewer -> %s\n", url)

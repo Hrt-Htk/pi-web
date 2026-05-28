@@ -108,12 +108,33 @@ export function isTailscaleHost(host: string): boolean {
   return ip.toLowerCase().startsWith("fd7a:115c:a1e0");
 }
 
+function tailscaleBin(): string {
+  // DMG install path (not in default PATH)
+  const dmg = "/Applications/Tailscale.app/Contents/MacOS/Tailscale";
+  try {
+    accessSync(dmg, fsConstants.X_OK);
+    return dmg;
+  } catch {
+    // fall through
+  }
+  // Homebrew / system paths
+  for (const p of ["/opt/homebrew/bin/tailscale", "/usr/local/bin/tailscale", "/usr/bin/tailscale"]) {
+    try {
+      accessSync(p, fsConstants.X_OK);
+      return p;
+    } catch {
+      // continue
+    }
+  }
+  return "tailscale"; // fall back to PATH lookup
+}
+
 async function detectTailscaleHttpsUrl(
   pi: ExtensionAPI,
   port: string,
 ): Promise<string | null> {
   try {
-    const result = await pi.exec("tailscale", ["status", "--json"]);
+    const result = await pi.exec(tailscaleBin(), ["status", "--json"]);
     const status = JSON.parse(result.stdout);
     if (status.BackendState && status.BackendState !== "Running") return null;
     const dnsName = String(status.Self?.DNSName || "").replace(/\.$/, "");
