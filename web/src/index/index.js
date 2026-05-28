@@ -7,7 +7,7 @@ import {
   unregisterPushSubscription,
 } from '../session/chat/done-notifier.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
-import { sessionsFromCards, setupSessionListPalette } from '../shared/session-list-palette.js';
+import { setupSessionListPalette } from '../shared/session-list-palette.js';
 
 export { createSessionsPage };
 
@@ -108,7 +108,6 @@ export function runIndexPage({
     windowImpl,
     overlayId: 'commandPalette',
     searchInputId: 'search',
-    loadSessions: () => sessionsFromCards(documentImpl),
     onQueryChange: (query) => {
       page.query = query;
       page.filter();
