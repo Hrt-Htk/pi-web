@@ -147,8 +147,10 @@ export function setupSessionListPalette({
   }
 
   let allSessions = [];
+  let visibleSessions = [];
+  let selectedIndex = -1;
   let open = false;
-  let escapeHandler = null;
+  let keydownHandler = null;
   let overlayClickHandler = null;
   let loadGeneration = 0;
 
@@ -156,9 +158,22 @@ export function setupSessionListPalette({
     return searchInput ? searchInput.value : '';
   }
 
+  function applySelection() {
+    const buttons = resultsEl.querySelectorAll('.palette-result');
+    buttons.forEach((btn, i) => {
+      if (i === selectedIndex) {
+        btn.classList.add('palette-result--selected');
+        btn.scrollIntoView({ block: 'nearest' });
+      } else {
+        btn.classList.remove('palette-result--selected');
+      }
+    });
+  }
+
   function renderFiltered() {
-    const filtered = filterSessions(allSessions, query());
-    renderResults(resultsEl, filtered, documentImpl, navigate, limit);
+    visibleSessions = filterSessions(allSessions, query());
+    selectedIndex = -1;
+    renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
   }
 
   async function reloadSessions() {
@@ -184,9 +199,10 @@ export function setupSessionListPalette({
 
     if (clearOnClose && searchInput) searchInput.value = '';
 
-    if (escapeHandler) {
-      windowImpl.removeEventListener('keydown', escapeHandler);
-      escapeHandler = null;
+    selectedIndex = -1;
+    if (keydownHandler) {
+      windowImpl.removeEventListener('keydown', keydownHandler);
+      keydownHandler = null;
     }
     if (overlayClickHandler) {
       overlay.removeEventListener('click', overlayClickHandler);
@@ -203,10 +219,56 @@ export function setupSessionListPalette({
     overlay.setAttribute('aria-hidden', 'false');
     documentImpl.body?.classList.add('pi-palette-open');
 
-    escapeHandler = (e) => {
-      if (e.key === 'Escape') close();
+    keydownHandler = (e) => {
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const lastRendered = Math.min(visibleSessions.length, limit) - 1;
+        if (selectedIndex < lastRendered) {
+          selectedIndex++;
+        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+          selectedIndex = 0;
+        }
+        applySelection();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const lastRendered = Math.min(visibleSessions.length, limit) - 1;
+        if (selectedIndex > 0) {
+          selectedIndex--;
+        } else if (selectedIndex === 0) {
+          selectedIndex = -1;
+          searchInput.focus();
+        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+          selectedIndex = lastRendered;
+        }
+        applySelection();
+        return;
+      }
+      if (e.key === 'Enter') {
+        if (selectedIndex >= 0 && selectedIndex < visibleSessions.length) {
+          e.preventDefault();
+          const session = visibleSessions[selectedIndex];
+          if (session.href) {
+            close();
+            navigate(session.href);
+          }
+        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+          e.preventDefault();
+          const session = visibleSessions[0];
+          if (session.href) {
+            close();
+            navigate(session.href);
+          }
+        }
+        return;
+      }
     };
-    windowImpl.addEventListener('keydown', escapeHandler);
+    windowImpl.addEventListener('keydown', keydownHandler);
 
     overlayClickHandler = (e) => {
       if (e.target === overlay) close();
