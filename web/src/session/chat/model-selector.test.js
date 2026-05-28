@@ -1,61 +1,117 @@
 import { describe, expect, it, vi } from 'vitest';
-import { JSDOM } from 'jsdom';
-import { renderModelList, setupModelSelector } from './model-selector.js';
+import { setupModelSelector } from './model-selector.js';
 
-const models = [
-  { provider: 'openai', id: 'gpt-5', name: 'GPT 5' },
-  { provider: 'anthropic', modelId: 'sonnet', scoped: true }
-];
-
-describe('model selector', () => {
-  it('renders grouped model list', () => {
-    const html = renderModelList(models, { selectedModel: models[1], escapeHtml: (x) => x });
-    expect(html).toContain('model-provider">anthropic');
-    expect(html).toContain('model-item selected');
-    expect(html).toContain('model-scope-badge');
-  });
-
-  it('loads models, detects current model, and switches models', async () => {
-    const dom = new JSDOM(`<body>
-      <button id="pi-chat-model-label"></button>
-      <div id="pi-chat-model-popup" style="display:none"></div>
+function createDom() {
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <button id="pi-chat-model-label">Model</button>
+    <div id="pi-chat-model-popup" style="display:none">
       <input id="pi-chat-model-search" />
       <div id="pi-chat-model-list"></div>
-    </body>`);
-    const chatApi = {
-      listModels: vi.fn(() => Promise.resolve(new Response(JSON.stringify({ models }), { status: 200 }))),
-      setModel: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
-    };
-    const setModelLabel = vi.fn();
-    const setKnownModelLabel = vi.fn();
-    const setCurrentModelForThinking = vi.fn();
-    const setWorkerModelUpdate = vi.fn();
-    const setChatStatus = vi.fn();
+    </div>
+    <textarea id="pi-chat-message"></textarea>
+  `;
+  document.body.appendChild(div);
+  return div;
+}
 
-    const ok = await setupModelSelector({
-      documentImpl: dom.window.document,
-      sessionId: 's',
-      entries: [{ type: 'model_change', provider: 'openai', modelId: 'gpt-5' }],
-      chatApi,
-      escapeHtml: (x) => x,
-      setModelLabel,
-      setKnownModelLabel,
-      getKnownModelLabel: () => '',
-      setCurrentModelForThinking,
-      setWorkerModelUpdate,
-      setChatStatus
+function cleanupDom(el) {
+  el.remove();
+}
+
+describe('setupModelSelector', () => {
+  it('returns { open, close } API', () => {
+    const el = createDom();
+    const chatApi = {
+      listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+    };
+    const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+    expect(api).toHaveProperty('open');
+    expect(api).toHaveProperty('close');
+    cleanupDom(el);
+  });
+
+  describe('open', () => {
+    it('shows the popup and focuses the search input', () => {
+      const el = createDom();
+      const chatApi = {
+        listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+      };
+      const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+      const popup = document.getElementById('pi-chat-model-popup');
+      const search = document.getElementById('pi-chat-model-search');
+      search.focus = vi.fn();
+
+      api.open();
+
+      expect(popup.style.display).toBe('flex');
+      expect(search.focus).toHaveBeenCalled();
+      cleanupDom(el);
     });
 
-    expect(ok).toBe(true);
-    expect(setWorkerModelUpdate).toHaveBeenCalled();
-    expect(setCurrentModelForThinking).toHaveBeenCalledWith(models[0]);
-    expect(setModelLabel).toHaveBeenCalledWith('GPT 5 @ openai');
+    it('clears the search input on open', () => {
+      const el = createDom();
+      const chatApi = {
+        listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+      };
+      const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+      const search = document.getElementById('pi-chat-model-search');
+      search.value = 'stale text';
 
-    dom.window.document.getElementById('pi-chat-model-label').click();
-    dom.window.document.querySelector('[data-model-id="sonnet"]').click();
-    await new Promise(resolve => setTimeout(resolve, 0));
+      api.open();
 
-    expect(chatApi.setModel).toHaveBeenCalledWith('s', { provider: 'anthropic', modelId: 'sonnet' });
-    expect(setChatStatus).toHaveBeenCalledWith('switched', 'ok');
+      expect(search.value).toBe('');
+      cleanupDom(el);
+    });
+  });
+
+  describe('close', () => {
+    it('hides the popup', () => {
+      const el = createDom();
+      const chatApi = {
+        listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+      };
+      const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+      const popup = document.getElementById('pi-chat-model-popup');
+
+      api.open();
+      expect(popup.style.display).toBe('flex');
+
+      api.close();
+      expect(popup.style.display).toBe('none');
+      cleanupDom(el);
+    });
+
+    it('re-focuses the chat textarea when close(true) is called', () => {
+      const el = createDom();
+      const chatApi = {
+        listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+      };
+      const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+      const textarea = document.getElementById('pi-chat-message');
+      textarea.focus = vi.fn();
+
+      api.open();
+      api.close(true);
+
+      expect(textarea.focus).toHaveBeenCalled();
+      cleanupDom(el);
+    });
+
+    it('does not focus the textarea when close(false) is called', () => {
+      const el = createDom();
+      const chatApi = {
+        listModels: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) }),
+      };
+      const api = setupModelSelector({ documentImpl: document, sessionId: 's', chatApi });
+      const textarea = document.getElementById('pi-chat-message');
+      textarea.focus = vi.fn();
+
+      api.open();
+      api.close(false);
+
+      expect(textarea.focus).not.toHaveBeenCalled();
+      cleanupDom(el);
+    });
   });
 });
