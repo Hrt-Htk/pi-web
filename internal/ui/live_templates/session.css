@@ -455,7 +455,7 @@
       font-size: 9px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: var(--dim);
+      color: var(--muted);
       border-top: 1px solid var(--border);
       margin-top: 4px;
     }
@@ -502,7 +502,7 @@
     .model-empty {
       padding: 12px;
       font-size: 11px;
-      color: var(--dim);
+      color: var(--muted);
       text-align: center;
     }
 
@@ -610,7 +610,7 @@
     }
 
     .info-item {
-      color: var(--dim);
+      color: var(--muted);
       display: flex;
       align-items: baseline;
     }
@@ -636,8 +636,8 @@
 
     .message-timestamp {
       font-size: 10px;
-      color: var(--dim);
-      opacity: 0.8;
+      color: var(--muted);
+      opacity: 1;
     }
 
     .user-message {
@@ -818,7 +818,7 @@
     }
 
     .line-count {
-      color: var(--dim);
+      color: var(--muted);
     }
 
     .tool-command {
@@ -1039,7 +1039,7 @@
     /* Model change */
     .model-change {
       padding: 0 var(--line-height);
-      color: var(--dim);
+      color: var(--muted);
       font-size: 11px;
     }
 
@@ -1164,7 +1164,7 @@
     }
 
     .tool-item-desc {
-      color: var(--dim);
+      color: var(--muted);
     }
 
     .tool-params-hint {
@@ -1207,7 +1207,7 @@
     }
 
     .tool-param-type {
-      color: var(--dim);
+      color: var(--muted);
       font-style: italic;
     }
 
@@ -1217,12 +1217,12 @@
     }
 
     .tool-param-optional {
-      color: var(--dim);
+      color: var(--muted);
       font-size: 10px;
     }
 
     .tool-param-desc {
-      color: var(--dim);
+      color: var(--muted);
       margin-left: 8px;
     }
 
@@ -1395,7 +1395,7 @@
       margin-top: 48px;
       padding: 20px;
       text-align: center;
-      color: var(--dim);
+      color: var(--muted);
       font-size: 10px;
     }
 
@@ -1872,7 +1872,7 @@
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: var(--dim);
+      color: var(--muted);
       font-size: 11px;
       white-space: nowrap;
     }
@@ -1882,7 +1882,7 @@
     .pi-chat-model-label {
       background: none;
       border: none;
-      color: var(--dim);
+      color: var(--muted);
       font-size: 11px;
       font-family: inherit;
       cursor: pointer;
