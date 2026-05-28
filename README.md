@@ -46,9 +46,9 @@ Drive your [pi](https://pi.dev) coding agent from any browser on your network �
 pi install npm:@ygncode/pi-web
 ```
 
-That's it — it downloads the binary, sets up auto‑start, and registers the `/remote`, `/refresh`, and `set_tab_title` commands.
+That's it — it downloads the binary, sets up auto‑start, and registers the `/web`, `/remote`, `/refresh`, and `set_tab_title` commands.
 
-Once installed, open `http://127.0.0.1:31415` in your browser. If Tailscale is running on your machine, pi-web automatically publishes an HTTPS endpoint on your tailnet — use `/remote` from pi to get a QR code and URL for any device on your tailnet.
+Once installed, open `http://127.0.0.1:31415` in your browser. From pi, use `/web` to open the current session in your browser instantly. If Tailscale is running on your machine, pi-web automatically publishes an HTTPS endpoint on your tailnet — use `/remote` from pi to get a QR code and URL for any device on your tailnet.
 
 For manual installs, binary downloads, or building from source, see [docs/install.md](docs/install.md).
 
@@ -58,6 +58,7 @@ After `pi install npm:@ygncode/pi-web`, you get:
 
 | Command | What it does |
 |---------|--------------|
+| `/web` | Open the current session in your browser (SSH-aware: skips browser and shows URL only) |
 | `/pi-web` | Show status, version, start/stop/restart the server, or update |
 | `/remote` | Show a QR code and URL for remote access over Tailscale |
 | `/refresh` | Pull new messages written from remote browsers back into the terminal session |

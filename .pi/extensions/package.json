@@ -4,5 +4,11 @@
   "dependencies": {
     "qrcode": "^1.5.4",
     "typebox": "^1.1.38"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  },
+  "scripts": {
+    "test": "vitest run"
   }
 }

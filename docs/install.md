@@ -19,7 +19,7 @@
 - Deep links to individual messages
 - Download a session as JSONL
 - Share static snapshots as secret GitHub Gists
-- `/remote`, `/refresh` pi extensions for remote QR and session sync
+- `/web`, `/remote`, `/refresh` pi extensions for opening sessions, remote QR, and session sync
 
 ## Requirements
 
@@ -41,7 +41,7 @@ This single command:
 - Downloads the correct pi-web binary for your platform from GitHub Releases
 - Installs it to `~/.pi/agent/bin/pi-web`
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
-- Registers the `/remote`, `/refresh` pi commands
+- Registers the `/web`, `/remote`, `/refresh` pi commands
 - Registers `set_tab_title`, which updates the Pi/pi-web session title and auto-derives a short title from each user message
 
 On Linux, auto-start is configured as a user systemd service at `~/.config/systemd/user/pi-web.service`. The installer rewrites its `ExecStart` to the actual installed binary path. If Tailscale is available at runtime, pi-web publishes the localhost server with Tailscale Serve HTTPS. If user systemd is unavailable, run it manually with `~/.pi/agent/bin/pi-web -o`.
@@ -52,7 +52,7 @@ To install only for a specific project (shared with your team via `.pi/settings.
 pi install -l npm:@ygncode/pi-web
 ```
 
-Then restart pi (or run `/reload`), and use `/pi-web`, `/remote`, `/refresh`.
+Then restart pi (or run `/reload`), and use `/web`, `/pi-web`, `/remote`, `/refresh`.
 
 ### Quick install (no build tools needed)
 

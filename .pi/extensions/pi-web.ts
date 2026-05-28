@@ -99,7 +99,7 @@ async function detectHostPort(
   return { host: "127.0.0.1", port: "31415", tailscale: false };
 }
 
-function isTailscaleHost(host: string): boolean {
+export function isTailscaleHost(host: string): boolean {
   const ip = host.split(":")[0];
   const parts = ip.split(".").map(Number);
   if (parts.length === 4) {
@@ -124,7 +124,7 @@ async function detectTailscaleHttpsUrl(
   }
 }
 
-function isSSH(): boolean {
+export function isSSH(): boolean {
   return !!(
     process.env["SSH_TTY"] ||
     process.env["SSH_CONNECTION"] ||
@@ -132,7 +132,7 @@ function isSSH(): boolean {
   );
 }
 
-function openBrowser(pi: ExtensionAPI, url: string): Promise<void> {
+export function openBrowser(pi: ExtensionAPI, url: string): Promise<void> {
   let cmd: string;
   let args: string[];
   switch (process.platform) {
@@ -242,7 +242,7 @@ async function ensurePiWebRunning(
   return false;
 }
 
-function readPiWebToken(): string | null {
+export function readPiWebToken(): string | null {
   try {
     const raw = readFileSync(`${homedir()}/.config/pi-web/env`, "utf-8");
     const match = raw.match(/^PI_WEB_TOKEN=(.*)$/m);
@@ -252,23 +252,23 @@ function readPiWebToken(): string | null {
   }
 }
 
-function withToken(url: string): string {
+export function withToken(url: string): string {
   const token = readPiWebToken();
   if (!token) return url;
   const separator = url.includes("?") ? "&" : "?";
   return `${url}${separator}token=${encodeURIComponent(token)}`;
 }
 
-function normalizeCommandArgs(args: unknown): string[] {
+export function normalizeCommandArgs(args: unknown): string[] {
   if (Array.isArray(args)) return args.map(String);
   if (typeof args === "string")
     return args.trim() ? args.trim().split(/\s+/) : [];
   return [];
 }
 
-const TITLE_WORD_LIMIT = 5;
+export const TITLE_WORD_LIMIT = 5;
 
-const TITLE_STOP_WORDS = new Set([
+export const TITLE_STOP_WORDS = new Set([
   "a",
   "an",
   "and",
@@ -304,7 +304,7 @@ const TITLE_STOP_WORDS = new Set([
   "you",
 ]);
 
-function titleCaseWord(word: string): string {
+export function titleCaseWord(word: string): string {
   const lower = word.toLowerCase();
   if (lower === "pi") return "Pi";
   if (lower === "pi-web") return "Pi-Web";
@@ -320,7 +320,7 @@ function titleCaseWord(word: string): string {
     .join("-");
 }
 
-function deriveTitleFromInput(text: string): string | null {
+export function deriveTitleFromInput(text: string): string | null {
   const normalized = text
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]*)`/g, " $1 ")
@@ -804,8 +804,8 @@ export default function (pi: ExtensionAPI) {
 
       if (subcommand === "start") {
         if (running) {
-          const lines = [`pi-web already running at http://${host}:${port}`];
-          if (tailscaleUrl) lines.push(`remote: ${tailscaleUrl}`);
+          const lines = [`pi-web already running at ${withToken(`http://${host}:${port}`)}`];
+          if (tailscaleUrl) lines.push(`remote: ${withToken(tailscaleUrl)}`);
           ctx.ui.notify(lines.join("\n"), "info");
           return;
         }
@@ -822,10 +822,10 @@ export default function (pi: ExtensionAPI) {
           const remoteURL = await detectTailscaleHttpsUrl(pi, port);
           const lines = [
             started
-              ? `Started pi-web at http://${host}:${port}`
+              ? `Started pi-web at ${withToken(`http://${host}:${port}`)}`
               : "Started pi-web; still waiting for health check.",
           ];
-          if (remoteURL) lines.push(`remote: ${remoteURL}`);
+          if (remoteURL) lines.push(`remote: ${withToken(remoteURL)}`);
           ctx.ui.notify(lines.join("\n"), started ? "success" : "warning");
         } catch (err) {
           ctx.ui.notify(`Failed to start pi-web: ${err}`, "error");
@@ -857,10 +857,10 @@ export default function (pi: ExtensionAPI) {
           const remoteURL = await detectTailscaleHttpsUrl(pi, port);
           const lines = [
             restarted
-              ? `Restarted pi-web at http://${host}:${port}`
+              ? `Restarted pi-web at ${withToken(`http://${host}:${port}`)}`
               : "Restarted pi-web; still waiting for health check.",
           ];
-          if (remoteURL) lines.push(`remote: ${remoteURL}`);
+          if (remoteURL) lines.push(`remote: ${withToken(remoteURL)}`);
           ctx.ui.notify(lines.join("\n"), restarted ? "success" : "warning");
         } catch (err) {
           ctx.ui.notify(`Failed to restart pi-web: ${err}`, "error");
@@ -905,11 +905,11 @@ export default function (pi: ExtensionAPI) {
       const lines = [
         `binary: ${bin || "not found (~/.pi/agent/bin/pi-web, /usr/local/bin/pi-web)"}`,
         `status: ${running ? "running" : "not responding"}`,
-        `local: http://${host}:${port}`,
+        `local: ${withToken(`http://${host}:${port}`)}`,
       ];
-      if (tailscaleUrl) lines.push(`remote: ${tailscaleUrl}`);
+      if (tailscaleUrl) lines.push(`remote: ${withToken(tailscaleUrl)}`);
       if (detected?.tailscaleUrl && detected.tailscaleUrl !== tailscaleUrl)
-        lines.push(`state remote: ${detected.tailscaleUrl}`);
+        lines.push(`state remote: ${withToken(detected.tailscaleUrl)}`);
       ctx.ui.notify(lines.join("\n"), running ? "info" : "warning");
     },
   });
