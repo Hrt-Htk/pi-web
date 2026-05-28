@@ -93,6 +93,13 @@
       user-select: none;
     }
 
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--dim); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    * { scrollbar-color: var(--dim) transparent; scrollbar-width: thin; }
+
     #app {
       display: flex;
       min-height: 100vh;
