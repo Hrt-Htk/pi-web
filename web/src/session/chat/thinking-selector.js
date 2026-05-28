@@ -29,6 +29,8 @@ export function setupThinkingLevelSelector({
   const thinkingList = documentImpl.getElementById('pi-chat-thinking-list');
   if (!thinkingLabelBtn || !thinkingPopup || !thinkingList) return false;
 
+  let cycleGeneration = 0;
+
   function renderThinkingList(selectedLevel) {
     thinkingList.innerHTML = renderThinkingLevelList({ selectedLevel, currentModel: getCurrentModel() });
   }
@@ -90,11 +92,14 @@ export function setupThinkingLevelSelector({
     const nextIdx = (idx + 1) % supported.length;
     const next = supported[nextIdx];
     if (!next || next === current) return;
+    // Serialize cycle requests so out-of-order responses don't corrupt UI state.
+    const gen = ++cycleGeneration;
     // Optimistically update local state so rapid Shift+Tab presses cycle through levels
     setKnownThinkingLevel(next);
     setThinkingLabel(next);
     try {
       const res = await chatApi.setThinkingLevel(sessionId, next);
+      if (gen !== cycleGeneration) return; // stale — a newer cycle has started
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'set thinking level failed');
       const effectiveLevel = data.thinkingLevel || next;
@@ -102,6 +107,7 @@ export function setupThinkingLevelSelector({
       setThinkingLabel(effectiveLevel);
       setChatStatus('thinking: ' + effectiveLevel, 'ok');
     } catch (err) {
+      if (gen !== cycleGeneration) return; // stale — a newer cycle has started
       // Revert on failure
       setKnownThinkingLevel(current);
       setThinkingLabel(current);

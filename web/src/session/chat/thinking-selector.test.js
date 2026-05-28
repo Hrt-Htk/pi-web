@@ -207,5 +207,55 @@ describe('setupThinkingLevelSelector', () => {
       expect(setChatStatus).toHaveBeenCalledWith('server error', 'error');
       cleanupDom(el);
     });
+
+    it('ignores stale responses when rapid cycling outpaces the API', async () => {
+      const el = createDom();
+      let resolveFirst;
+      const firstDeferred = new Promise((r) => { resolveFirst = r; });
+
+      const chatApi = {
+        setThinkingLevel: vi.fn()
+          .mockImplementationOnce(() => firstDeferred.then(() => ({
+            ok: true,
+            json: () => Promise.resolve({ thinkingLevel: 'minimal' }),
+          })))
+          .mockImplementationOnce(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ thinkingLevel: 'low' }),
+          })),
+      };
+
+      const setKnownThinkingLevel = vi.fn();
+      const setThinkingLabel = vi.fn();
+      const setChatStatus = vi.fn();
+
+      const api = setupThinkingLevelSelector({
+        documentImpl: document,
+        sessionId: 's',
+        chatApi,
+        getKnownThinkingLevel: () => 'off',
+        setKnownThinkingLevel,
+        setThinkingLabel,
+        setChatStatus,
+      });
+
+      // Fire two cycles rapidly — only await the second
+      const firstCycle = api.cycle();
+      await api.cycle();
+
+      // Second cycle's response should be the last applied
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('low');
+      expect(setThinkingLabel).toHaveBeenCalledWith('low');
+
+      // Now let the stale first response land
+      resolveFirst();
+      await firstCycle;
+
+      // The stale response must not have overwritten the final state
+      const lastCall = setKnownThinkingLevel.mock.calls[setKnownThinkingLevel.mock.calls.length - 1][0];
+      expect(lastCall).toBe('low');
+
+      cleanupDom(el);
+    });
   });
 });

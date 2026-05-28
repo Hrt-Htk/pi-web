@@ -228,7 +228,7 @@ export function setupSessionListPalette({
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        // Recompute in case debounced filter hasn't flushed yet
+        // Recompute and re-render synchronously so the DOM matches before we highlight
         const fresh = filterSessions(allSessions, query());
         const lastRendered = Math.min(fresh.length, limit) - 1;
         if (selectedIndex < lastRendered) {
@@ -236,7 +236,10 @@ export function setupSessionListPalette({
         } else if (selectedIndex === -1 && fresh.length > 0) {
           selectedIndex = 0;
         }
+        // Clamp if results shrank (e.g. debounced filter flushed fewer rows)
+        if (selectedIndex > lastRendered) selectedIndex = lastRendered;
         visibleSessions = fresh;
+        renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
         applySelection();
         return;
       }
@@ -252,13 +255,18 @@ export function setupSessionListPalette({
         } else if (selectedIndex === -1 && fresh.length > 0) {
           selectedIndex = lastRendered;
         }
+        // Clamp if results shrank
+        if (selectedIndex > lastRendered && selectedIndex !== -1) selectedIndex = lastRendered;
         visibleSessions = fresh;
+        renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
         applySelection();
         return;
       }
       if (e.key === 'Enter') {
         // Recompute from current query synchronously so we never navigate to a stale result
         const fresh = filterSessions(allSessions, query());
+        // Clamp selection — debounced render may have changed result count
+        if (selectedIndex >= fresh.length) selectedIndex = fresh.length > 0 ? 0 : -1;
         if (selectedIndex >= 0 && selectedIndex < fresh.length) {
           e.preventDefault();
           const session = fresh[selectedIndex];
