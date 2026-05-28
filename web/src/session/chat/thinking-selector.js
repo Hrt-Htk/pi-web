@@ -90,6 +90,9 @@ export function setupThinkingLevelSelector({
     const nextIdx = (idx + 1) % supported.length;
     const next = supported[nextIdx];
     if (!next || next === current) return;
+    // Optimistically update local state so rapid Shift+Tab presses cycle through levels
+    setKnownThinkingLevel(next);
+    setThinkingLabel(next);
     try {
       const res = await chatApi.setThinkingLevel(sessionId, next);
       const data = await res.json();
@@ -99,6 +102,9 @@ export function setupThinkingLevelSelector({
       setThinkingLabel(effectiveLevel);
       setChatStatus('thinking: ' + effectiveLevel, 'ok');
     } catch (err) {
+      // Revert on failure
+      setKnownThinkingLevel(current);
+      setThinkingLabel(current);
       setChatStatus(err.message || String(err), 'error');
     }
   }

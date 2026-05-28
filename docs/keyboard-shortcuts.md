@@ -19,6 +19,7 @@ Same vim-style shortcuts work on all pages when focus is **not** in an input, te
 | Shortcut | Context | Action |
 |----------|---------|--------|
 | `⌘K` / `Ctrl+K` | Page-level | Open search/sessions palette |
+| `⌘⇧L` / `Ctrl+Shift+L` | Page-level | Toggle system theme (light/dark) |
 | `Escape` | Page-level | Close palette, menu, or modal |
 | `Enter` | New-session path input | Create new session |
 
@@ -46,6 +47,7 @@ These work on both index and session pages when focus is **not** in an input, te
 | `⌘B` / `Ctrl+B` | Page-level | Toggle sidebar visibility |
 | `⌘K` / `Ctrl+K` | Page-level | Open session list palette |
 | `⌘T` / `Ctrl+T` | Page-level | New session |
+| `⌘⇧L` / `Ctrl+Shift+L` | Page-level | Toggle system theme (light/dark) |
 
 > `⌘K` and `⌘T` are also browser shortcuts (focus address bar / new tab). The browser may intercept them unless focus is inside a text input.
 
@@ -71,6 +73,9 @@ These work on both index and session pages when focus is **not** in an input, te
 | Shortcut | Context | Action |
 |----------|---------|--------|
 | `Escape` | Page-level | Close any open palette, menu, or sheet |
+| `⌘K` / `Ctrl+K` | Page-level | Open session list palette |
+| `ArrowUp` / `ArrowDown` | Session list palette | Navigate session results |
+| `Enter` | Session list palette | Open the selected (or first) session |
 | `ArrowUp` / `ArrowDown` | Model selector popup | Navigate model list |
 | `Enter` | Model selector popup | Select highlighted model |
 | `ArrowUp` / `ArrowDown` | Fork modal | Navigate messages |

@@ -186,6 +186,8 @@ export function setupSessionListPalette({
       renderFiltered();
     } catch {
       if (generation !== loadGeneration) return;
+      allSessions = [];
+      visibleSessions = [];
       resultsEl.innerHTML = '<div class="palette-empty">Failed to load sessions</div>';
     }
   }
@@ -226,40 +228,47 @@ export function setupSessionListPalette({
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const lastRendered = Math.min(visibleSessions.length, limit) - 1;
+        // Recompute in case debounced filter hasn't flushed yet
+        const fresh = filterSessions(allSessions, query());
+        const lastRendered = Math.min(fresh.length, limit) - 1;
         if (selectedIndex < lastRendered) {
           selectedIndex++;
-        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+        } else if (selectedIndex === -1 && fresh.length > 0) {
           selectedIndex = 0;
         }
+        visibleSessions = fresh;
         applySelection();
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        const lastRendered = Math.min(visibleSessions.length, limit) - 1;
+        const fresh = filterSessions(allSessions, query());
+        const lastRendered = Math.min(fresh.length, limit) - 1;
         if (selectedIndex > 0) {
           selectedIndex--;
         } else if (selectedIndex === 0) {
           selectedIndex = -1;
           searchInput.focus();
-        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+        } else if (selectedIndex === -1 && fresh.length > 0) {
           selectedIndex = lastRendered;
         }
+        visibleSessions = fresh;
         applySelection();
         return;
       }
       if (e.key === 'Enter') {
-        if (selectedIndex >= 0 && selectedIndex < visibleSessions.length) {
+        // Recompute from current query synchronously so we never navigate to a stale result
+        const fresh = filterSessions(allSessions, query());
+        if (selectedIndex >= 0 && selectedIndex < fresh.length) {
           e.preventDefault();
-          const session = visibleSessions[selectedIndex];
+          const session = fresh[selectedIndex];
           if (session.href) {
             close();
             navigate(session.href);
           }
-        } else if (selectedIndex === -1 && visibleSessions.length > 0) {
+        } else if (selectedIndex === -1 && fresh.length > 0) {
           e.preventDefault();
-          const session = visibleSessions[0];
+          const session = fresh[0];
           if (session.href) {
             close();
             navigate(session.href);

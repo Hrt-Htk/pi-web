@@ -176,7 +176,7 @@ describe('setupThinkingLevelSelector', () => {
       cleanupDom(el);
     });
 
-    it('reports errors via setChatStatus', async () => {
+    it('reports errors and reverts labels on failure', async () => {
       const el = createDom();
       const chatApi = {
         setThinkingLevel: vi.fn().mockResolvedValue({
@@ -185,18 +185,25 @@ describe('setupThinkingLevelSelector', () => {
         }),
       };
       const setChatStatus = vi.fn();
+      const setKnownThinkingLevel = vi.fn();
+      const setThinkingLabel = vi.fn();
 
       const api = setupThinkingLevelSelector({
         documentImpl: document,
         sessionId: 's',
         chatApi,
         getKnownThinkingLevel: () => 'off',
-        setKnownThinkingLevel: vi.fn(),
-        setThinkingLabel: vi.fn(),
+        setKnownThinkingLevel,
+        setThinkingLabel,
         setChatStatus,
       });
 
       await api.cycle();
+      // Optimistic call with 'minimal' before API
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('minimal');
+      // Revert to original after failure
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('off');
+      expect(setThinkingLabel).toHaveBeenCalledWith('off');
       expect(setChatStatus).toHaveBeenCalledWith('server error', 'error');
       cleanupDom(el);
     });
