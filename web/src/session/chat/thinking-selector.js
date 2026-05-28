@@ -31,6 +31,8 @@ export function setupThinkingLevelSelector({
 
   let cycleGeneration = 0;
   let cycleQueue = Promise.resolve();
+  let queuedCycles = 0;
+  let confirmedThinkingLevel = getKnownThinkingLevel() || '';
 
   function renderThinkingList(selectedLevel) {
     thinkingList.innerHTML = renderThinkingLevelList({ selectedLevel, currentModel: getCurrentModel() });
@@ -71,6 +73,7 @@ export function setupThinkingLevelSelector({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'set thinking level failed');
       const effectiveLevel = data.thinkingLevel || level;
+      confirmedThinkingLevel = effectiveLevel;
       setKnownThinkingLevel(effectiveLevel);
       setThinkingLabel(effectiveLevel);
       setChatStatus('thinking: ' + effectiveLevel, 'ok');
@@ -94,6 +97,8 @@ export function setupThinkingLevelSelector({
     const next = supported[nextIdx];
     if (!next || next === current) return;
 
+    if (queuedCycles === 0) confirmedThinkingLevel = current;
+    queuedCycles++;
     const gen = ++cycleGeneration;
     // Optimistically update local state so rapid Shift+Tab presses cycle through levels.
     setKnownThinkingLevel(next);
@@ -104,17 +109,20 @@ export function setupThinkingLevelSelector({
         const res = await chatApi.setThinkingLevel(sessionId, next);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'set thinking level failed');
-        if (gen !== cycleGeneration) return; // stale — a newer cycle has started
         const effectiveLevel = data.thinkingLevel || next;
+        confirmedThinkingLevel = effectiveLevel;
+        if (gen !== cycleGeneration) return; // stale — a newer cycle has started
         setKnownThinkingLevel(effectiveLevel);
         setThinkingLabel(effectiveLevel);
         setChatStatus('thinking: ' + effectiveLevel, 'ok');
       } catch (err) {
         if (gen !== cycleGeneration) return; // stale — a newer cycle has started
-        // Revert on failure.
-        setKnownThinkingLevel(current);
-        setThinkingLabel(current);
+        // Revert to the last level confirmed by the backend, not an optimistic value.
+        setKnownThinkingLevel(confirmedThinkingLevel);
+        setThinkingLabel(confirmedThinkingLevel);
         setChatStatus(err.message || String(err), 'error');
+      } finally {
+        queuedCycles = Math.max(0, queuedCycles - 1);
       }
     };
 
@@ -125,6 +133,7 @@ export function setupThinkingLevelSelector({
 
   const detectedThinkingLevel = detectCurrentThinkingLevel(entries);
   if (detectedThinkingLevel) {
+    confirmedThinkingLevel = detectedThinkingLevel;
     setKnownThinkingLevel(detectedThinkingLevel);
     setThinkingLabel(detectedThinkingLevel);
   }

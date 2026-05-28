@@ -261,5 +261,43 @@ describe('setupThinkingLevelSelector', () => {
 
       cleanupDom(el);
     });
+
+    it('reverts rapid failed cycles to the last backend-confirmed level', async () => {
+      const el = createDom();
+      const chatApi = {
+        setThinkingLevel: vi.fn().mockResolvedValue({
+          ok: false,
+          json: () => Promise.resolve({ error: 'server error' }),
+        }),
+      };
+
+      let knownThinkingLevel = 'off';
+      const setKnownThinkingLevel = vi.fn((level) => { knownThinkingLevel = level; });
+      const setThinkingLabel = vi.fn();
+      const setChatStatus = vi.fn();
+
+      const api = setupThinkingLevelSelector({
+        documentImpl: document,
+        sessionId: 's',
+        chatApi,
+        getKnownThinkingLevel: () => knownThinkingLevel,
+        setKnownThinkingLevel,
+        setThinkingLabel,
+        setChatStatus,
+      });
+
+      await Promise.all([api.cycle(), api.cycle()]);
+
+      expect(chatApi.setThinkingLevel).toHaveBeenCalledTimes(2);
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('minimal');
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('low');
+      const lastKnown = setKnownThinkingLevel.mock.calls[setKnownThinkingLevel.mock.calls.length - 1][0];
+      const lastLabel = setThinkingLabel.mock.calls[setThinkingLabel.mock.calls.length - 1][0];
+      expect(lastKnown).toBe('off');
+      expect(lastLabel).toBe('off');
+      expect(setChatStatus).toHaveBeenCalledWith('server error', 'error');
+
+      cleanupDom(el);
+    });
   });
 });
