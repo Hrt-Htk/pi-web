@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-const tailscaleTimeout = 10 * time.Second
+var (
+	tailscaleCommandTimeout   = 10 * time.Second
+	tailscaleConfigureTimeout = 12 * time.Second
+)
 
 func tailscaleCLI() (string, error) {
 	if bin, err := exec.LookPath("tailscale"); err == nil {
@@ -35,14 +38,14 @@ func tailscaleCLI() (string, error) {
 // tailscaleSelfDNS returns the Tailscale MagicDNS name for this node
 // (e.g. "personal-laptop.tail9f98d.ts.net"). Returns an error if the
 // tailscale CLI is unavailable, the node is not connected, or MagicDNS is off.
-func tailscaleSelfDNS() (string, error) {
+func tailscaleSelfDNS(ctx context.Context) (string, error) {
 	bin, err := tailscaleCLI()
 	if err != nil {
 		return "", err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+	cmdCtx, cancel := context.WithTimeout(ctx, tailscaleCommandTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, bin, "status", "--json").Output()
+	out, err := exec.CommandContext(cmdCtx, bin, "status", "--json").Output()
 	if err != nil {
 		return "", fmt.Errorf("tailscale status failed: %w", err)
 	}
@@ -80,8 +83,8 @@ const (
 
 // configureTailscaleServe publishes the local HTTP server through Tailscale Serve.
 // Tailscale owns HTTPS/certs; pi-web keeps listening only on localhost.
-func configureTailscaleServe(port string) (string, bool, error) {
-	hostname, err := tailscaleSelfDNS()
+func configureTailscaleServe(ctx context.Context, port string) (string, bool, error) {
+	hostname, err := tailscaleSelfDNS(ctx)
 	if err != nil {
 		return "", false, err
 	}
@@ -92,7 +95,7 @@ func configureTailscaleServe(port string) (string, bool, error) {
 	target := "http://127.0.0.1:" + port
 	url := "https://" + hostname + ":" + port
 
-	state, err := tailscaleServeRuleState(bin, port, target)
+	state, err := tailscaleServeRuleState(ctx, bin, port, target)
 	if err != nil {
 		return "", false, err
 	}
@@ -103,9 +106,9 @@ func configureTailscaleServe(port string) (string, bool, error) {
 		return "", false, fmt.Errorf("tailscale HTTPS port %s is already configured for another service; not overwriting it. To replace it, run: tailscale serve --bg --https=%s %s", port, port, target)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+	cmdCtx, cancel := context.WithTimeout(ctx, tailscaleCommandTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "serve", "--bg", "--https="+port, target)
+	cmd := exec.CommandContext(cmdCtx, bin, "serve", "--bg", "--https="+port, target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -114,10 +117,10 @@ func configureTailscaleServe(port string) (string, bool, error) {
 	return url, true, nil
 }
 
-func tailscaleServeRuleState(bin, port, target string) (serveRuleState, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), tailscaleTimeout)
+func tailscaleServeRuleState(ctx context.Context, bin, port, target string) (serveRuleState, error) {
+	cmdCtx, cancel := context.WithTimeout(ctx, tailscaleCommandTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, bin, "serve", "status", "--json").Output()
+	out, err := exec.CommandContext(cmdCtx, bin, "serve", "status", "--json").Output()
 	if err != nil {
 		return serveRuleMissing, fmt.Errorf("tailscale serve status failed: %w", err)
 	}

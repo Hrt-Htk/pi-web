@@ -1,10 +1,12 @@
 package app
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeFakeTailscale(t *testing.T, dir, script string) string {
@@ -38,7 +40,7 @@ echo "unexpected tailscale args: $*" >&2
 exit 2
 `)
 
-	url, ok, err := configureTailscaleServe("31415")
+	url, ok, err := configureTailscaleServe(context.Background(), "31415")
 	if err != nil {
 		t.Fatalf("configureTailscaleServe returned error: %v", err)
 	}
@@ -79,7 +81,7 @@ fi
 exit 2
 `)
 
-	url, ok, err := configureTailscaleServe("31415")
+	url, ok, err := configureTailscaleServe(context.Background(), "31415")
 	if err != nil {
 		t.Fatalf("configureTailscaleServe returned error: %v", err)
 	}
@@ -113,7 +115,7 @@ fi
 exit 2
 `)
 
-	_, ok, err := configureTailscaleServe("31415")
+	_, ok, err := configureTailscaleServe(context.Background(), "31415")
 	if err == nil || !strings.Contains(err.Error(), "already configured") {
 		t.Fatalf("configureTailscaleServe error = %v, want conflict", err)
 	}
@@ -135,8 +137,47 @@ fi
 exit 2
 `)
 
-	_, err := tailscaleSelfDNS()
+	_, err := tailscaleSelfDNS(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "BackendState=Stopped") {
 		t.Fatalf("tailscaleSelfDNS error = %v, want BackendState error", err)
+	}
+}
+
+func TestConfigureTailscaleServeOverallDeadlinePreventsLateServe(t *testing.T) {
+	oldCommandTimeout := tailscaleCommandTimeout
+	tailscaleCommandTimeout = time.Second
+	t.Cleanup(func() { tailscaleCommandTimeout = oldCommandTimeout })
+
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "tailscale-args.log")
+	writeFakeTailscale(t, dir, `#!/bin/sh
+if [ "$1" = "status" ] && [ "$2" = "--json" ]; then
+  printf '%s\n' '{"BackendState":"Running","Self":{"DNSName":"macbook.tailnet.ts.net."}}'
+  exit 0
+fi
+if [ "$1" = "serve" ] && [ "$2" = "status" ] && [ "$3" = "--json" ]; then
+  exec sleep 1
+fi
+if [ "$1" = "serve" ]; then
+  printf '%s\n' "$*" > "`+logPath+`"
+  exit 0
+fi
+exit 2
+`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, ok, err := configureTailscaleServe(ctx, "31415")
+	if err == nil {
+		t.Fatalf("configureTailscaleServe error = nil, want deadline error")
+	}
+	if ok {
+		t.Fatalf("ok = true, want false")
+	}
+
+	// If configure work escaped the deadline, it could still invoke serve --bg later.
+	time.Sleep(100 * time.Millisecond)
+	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+		t.Fatalf("tailscale serve was run after overall deadline")
 	}
 }
