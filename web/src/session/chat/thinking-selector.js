@@ -82,6 +82,8 @@ export function setupThinkingLevelSelector({
         setChatStatus('thinking: ' + effectiveLevel, 'ok');
       } catch (err) {
         if (gen !== cycleGeneration) return;
+        setKnownThinkingLevel(confirmedThinkingLevel);
+        setThinkingLabel(confirmedThinkingLevel);
         setChatStatus(err.message || String(err), 'error');
       }
     };

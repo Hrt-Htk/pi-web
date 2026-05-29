@@ -356,5 +356,52 @@ describe('setupThinkingLevelSelector', () => {
 
       cleanupDom(el);
     });
+
+    it('manual picker failure reverts stale optimistic cycle label', async () => {
+      const el = createDom();
+      const chatApi = {
+        setThinkingLevel: vi.fn().mockResolvedValue({
+          ok: false,
+          json: () => Promise.resolve({ error: 'manual failed' }),
+        }),
+      };
+
+      let knownThinkingLevel = 'off';
+      const setKnownThinkingLevel = vi.fn((level) => { knownThinkingLevel = level; });
+      const setThinkingLabel = vi.fn();
+      const setChatStatus = vi.fn();
+
+      const api = setupThinkingLevelSelector({
+        documentImpl: document,
+        sessionId: 's',
+        chatApi,
+        getKnownThinkingLevel: () => knownThinkingLevel,
+        setKnownThinkingLevel,
+        setThinkingLabel,
+        setChatStatus,
+      });
+
+      const cycle = api.cycle();
+      expect(setKnownThinkingLevel).toHaveBeenCalledWith('minimal');
+
+      const manual = document.createElement('button');
+      manual.className = 'thinking-level-item';
+      manual.dataset.level = 'high';
+      document.getElementById('pi-chat-thinking-list').appendChild(manual);
+      manual.click();
+
+      await cycle;
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(chatApi.setThinkingLevel).toHaveBeenCalledTimes(1);
+      expect(chatApi.setThinkingLevel).toHaveBeenCalledWith('s', 'high');
+      const lastKnown = setKnownThinkingLevel.mock.calls[setKnownThinkingLevel.mock.calls.length - 1][0];
+      const lastLabel = setThinkingLabel.mock.calls[setThinkingLabel.mock.calls.length - 1][0];
+      expect(lastKnown).toBe('off');
+      expect(lastLabel).toBe('off');
+      expect(setChatStatus).toHaveBeenCalledWith('manual failed', 'error');
+
+      cleanupDom(el);
+    });
   });
 });
