@@ -8,7 +8,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-SKILL_ROOT = Path(__file__).resolve().parents[2]
+SKILL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = SKILL_ROOT / "data" / "schema.sql"
 
 # Mirror pi's getAgentDir() logic: respect PI_CODING_AGENT_DIR env var, default to ~/.pi/agent
@@ -21,9 +21,16 @@ def _agent_dir():
 DB = _agent_dir() / "pi-web-memory.sqlite"
 
 
+def get_db_path():
+    env = os.environ.get("PI_MEMORY_DB")
+    return Path(env) if env else DB
+
+
 def conn():
-    DB.parent.mkdir(parents=True, exist_ok=True)
-    c = sqlite3.connect(DB)
+    db_path = get_db_path()
+    if db_path != Path(":memory:"):
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(str(db_path))
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA foreign_keys = ON")
     return c
@@ -32,7 +39,7 @@ def conn():
 def init_db(_args):
     with conn() as c:
         c.executescript(SCHEMA.read_text())
-    print(f"initialized {DB}")
+    print(f"initialized {get_db_path()}")
 
 
 def add_memory(args):
@@ -110,10 +117,10 @@ def search(args):
             params_like = [like_q, like_q, like_q] + params
             rows = c.execute(
                 f"""
-                SELECT 'memory' AS type, id, content AS title, category, sensitivity, created_at, NULL AS rank
-                FROM memories
-                WHERE archived = 0 AND (content LIKE ? OR category LIKE ? OR IFNULL(context,'') LIKE ?) {project_filter}
-                ORDER BY importance DESC, updated_at DESC
+                SELECT 'memory' AS type, m.id, m.content AS title, m.category, m.sensitivity, m.created_at, NULL AS rank
+                FROM memories m
+                WHERE m.archived = 0 AND (m.content LIKE ? OR m.category LIKE ? OR IFNULL(m.context,'') LIKE ?) {project_filter}
+                ORDER BY m.importance DESC, m.updated_at DESC
                 LIMIT ?
                 """,
                 params_like,
