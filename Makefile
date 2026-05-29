@@ -1,4 +1,4 @@
-.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test extension-test go-test vet test check clean dev
+.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test extension-test memory-test go-test vet test check clean dev
 
 BINARY ?= pi-web
 WEB_DIR := web
@@ -40,15 +40,18 @@ frontend-test: frontend-setup
 extension-test: root-setup
 	npm run test:extensions
 
+memory-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 .pi/skills/memory/scripts/test_memory.py
+
 go-test: go-setup
 	go test ./...
 
 vet: go-setup
 	go vet ./...
 
-test: frontend-test extension-test go-test
+test: frontend-test extension-test memory-test go-test
 
-check: frontend-test extension-test frontend-build go-test vet
+check: frontend-test extension-test memory-test frontend-build go-test vet
 
 dev: frontend-setup go-setup
 	@echo "Starting dev mode (frontend watcher + Go hot-reloader)..."
