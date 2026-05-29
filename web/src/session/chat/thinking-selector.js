@@ -29,6 +29,11 @@ export function setupThinkingLevelSelector({
   const thinkingList = documentImpl.getElementById('pi-chat-thinking-list');
   if (!thinkingLabelBtn || !thinkingPopup || !thinkingList) return false;
 
+  let cycleGeneration = 0;
+  let cycleQueue = Promise.resolve();
+  let queuedCycles = 0;
+  let confirmedThinkingLevel = getKnownThinkingLevel() || '';
+
   function renderThinkingList(selectedLevel) {
     thinkingList.innerHTML = renderThinkingLevelList({ selectedLevel, currentModel: getCurrentModel() });
   }
@@ -63,17 +68,27 @@ export function setupThinkingLevelSelector({
     const level = item.dataset.level;
     if (!level) return;
     closeThinkingPopup();
-    try {
-      const res = await chatApi.setThinkingLevel(sessionId, level);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'set thinking level failed');
-      const effectiveLevel = data.thinkingLevel || level;
-      setKnownThinkingLevel(effectiveLevel);
-      setThinkingLabel(effectiveLevel);
-      setChatStatus('thinking: ' + effectiveLevel, 'ok');
-    } catch (err) {
-      setChatStatus(err.message || String(err), 'error');
-    }
+    const gen = ++cycleGeneration;
+    const run = async () => {
+      try {
+        const res = await chatApi.setThinkingLevel(sessionId, level);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'set thinking level failed');
+        const effectiveLevel = data.thinkingLevel || level;
+        confirmedThinkingLevel = effectiveLevel;
+        if (gen !== cycleGeneration) return;
+        setKnownThinkingLevel(effectiveLevel);
+        setThinkingLabel(effectiveLevel);
+        setChatStatus('thinking: ' + effectiveLevel, 'ok');
+      } catch (err) {
+        if (gen !== cycleGeneration) return;
+        setKnownThinkingLevel(confirmedThinkingLevel);
+        setThinkingLabel(confirmedThinkingLevel);
+        setChatStatus(err.message || String(err), 'error');
+      }
+    };
+    cycleQueue = cycleQueue.catch(() => {}).then(run);
+    await cycleQueue;
   });
 
   documentImpl.addEventListener('click', (e) => {
@@ -82,11 +97,60 @@ export function setupThinkingLevelSelector({
     }
   });
 
+  // Cycle to the next supported thinking level without opening the popup.
+  async function cycleThinkingLevel() {
+    const supported = supportedThinkingLevels(getCurrentModel(), THINKING_LEVELS);
+    const current = getKnownThinkingLevel() || '';
+    const idx = supported.indexOf(current);
+    const nextIdx = (idx + 1) % supported.length;
+    const next = supported[nextIdx];
+    if (!next || next === current) return;
+
+    if (queuedCycles === 0) confirmedThinkingLevel = current;
+    queuedCycles++;
+    const gen = ++cycleGeneration;
+    // Optimistically update local state so rapid Shift+Tab presses cycle through levels.
+    setKnownThinkingLevel(next);
+    setThinkingLabel(next);
+
+    const run = async () => {
+      try {
+        if (gen !== cycleGeneration) return; // stale before reaching backend
+        const res = await chatApi.setThinkingLevel(sessionId, next);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'set thinking level failed');
+        const effectiveLevel = data.thinkingLevel || next;
+        confirmedThinkingLevel = effectiveLevel;
+        if (gen !== cycleGeneration) return; // stale — a newer cycle has started
+        setKnownThinkingLevel(effectiveLevel);
+        setThinkingLabel(effectiveLevel);
+        setChatStatus('thinking: ' + effectiveLevel, 'ok');
+      } catch (err) {
+        if (gen !== cycleGeneration) return; // stale — a newer cycle has started
+        // Revert to the last level confirmed by the backend, not an optimistic value.
+        setKnownThinkingLevel(confirmedThinkingLevel);
+        setThinkingLabel(confirmedThinkingLevel);
+        setChatStatus(err.message || String(err), 'error');
+      } finally {
+        queuedCycles = Math.max(0, queuedCycles - 1);
+      }
+    };
+
+    // Queue requests so the backend observes the same order as the UI.
+    cycleQueue = cycleQueue.catch(() => {}).then(run);
+    return cycleQueue;
+  }
+
   const detectedThinkingLevel = detectCurrentThinkingLevel(entries);
   if (detectedThinkingLevel) {
+    confirmedThinkingLevel = detectedThinkingLevel;
     setKnownThinkingLevel(detectedThinkingLevel);
     setThinkingLabel(detectedThinkingLevel);
   }
 
-  return true;
+  return {
+    open: openThinkingPopup,
+    close: closeThinkingPopup,
+    cycle: cycleThinkingLevel,
+  };
 }

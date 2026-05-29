@@ -147,8 +147,10 @@ export function setupSessionListPalette({
   }
 
   let allSessions = [];
+  let visibleSessions = [];
+  let selectedIndex = -1;
   let open = false;
-  let escapeHandler = null;
+  let keydownHandler = null;
   let overlayClickHandler = null;
   let loadGeneration = 0;
 
@@ -156,9 +158,30 @@ export function setupSessionListPalette({
     return searchInput ? searchInput.value : '';
   }
 
+  function applySelection() {
+    const buttons = resultsEl.querySelectorAll('.palette-result');
+    buttons.forEach((btn, i) => {
+      if (i === selectedIndex) {
+        btn.classList.add('palette-result--selected');
+        btn.scrollIntoView({ block: 'nearest' });
+      } else {
+        btn.classList.remove('palette-result--selected');
+      }
+    });
+  }
+
   function renderFiltered() {
-    const filtered = filterSessions(allSessions, query());
-    renderResults(resultsEl, filtered, documentImpl, navigate, limit);
+    visibleSessions = filterSessions(allSessions, query());
+    selectedIndex = -1;
+    renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
+  }
+
+  function shouldHandlePaletteNavigation() {
+    const active = documentImpl.activeElement;
+    if (!active || active === searchInput || active === documentImpl.body || active === documentImpl.documentElement) {
+      return true;
+    }
+    return !overlay.contains(active);
   }
 
   async function reloadSessions() {
@@ -171,6 +194,8 @@ export function setupSessionListPalette({
       renderFiltered();
     } catch {
       if (generation !== loadGeneration) return;
+      allSessions = [];
+      visibleSessions = [];
       resultsEl.innerHTML = '<div class="palette-empty">Failed to load sessions</div>';
     }
   }
@@ -184,9 +209,10 @@ export function setupSessionListPalette({
 
     if (clearOnClose && searchInput) searchInput.value = '';
 
-    if (escapeHandler) {
-      windowImpl.removeEventListener('keydown', escapeHandler);
-      escapeHandler = null;
+    selectedIndex = -1;
+    if (keydownHandler) {
+      windowImpl.removeEventListener('keydown', keydownHandler);
+      keydownHandler = null;
     }
     if (overlayClickHandler) {
       overlay.removeEventListener('click', overlayClickHandler);
@@ -203,10 +229,74 @@ export function setupSessionListPalette({
     overlay.setAttribute('aria-hidden', 'false');
     documentImpl.body?.classList.add('pi-palette-open');
 
-    escapeHandler = (e) => {
-      if (e.key === 'Escape') close();
+    keydownHandler = (e) => {
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        if (!shouldHandlePaletteNavigation()) return;
+        e.preventDefault();
+        // Recompute and re-render synchronously so the DOM matches before we highlight
+        const fresh = filterSessions(allSessions, query());
+        const lastRendered = Math.min(fresh.length, limit) - 1;
+        if (selectedIndex < lastRendered) {
+          selectedIndex++;
+        } else if (selectedIndex === -1 && fresh.length > 0) {
+          selectedIndex = 0;
+        }
+        // Clamp if results shrank (e.g. debounced filter flushed fewer rows)
+        if (selectedIndex > lastRendered) selectedIndex = lastRendered;
+        visibleSessions = fresh;
+        renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
+        applySelection();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        if (!shouldHandlePaletteNavigation()) return;
+        e.preventDefault();
+        const fresh = filterSessions(allSessions, query());
+        const lastRendered = Math.min(fresh.length, limit) - 1;
+        if (selectedIndex > 0) {
+          selectedIndex--;
+        } else if (selectedIndex === 0) {
+          selectedIndex = -1;
+          searchInput.focus();
+        } else if (selectedIndex === -1 && fresh.length > 0) {
+          selectedIndex = lastRendered;
+        }
+        // Clamp if results shrank
+        if (selectedIndex > lastRendered && selectedIndex !== -1) selectedIndex = lastRendered;
+        visibleSessions = fresh;
+        renderResults(resultsEl, visibleSessions, documentImpl, navigate, limit);
+        applySelection();
+        return;
+      }
+      if (e.key === 'Enter') {
+        if (!shouldHandlePaletteNavigation()) return;
+        // Recompute from current query synchronously so we never navigate to a stale result
+        const fresh = filterSessions(allSessions, query());
+        // Clamp selection — debounced render may have changed result count
+        if (selectedIndex >= fresh.length) selectedIndex = fresh.length > 0 ? 0 : -1;
+        if (selectedIndex >= 0 && selectedIndex < fresh.length) {
+          e.preventDefault();
+          const session = fresh[selectedIndex];
+          if (session.href) {
+            close();
+            navigate(session.href);
+          }
+        } else if (selectedIndex === -1 && fresh.length > 0) {
+          e.preventDefault();
+          const session = fresh[0];
+          if (session.href) {
+            close();
+            navigate(session.href);
+          }
+        }
+        return;
+      }
     };
-    windowImpl.addEventListener('keydown', escapeHandler);
+    windowImpl.addEventListener('keydown', keydownHandler);
 
     overlayClickHandler = (e) => {
       if (e.target === overlay) close();
@@ -221,7 +311,11 @@ export function setupSessionListPalette({
     if (onQueryChange) onQueryChange(query());
     renderFiltered();
   }, debounceMs);
-  searchInput.addEventListener('input', debouncedFilter);
+  searchInput.addEventListener('input', () => {
+    selectedIndex = -1;
+    applySelection();
+    debouncedFilter();
+  });
 
   closeBtns.forEach((btn) => {
     btn.addEventListener('click', close);

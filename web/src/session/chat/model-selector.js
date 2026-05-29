@@ -19,7 +19,7 @@ export function renderModelList(models, { filter = '', selectedModel = null, esc
   return html;
 }
 
-export async function setupModelSelector({
+export function setupModelSelector({
   documentImpl = document,
   sessionId,
   entries = [],
@@ -65,9 +65,18 @@ export async function setupModelSelector({
     renderPopupList('');
   }
 
-  function closePopup() {
+  function closePopup(focusTextarea = false) {
     if (popup) popup.style.display = 'none';
+    if (focusTextarea) {
+      const textarea = documentImpl.getElementById('pi-chat-message');
+      if (textarea) textarea.focus();
+    }
   }
+
+  const api = {
+    open: openPopup,
+    close: closePopup,
+  };
 
   // Attach click handlers immediately so the button is responsive
   // even before the model list finishes loading.
@@ -107,7 +116,7 @@ export async function setupModelSelector({
     const provider = item.dataset.provider;
     const modelId = item.dataset.modelId;
     if (!provider || !modelId) return;
-    closePopup();
+    closePopup(true);
     try {
       const setRes = await chatApi.setModel(sessionId, { provider, modelId });
       const setData = await setRes.json();
@@ -131,58 +140,50 @@ export async function setupModelSelector({
   });
 
   // Load the model list asynchronously; the button is already wired.
-  try {
-    const res = await chatApi.listModels();
-    const data = await res.json();
-    if (!res.ok) {
-      // API call failed — show an error in the popup so the user
-      // knows this is a backend issue, not an empty model list.
-      allModels = [];
+  // Fire-and-forget: the popup opens immediately (Ctrl+L) and renders
+  // available models as they load.
+  chatApi.listModels()
+    .then((res) => {
+      if (!res.ok) throw new Error('api error');
+      return res.json();
+    })
+    .then((data) => {
+      if (!data.models || data.models.length === 0) {
+        allModels = [];
+        if (popupList) {
+          popupList.innerHTML = '<div class="model-empty">No models configured<br><small>Run <code>pi setup</code> to configure</small></div>';
+        }
+        return;
+      }
+      allModels = data.models;
+      if (popup && popup.style.display !== 'none') {
+        renderPopupList(popupSearch ? popupSearch.value : '');
+      }
+      function updateToggleFromStatus(provider, modelId) {
+        if (!provider || !modelId) return;
+        const model = findModel(allModels, provider, modelId);
+        if (model) setSelected(model);
+      }
+      setWorkerModelUpdate(updateToggleFromStatus);
+      const detected = detectCurrentModel(entries);
+      if (detected.modelId) {
+        const model = findModel(allModels, detected.provider, detected.modelId);
+        if (model) {
+          setSelected(model);
+          const detectedLabel = modelDisplayLabel(model);
+          if (detectedLabel && !getKnownModelLabel()) {
+            setKnownModelLabel(detectedLabel);
+            setModelLabel(detectedLabel);
+          }
+        }
+      }
+    })
+    .catch(() => {
+      // Model list fetch failed; button still works (shows empty list).
       if (popupList) {
         popupList.innerHTML = '<div class="model-empty">Failed to load models<br><small>Check that <code>pi</code> is on PATH</small></div>';
       }
-      return true;
-    }
-    if (!data.models || data.models.length === 0) {
-      // API succeeded but returned no models.
-      allModels = [];
-      if (popupList) {
-        popupList.innerHTML = '<div class="model-empty">No models configured<br><small>Run <code>pi setup</code> to configure</small></div>';
-      }
-      return true;
-    }
+    });
 
-    allModels = data.models;
-
-    // If the popup is already open, refresh the list so the user
-    // sees the models instead of the stale "No models match" message.
-    if (popup && popup.style.display !== 'none') {
-      renderPopupList(popupSearch ? popupSearch.value : '');
-    }
-
-    function updateToggleFromStatus(provider, modelId) {
-      if (!provider || !modelId) return;
-      const model = findModel(allModels, provider, modelId);
-      if (model) setSelected(model);
-    }
-
-    setWorkerModelUpdate(updateToggleFromStatus);
-
-    const detected = detectCurrentModel(entries);
-    if (detected.modelId) {
-      const model = findModel(allModels, detected.provider, detected.modelId);
-      if (model) {
-        setSelected(model);
-        const detectedLabel = modelDisplayLabel(model);
-        if (detectedLabel && !getKnownModelLabel()) {
-          setKnownModelLabel(detectedLabel);
-          setModelLabel(detectedLabel);
-        }
-      }
-    }
-  } catch (_) {
-    // Model list fetch failed; button still works (shows empty list).
-  }
-
-  return true;
+  return api;
 }

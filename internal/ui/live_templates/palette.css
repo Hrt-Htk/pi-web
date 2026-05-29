@@ -88,7 +88,8 @@ body.pi-palette-open { overflow: hidden; }
     display: block;
 }
 .palette-result:hover,
-.palette-result:focus-visible {
+.palette-result:focus-visible,
+.palette-result--selected {
     background: var(--palette-surface-2);
     color: var(--text);
     outline: none;
