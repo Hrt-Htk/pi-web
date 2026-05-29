@@ -8,7 +8,7 @@ description: Manages project-local long-term memory in SQLite for pi-web users. 
 Use this skill for project memory tasks. Every memory is scoped to a specific project (working directory) so facts stay relevant to the right context.
 
 ## Core files
-- `$PI_CODING_AGENT_DIR/pi-web-memory.sqlite` (default `~/.pi/agent/`) — primary memory database
+- `$PI_CODING_AGENT_DIR/pi-web-memory.sqlite` (default `~/.pi/agent/`) — primary memory database, auto-initialized on first use
 - `.pi/skills/memory/data/schema.sql` — schema definition (shipped with the skill)
 - `.pi/skills/memory/scripts/memory.py` — CLI implementation
 
@@ -33,6 +33,9 @@ When the user says "remember that" or "save this for later", record:
 
 ## Common commands
 ```bash
+# Optional: initialize explicitly (normal commands also auto-initialize)
+python3 .pi/skills/memory/scripts/memory.py init
+
 # Remember a project fact
 python3 .pi/skills/memory/scripts/memory.py add-memory "Prefers tabs over spaces" \
   --category preference --importance 4 --cwd /Users/setkyar/pi-web --project pi-web

@@ -40,6 +40,42 @@ class TestMakeFtsQuery(unittest.TestCase):
         self.assertEqual(memory.make_fts_query("!@#$%"), '""')
 
 
+class TestMemoryAutoInit(unittest.TestCase):
+    """Tests for first-use behavior on a brand-new DB path."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.db_path = str(Path(self.tmpdir.name) / "new.sqlite")
+        os.environ["PI_MEMORY_DB"] = self.db_path
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+        os.environ.pop("PI_MEMORY_DB", None)
+
+    def test_add_memory_auto_initializes_new_database(self):
+        args = argparse.Namespace(
+            content="First use memory",
+            category="general",
+            context=None,
+            cwd="/test/pi-web",
+            project="pi-web",
+            session_id=None,
+            session_name=None,
+            importance=3,
+            sensitivity="normal",
+            source="user request",
+            confidence=1.0,
+        )
+        with patch("sys.stdout", io.StringIO()):
+            memory.add_memory(args)
+
+        search_args = argparse.Namespace(query="First", project="pi-web", limit=20)
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            memory.search(search_args)
+        self.assertIn("First use memory", buf.getvalue())
+
+
 class TestMemoryDB(unittest.TestCase):
     """Integration tests that exercise the full add → search pipeline on a temp DB."""
 
@@ -114,6 +150,19 @@ class TestMemoryDB(unittest.TestCase):
         self._add("pi-web roadmap item", category="plan", project="pi-web", cwd="/test/pi-web")
         output = self._search("", project="pi-web")
         self.assertIn("pi-web roadmap item", output)
+
+    def test_project_filter_ignores_legacy_plain_text_context(self):
+        """Regression: --project should not crash on pre-JSON context values."""
+        with memory.conn() as c:
+            c.execute(
+                "INSERT INTO memories (content, category, context) VALUES (?, ?, ?)",
+                ("legacy plain context", "general", "not-json"),
+            )
+        self._add("legacy json context", project="pi-web", cwd="/test/pi-web")
+
+        output = self._search("legacy", project="pi-web")
+        self.assertIn("legacy json context", output)
+        self.assertNotIn("legacy plain context", output)
 
     def test_context_json_stored(self):
         self._add("Memory with context", context="extra note", project="test-proj", cwd="/test/proj")

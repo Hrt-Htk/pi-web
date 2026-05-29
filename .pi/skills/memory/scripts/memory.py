@@ -26,19 +26,32 @@ def get_db_path():
     return Path(env) if env else DB
 
 
-def conn():
+def _schema_missing(c):
+    row = c.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memories'"
+    ).fetchone()
+    return row is None
+
+
+def _init_schema(c):
+    c.executescript(SCHEMA.read_text())
+
+
+def conn(auto_init=True):
     db_path = get_db_path()
     if db_path != Path(":memory:"):
         db_path.parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(str(db_path))
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA foreign_keys = ON")
+    if auto_init and _schema_missing(c):
+        _init_schema(c)
     return c
 
 
 def init_db(_args):
-    with conn() as c:
-        c.executescript(SCHEMA.read_text())
+    with conn(auto_init=False) as c:
+        _init_schema(c)
     print(f"initialized {get_db_path()}")
 
 
@@ -92,7 +105,10 @@ def search(args):
     project_filter = ""
     params = [args.limit]
     if args.project:
-        project_filter = "AND json_extract(m.context, '$.project') = ?"
+        project_filter = (
+            "AND (CASE WHEN json_valid(m.context) "
+            "THEN json_extract(m.context, '$.project') END) = ?"
+        )
         params.insert(0, args.project)
 
     with conn() as c:
