@@ -1,4 +1,4 @@
-.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test extension-test memory-test go-test vet test check clean dev
+.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test extension-test memory-test go-test vet test check clean dev release-patch release-minor release-major release-beta
 
 BINARY ?= pi-web
 WEB_DIR := web
@@ -66,3 +66,21 @@ version:
 clean:
 	rm -f $(BINARY)
 	rm -rf $(WEB_DIR)/dist
+
+# Release helpers — bump package.json, commit, tag, and push.
+# Uses npm version which auto-creates a vX.Y.Z git tag.
+release-patch:
+	npm version patch
+	git push --follow-tags
+
+release-minor:
+	npm version minor
+	git push --follow-tags
+
+release-major:
+	npm version major
+	git push --follow-tags
+
+release-beta:
+	npm version prerelease --preid=beta
+	git push --follow-tags
