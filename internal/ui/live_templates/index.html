@@ -40,6 +40,7 @@
     var next = current === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     try{ localStorage.setItem(STORAGE_KEY, next); }catch(e){}
+    try{ document.cookie = 'pi-web-theme=' + next + ';path=/;SameSite=Lax;max-age=31536000'; }catch(e){}
     updateBtn();
   }
   if(document.readyState === 'loading'){

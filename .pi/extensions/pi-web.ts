@@ -13,8 +13,8 @@ import {
   type KeybindingsManager,
   type TUI,
 } from "@earendil-works/pi-tui";
-import { basename, delimiter, join } from "node:path";
-import { constants as fsConstants, readFileSync, accessSync } from "node:fs";
+import { basename, delimiter, dirname, join } from "node:path";
+import { constants as fsConstants, readFileSync, writeFileSync, accessSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 
 interface PiWebState {
@@ -282,18 +282,42 @@ async function ensurePiWebRunning(
   return false;
 }
 
+function piWebEnvPath(): string {
+  return `${homedir()}/.config/pi-web/env`;
+}
+
 export function readPiWebToken(): string | null {
   // Check process.env first — allows PI_WEB_TOKEN=... pi-web ... usage
   const fromEnv = process.env["PI_WEB_TOKEN"];
   if (fromEnv) return fromEnv;
 
   try {
-    const raw = readFileSync(`${homedir()}/.config/pi-web/env`, "utf-8");
+    const raw = readFileSync(piWebEnvPath(), "utf-8");
     const match = raw.match(/^PI_WEB_TOKEN=(.*)$/m);
     return match?.[1]?.trim() || null;
   } catch {
     return null;
   }
+}
+
+export function writePiWebToken(token: string): void {
+  const path = piWebEnvPath();
+  mkdirSync(dirname(path), { recursive: true });
+
+  let content = "";
+  try {
+    content = readFileSync(path, "utf-8");
+  } catch {
+    // file doesn't exist yet
+  }
+
+  if (/^PI_WEB_TOKEN=/m.test(content)) {
+    content = content.replace(/^PI_WEB_TOKEN=.*$/m, `PI_WEB_TOKEN=${token}`);
+  } else {
+    content = content.trimEnd() + `\nPI_WEB_TOKEN=${token}\n`;
+  }
+
+  writeFileSync(path, content);
 }
 
 export function withToken(url: string): string {
@@ -797,7 +821,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── /pi-web ───────────────────────────────────────────────────────
   pi.registerCommand("pi-web", {
-    description: "Show pi-web status, version, and install path",
+    description: "Manage pi-web: status, token, start, stop, restart, remote, update",
+
     handler: async (args, ctx: ExtensionCommandContext) => {
       const [subcommand = "status"] = normalizeCommandArgs(args);
       const bin = await findPiWebBinary(pi);
@@ -815,7 +840,7 @@ export default function (pi: ExtensionAPI) {
         subcommand === "-h"
       ) {
         ctx.ui.notify(
-          "Usage: /pi-web [status|version|path|start|stop|restart|remote|update|help]",
+          "Usage: /pi-web [status|version|path|token|set-token|start|stop|restart|remote|update|help]",
           "info",
         );
         return;
@@ -912,6 +937,36 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
+      if (subcommand === "token") {
+        const token = readPiWebToken();
+        if (token) {
+          ctx.ui.notify(`Current token: ${token}`, "info");
+        } else {
+          ctx.ui.notify(
+            "No token set. Use /pi-web set-token <token> to create one.",
+            "warning",
+          );
+        }
+        return;
+      }
+
+      if (subcommand === "set-token") {
+        const [,, newToken] = normalizeCommandArgs(args);
+        if (!newToken) {
+          ctx.ui.notify(
+            "Usage: /pi-web set-token <token>",
+            "warning",
+          );
+          return;
+        }
+        writePiWebToken(newToken);
+        ctx.ui.notify(
+          `Token updated. Restart pi-web for the change to take effect: /pi-web restart`,
+          "success",
+        );
+        return;
+      }
+
       if (subcommand === "remote") {
         await showRemoteAccess(pi, ctx);
         return;
@@ -940,7 +995,7 @@ export default function (pi: ExtensionAPI) {
 
       if (subcommand !== "status") {
         ctx.ui.notify(
-          `Unknown /pi-web command: ${subcommand}. Usage: /pi-web [status|version|path|start|stop|restart|remote|update|help]`,
+          `Unknown /pi-web command: ${subcommand}. Usage: /pi-web [status|version|path|token|set-token|start|stop|restart|remote|update|help]`,
           "warning",
         );
         return;
