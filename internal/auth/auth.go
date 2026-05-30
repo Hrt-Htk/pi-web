@@ -2,15 +2,13 @@ package auth
 
 import (
 	"crypto/subtle"
-	_ "embed"
 	"net/http"
 	"strings"
+
+	"pi-web/internal/ui"
 )
 
 const TokenCookieName = "pi_token"
-
-//go:embed auth.html
-var tokenPromptHTML string
 
 type Middleware struct {
 	token string
@@ -76,7 +74,7 @@ func (a *Middleware) Wrap(h http.HandlerFunc) http.HandlerFunc {
 				}
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte(tokenPromptHTML))
+				w.Write([]byte(ui.AuthPromptHTML))
 				return
 			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
