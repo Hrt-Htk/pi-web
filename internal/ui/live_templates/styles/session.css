@@ -3897,23 +3897,21 @@
       filter: drop-shadow(0 18px 38px rgba(0, 0, 0, 0.55));
     }
 
+    /* Our cat is lounging, not walking, so a horizontal slide looks off — it
+       just gently fades and settles into view instead. */
     .cat-overlay.visible .cat-art {
-      animation: cat-slide-in 2.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: cat-settle-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
-    @keyframes cat-slide-in {
-      from { transform: translateX(100vw); }
-      to   { transform: translateX(0); }
+    @keyframes cat-settle-in {
+      from { opacity: 0; transform: translateY(28px) scale(0.94); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Bedtime cat reads calmer/dimmed (and doesn't slide — it's already home). */
+    /* Bedtime cat reads calmer/dimmed. */
     .cat-overlay--sleep .cat-video,
     .cat-overlay--locked .cat-video {
       filter: grayscale(0.55) brightness(0.62) saturate(0.8) drop-shadow(0 18px 38px rgba(0, 0, 0, 0.55));
-    }
-    .cat-overlay--sleep.visible .cat-art,
-    .cat-overlay--locked.visible .cat-art {
-      animation: none;
     }
 
     .cat-timer,
