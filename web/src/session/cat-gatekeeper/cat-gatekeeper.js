@@ -26,34 +26,12 @@ const FOCUS_RESTORE_MAX_AGE_MS = 30 * 60 * 1000;
 const FOCUS_REMAINING_KEY = 'pi-web:v1:cat:focus-remaining-ms';
 const FOCUS_SAVED_AT_KEY = 'pi-web:v1:cat:focus-saved-at';
 
-const CAT_AWAKE_SVG = `
-<svg viewBox="0 0 120 120" class="cat-svg" role="img" aria-label="cat">
-  <ellipse cx="60" cy="104" rx="34" ry="8" class="cat-shadow"/>
-  <path class="cat-body" d="M30 40 L24 14 L46 30 Q60 24 74 30 L96 14 L90 40 Q104 56 96 82 Q60 100 24 82 Q16 56 30 40 Z"/>
-  <circle class="cat-eye" cx="48" cy="56" r="6"/>
-  <circle class="cat-eye" cx="72" cy="56" r="6"/>
-  <circle class="cat-pupil" cx="48" cy="56" r="2.5"/>
-  <circle class="cat-pupil" cx="72" cy="56" r="2.5"/>
-  <path class="cat-nose" d="M57 66 L63 66 L60 70 Z"/>
-  <path class="cat-mouth" d="M60 70 Q54 76 48 72 M60 70 Q66 76 72 72"/>
-  <g class="cat-whiskers">
-    <path d="M44 66 L22 62 M44 70 L24 72"/>
-    <path d="M76 66 L98 62 M76 70 L96 72"/>
-  </g>
-</svg>`;
-
-const CAT_SLEEPY_SVG = `
-<svg viewBox="0 0 120 120" class="cat-svg cat-svg--sleepy" role="img" aria-label="sleeping cat">
-  <ellipse cx="60" cy="104" rx="34" ry="8" class="cat-shadow"/>
-  <path class="cat-body" d="M30 44 L24 18 L46 34 Q60 28 74 34 L96 18 L90 44 Q104 60 96 84 Q60 100 24 84 Q16 60 30 44 Z"/>
-  <path class="cat-eye-closed" d="M42 58 Q48 64 54 58 M66 58 Q72 64 78 58"/>
-  <path class="cat-nose" d="M57 68 L63 68 L60 72 Z"/>
-  <path class="cat-mouth" d="M60 72 Q54 78 48 74 M60 72 Q66 78 72 74"/>
-  <g class="cat-zzz">
-    <text x="86" y="34">z</text>
-    <text x="96" y="22">Z</text>
-  </g>
-</svg>`;
+// The cat ships as a looping, muted WebM (served at /cat.webm). Both the break
+// and the sleepy bedtime overlay reuse it; the sleepy look is a CSS filter.
+const CAT_VIDEO_SRC = '/cat.webm';
+function catVideoHTML() {
+  return `<video class="cat-video" src="${CAT_VIDEO_SRC}" autoplay loop muted playsinline aria-label="cat"></video>`;
+}
 
 function formatMMSS(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -174,7 +152,11 @@ export function setupCatGatekeeper({
     el.classList.add(`cat-overlay--${variant}`);
     el.setAttribute('aria-hidden', 'false');
     const art = el.querySelector('[data-cat-art]');
-    if (art) art.innerHTML = variant === 'break' ? CAT_AWAKE_SVG : CAT_SLEEPY_SVG;
+    if (art && !art.querySelector('video')) art.innerHTML = catVideoHTML();
+    const video = art?.querySelector('video');
+    if (video) {
+      try { video.currentTime = 0; const p = video.play(); if (p && p.catch) p.catch(() => {}); } catch { /* ignore */ }
+    }
     blockInput();
     requestAnimationFrameImpl(() => el.classList.add('visible'));
   }

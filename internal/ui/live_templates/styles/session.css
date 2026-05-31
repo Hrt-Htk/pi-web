@@ -3887,54 +3887,26 @@
     }
 
     .cat-art {
-      width: 180px;
-      height: 180px;
+      width: min(560px, 84vw);
+      max-height: 56vh;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      line-height: 0;
     }
 
-    .cat-svg {
+    .cat-video {
+      display: block;
       width: 100%;
       height: 100%;
-      transform-origin: 60px 104px;
-      animation: cat-bob 1.6s ease-in-out infinite;
+      object-fit: cover;
+      background: #000;
     }
 
-    .cat-svg--sleepy {
-      animation: cat-breathe 3.2s ease-in-out infinite;
-    }
-
-    @keyframes cat-bob {
-      0%, 100% { transform: translateY(0) rotate(-1.5deg); }
-      50% { transform: translateY(-8px) rotate(1.5deg); }
-    }
-
-    @keyframes cat-breathe {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.03); }
-    }
-
-    .cat-body { fill: #f7a23b; stroke: #2a1c0c; stroke-width: 2.5; stroke-linejoin: round; }
-    .cat-overlay--sleep .cat-body,
-    .cat-overlay--locked .cat-body { fill: #8b8fc7; }
-    .cat-eye { fill: #fff; }
-    .cat-pupil { fill: #1a1a1a; }
-    .cat-eye-closed { fill: none; stroke: #2a1c0c; stroke-width: 3; stroke-linecap: round; }
-    .cat-nose { fill: #e26d5c; }
-    .cat-mouth { fill: none; stroke: #2a1c0c; stroke-width: 2; stroke-linecap: round; }
-    .cat-whiskers { fill: none; stroke: #2a1c0c; stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
-    .cat-shadow { fill: rgba(0, 0, 0, 0.35); }
-
-    .cat-zzz text {
-      fill: #cfd3ff;
-      font-family: var(--font-sans, sans-serif);
-      font-weight: 700;
-      animation: cat-zzz 2.4s ease-in-out infinite;
-    }
-    .cat-zzz text:last-child { animation-delay: 0.5s; }
-
-    @keyframes cat-zzz {
-      0% { opacity: 0; transform: translateY(0); }
-      40% { opacity: 1; }
-      100% { opacity: 0; transform: translateY(-6px); }
+    /* Bedtime cat reads calmer/dimmed. */
+    .cat-overlay--sleep .cat-video,
+    .cat-overlay--locked .cat-video {
+      filter: grayscale(0.55) brightness(0.62) saturate(0.8);
     }
 
     .cat-timer {
