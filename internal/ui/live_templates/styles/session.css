@@ -843,6 +843,11 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      /* Lift the lit reading column above the darker chrome so it reads as a
+         raised panel, especially when framed by both sidebars. */
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 22px rgba(0, 0, 0, 0.13);
     }
 
     /* Main content — scrolls independently within #app's fixed height */
@@ -1048,6 +1053,41 @@
       border-bottom: 1px solid var(--pi-menu-border);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* Standalone PWA without WCO: the OS draws its own title bar above the
+       page. Make the session header use --body-bg (same as theme-color in
+       this mode) so the OS strip and our header merge into one seamless zone,
+       clearly distinct from the WCO compact look. */
+    @media (display-mode: standalone) {
+      .session-header-bar {
+        background: var(--body-bg);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+    }
+
+    /* Window Controls Overlay (installed PWA): draw the header into the OS
+       title bar. Reserve the inset for the window controls and make the bar
+       draggable, while keeping interactive children clickable. */
+    :root.wco .session-header-bar {
+      /* Stay full-width (base left:0/right:0) so the bottom border spans the
+         whole window; just inset the content past the OS window controls on
+         both sides. Background matches theme-color (== --chrome-bg) so the
+         browser-painted control strip blends seamlessly. */
+      padding-left: calc(env(titlebar-area-x, 0px) + 18px);
+      padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%) + 18px);
+      background: var(--chrome-bg);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      -webkit-app-region: drag;
+      app-region: drag;
+    }
+
+    :root.wco .session-header-bar a,
+    :root.wco .session-header-bar button {
+      -webkit-app-region: no-drag;
+      app-region: no-drag;
     }
 
     .session-header-back {
@@ -2193,22 +2233,29 @@
       width: 100%;
       box-sizing: border-box;
       display: block;
-      padding: 18px 14px calc(14px + env(safe-area-inset-bottom));
-      background: var(--chrome-bg);
+      padding: 14px 14px 0;
+      /* Share the reading column's surface so there's no hard seam between the
+         message stream and the composer — the shell card below is the only
+         visible frame. */
+      background: var(--body-bg);
     }
 
-    /* Git branch + Create PR row beneath the input box. */
+    /* Git branch + Create PR row — a full-bleed footer dock anchored to the
+       bottom of the reading column. The negative margins cancel the composer's
+       horizontal padding so the chrome surface runs edge to edge, framing the
+       column from below the way the sidebars frame it from the sides. */
     .pi-git-bar {
-      width: 100%;
-      max-width: 760px;
-      margin: 8px auto 0;
+      width: auto;
+      margin: 14px -14px 0;
       box-sizing: border-box;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 0 2px;
+      padding: 9px 16px calc(9px + env(safe-area-inset-bottom));
       font-size: 11px;
+      background: var(--chrome-bg);
+      border-top: 1px solid var(--dim);
     }
     .pi-git-bar[hidden] { display: none; }
 
@@ -2364,14 +2411,15 @@
       overflow: visible;
       background: var(--input-bg);
       border: 1px solid var(--dim);
-      border-radius: 6px;
+      border-radius: 10px;
       position: relative;
       padding: 3px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       transition: border-color 0.15s, box-shadow 0.2s;
     }
     .pi-chat-shell:focus-within {
       border-color: color-mix(in srgb, var(--accent, #8abeb7) 60%, var(--dim));
-      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.14);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
     }
 
     .pi-chat-model-popup {
