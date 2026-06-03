@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -26,9 +27,34 @@ func installCmd(ctx context.Context) *exec.Cmd {
 	return cmd
 }
 
+// cleanupStaleNPMTemps removes npm's hidden backup directories for pi-web.
+// Interrupted installs can leave these behind, and later npm installs may fail
+// before package scripts run with ENOTEMPTY while trying to rename the package
+// directory into one of these stale paths.
+func cleanupStaleNPMTemps() {
+	agentRoot := os.Getenv("PI_CODING_AGENT_DIR")
+	if agentRoot == "" {
+		home, err := os.UserHomeDir()
+		if err != nil || home == "" {
+			return
+		}
+		agentRoot = filepath.Join(home, ".pi", "agent")
+	}
+
+	pattern := filepath.Join(agentRoot, "npm", "node_modules", "@ygncode", ".pi-web-*")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return
+	}
+	for _, path := range matches {
+		_ = os.RemoveAll(path)
+	}
+}
+
 // runInstall installs the latest pi-web package via the `pi` CLI. Output is
 // captured so a failure surfaces a useful message in the UI.
 func runInstall(ctx context.Context) error {
+	cleanupStaleNPMTemps()
 	cmd := installCmd(ctx)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -32,7 +32,7 @@
 ### Pi package (recommended)
 
 ```bash
-pi install npm:@ygncode/pi-web
+pi install npm:@ygncode/pi-web@beta
 ```
 
 This single command:
@@ -50,10 +50,17 @@ On Linux, auto-start is configured as a user systemd service at `~/.config/syste
 To install only for a specific project (shared with your team via `.pi/settings.json`):
 
 ```bash
-pi install -l npm:@ygncode/pi-web
+pi install -l npm:@ygncode/pi-web@beta
 ```
 
 Then restart pi (or run `/reload`), and use `/web`, `/pi-web`, `/remote`, `/refresh`. Manage your access token with `/pi-web token` and `/pi-web set-token`.
+
+If npm aborts with `ENOTEMPTY` while renaming `@ygncode/pi-web`, remove npm's stale hidden backup directories and reinstall the beta channel:
+
+```bash
+rm -rf ~/.pi/agent/npm/node_modules/@ygncode/.pi-web-*
+pi install npm:@ygncode/pi-web@beta
+```
 
 ### Quick install (no build tools needed)
 
