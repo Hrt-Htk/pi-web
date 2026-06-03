@@ -12,8 +12,13 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # Run install.sh in a sandboxed HOME with all external commands shimmed.
 # $1: "inplace" or "normal".
+# $2: optional npm package version. When set, install.sh should download the
+#     matching release tag instead of querying the latest release.
 run_case() {
   local mode="$1"
+  local package_version="${2:-}"
+  local expected_tag="v9.9.9"
+  [[ -n "$package_version" ]] && expected_tag="v${package_version#v}"
   local workdir bindir shimdir calllog
   workdir="$(mktemp -d)"
   bindir="$workdir/bin"
@@ -22,6 +27,8 @@ run_case() {
   mkdir -p "$bindir" "$shimdir"
 
   # curl shim: serve the GitHub "latest release" JSON and a fake binary download.
+  # The fake binary echoes the release tag from its download URL so tests can
+  # assert whether install.sh chose latest or the npm package's pinned version.
   cat > "$shimdir/curl" <<'SHIM'
 #!/usr/bin/env bash
 out="" url=""
@@ -35,7 +42,9 @@ done
 if [[ "$url" == *api.github.com* ]]; then
   echo '{"tag_name": "v9.9.9"}'
 elif [[ "$url" == *releases/download* ]]; then
-  printf '#!/bin/sh\necho v9.9.9\n' > "$out"
+  tag="${url#*/releases/download/}"
+  tag="${tag%%/*}"
+  printf '#!/bin/sh\necho %s\n' "$tag" > "$out"
 fi
 exit 0
 SHIM
@@ -63,12 +72,16 @@ SHIM
     "PATH=$shimdir:/usr/bin:/bin"
   )
   [[ "$mode" == "inplace" ]] && env_vars+=("PI_WEB_INPLACE_UPDATE=1")
+  if [[ -n "$package_version" ]]; then
+    env_vars+=("npm_package_name=@ygncode/pi-web" "npm_package_version=$package_version")
+  fi
 
   env -i "${env_vars[@]}" bash "$INSTALL_SH" </dev/null > "$workdir/out.log" 2>&1 \
     || fail "[$mode] install.sh exited non-zero:"$'\n'"$(cat "$workdir/out.log")"
 
   [[ -x "$bindir/pi-web" ]] || fail "[$mode] binary missing after install"
-  grep -q v9.9.9 "$bindir/pi-web" || fail "[$mode] binary not replaced with new version"
+  grep -q "$expected_tag" "$bindir/pi-web" \
+    || fail "[$mode] binary not replaced with expected version $expected_tag"
 
   if [[ "$mode" == "inplace" ]]; then
     [[ ! -s "$calllog" ]] \
@@ -84,4 +97,5 @@ SHIM
 
 run_case inplace
 run_case normal
+run_case normal 1.2.3-beta.4
 echo "PASS: install.sh in-place self-update"

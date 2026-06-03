@@ -7,7 +7,7 @@ set -euo pipefail
 #   curl -fsSL https://raw.githubusercontent.com/ygncode/pi-web/main/install.sh | bash
 #
 # Via pi package (also registers /remote, /refresh commands):
-#   pi install git:github.com/ygncode/pi-web
+#   pi install npm:@ygncode/pi-web@beta
 #
 # Updates are handled by re-running the same command.
 
@@ -56,6 +56,17 @@ detect_platform() {
   esac
 
   echo "${os}-${arch}"
+}
+
+# ── Choose release tag ──────────────────────────────────────────────
+package_tag() {
+  # When install.sh runs as an npm lifecycle script, install the binary that
+  # matches the npm package version. This keeps pinned installs such as
+  # `pi install npm:@ygncode/pi-web@0.0.1-beta.25` pinned for both the extension
+  # package and the downloaded pi-web binary.
+  if [[ "${npm_package_name:-}" == "@ygncode/pi-web" && -n "${npm_package_version:-}" ]]; then
+    echo "v${npm_package_version#v}"
+  fi
 }
 
 # ── Check latest release tag ────────────────────────────────────────
@@ -390,7 +401,12 @@ main() {
   platform="$(detect_platform)"
 
   local tag
-  tag="$(latest_tag)"
+  tag="$(package_tag)"
+  if [[ -n "$tag" ]]; then
+    info "Using pi-web package version ${tag}."
+  else
+    tag="$(latest_tag)"
+  fi
 
   if ! needs_update "$tag"; then
     info "Already up-to-date (${tag})."

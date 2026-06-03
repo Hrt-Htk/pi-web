@@ -38,7 +38,7 @@ pi install npm:@ygncode/pi-web@beta
 This single command:
 - Installs the npm pi package under pi's package directory
 - Runs the package `postinstall` script (`bash install.sh`)
-- Downloads the correct pi-web binary for your platform from GitHub Releases
+- Downloads the matching pi-web binary for your package version and platform from GitHub Releases
 - Installs it to `~/.pi/agent/bin/pi-web`
 - Sets up auto-start on login (launchd on macOS, systemd on Linux)
 - Registers the `/web`, `/remote`, `/refresh`, `/pi-web token`, and `/pi-web set-token` pi commands
