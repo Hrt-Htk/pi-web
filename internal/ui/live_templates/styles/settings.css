@@ -87,6 +87,7 @@
 .settings-control select,
 .settings-control input[type="number"],
 .settings-control input[type="time"],
+.settings-control input[type="text"],
 .settings-font-custom {
   box-sizing: border-box;
   width: 180px;
@@ -97,6 +98,10 @@
   padding: 7px 10px;
   font-size: 1em;
   font-family: inherit;
+}
+
+.settings-control input[type="text"] {
+  width: 220px;
 }
 
 .settings-font-control {
@@ -199,6 +204,7 @@
   .settings-control select,
   .settings-control input[type="number"],
   .settings-control input[type="time"],
+  .settings-control input[type="text"],
   .settings-font-custom {
     width: 100%;
   }
