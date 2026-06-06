@@ -14,7 +14,7 @@ build: setup frontend-build
 setup: frontend-setup go-setup
 
 frontend-setup:
-	@if [ ! -d "$(NODE_MODULES)" ]; then \
+	@if [ ! -d "$(NODE_MODULES)" ] || [ "$(WEB_DIR)/package-lock.json" -nt "$(NODE_MODULES)" ]; then \
 		echo "Installing frontend dependencies..."; \
 		cd $(WEB_DIR) && npm install; \
 	else \
@@ -25,7 +25,7 @@ go-setup:
 	go mod download
 
 root-setup:
-	@if [ ! -d "$(ROOT_NODE_MODULES)" ]; then \
+	@if [ ! -d "$(ROOT_NODE_MODULES)" ] || [ "package-lock.json" -nt "$(ROOT_NODE_MODULES)" ]; then \
 		echo "Installing root dependencies..."; \
 		npm install --ignore-scripts; \
 	else \
