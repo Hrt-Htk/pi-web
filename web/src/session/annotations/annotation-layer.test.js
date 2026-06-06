@@ -6,6 +6,15 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 const tick = () => new Promise((r) => setTimeout(r, 0));
+const waitFor = async (fn, { timeout = 1000, interval = 5 } = {}) => {
+  const start = Date.now();
+  for (;;) {
+    const result = fn();
+    if (result) return result;
+    if (Date.now() - start >= timeout) throw new Error('waitFor: condition not met within timeout');
+    await new Promise((r) => setTimeout(r, interval));
+  }
+};
 
 function fakeApi(initial = []) {
   let store = [...initial];
@@ -147,7 +156,9 @@ describe('annotation layer', () => {
     // Note: no mouseup is dispatched here — only selectionchange, like mobile.
     selectWorld(doc, win);
     doc.dispatchEvent(new win.Event('selectionchange'));
-    await new Promise((r) => win.setTimeout(r, 10)); // let the debounce fire on win's clock
+    // Poll until the debounce fires rather than waiting a fixed interval, which
+    // is flaky under CI load.
+    await waitFor(() => doc.querySelector('.annotation-popover [data-action="start-comment"]'));
 
     expect(doc.querySelector('.annotation-popover [data-action="start-comment"]')).not.toBeNull();
   });
