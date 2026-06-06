@@ -10,16 +10,23 @@ import (
 	"time"
 )
 
-// handleSettingsPage renders the global /settings page.
+// handleSettingsPage renders the global /settings page through the SPA shell.
 func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
-	if s.renderSettings == nil {
+	s.handleAppShell(w, r, "")
+}
+
+// handleAppShell renders the Svelte SPA shell for browser-owned routes. The
+// optional bootstrap is the base64 session payload embedded so the session
+// route can paint without a round-trip to /api/session (empty for other routes).
+func (s *Server) handleAppShell(w http.ResponseWriter, r *http.Request, bootstrap string) {
+	if s.renderAppShell == nil {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.renderSettings(w); err != nil {
+	if err := s.renderAppShell(w, bootstrap); err != nil {
 		if !isBrokenPipe(err) {
-			fmt.Fprintf(os.Stderr, "settings template error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "app shell template error: %v\n", err)
 		}
 	}
 }
@@ -32,6 +39,8 @@ func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
 // listed here — it stays in localStorage only.
 var settingDefaults = map[string]string{
 	"pi-web-theme":                 "dark",
+	"pi-web:v1:locale":             "en",
+	"pi-web:v1:custom-languages":   "",
 	"pi-web:v1:font-ui":            "mono",
 	"pi-web:v1:font-content":       "mono",
 	"pi-web:v1:font-ui-size":       "12",

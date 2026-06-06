@@ -10,10 +10,10 @@ import (
 	"pi-web/internal/sessions"
 )
 
-//go:embed live_templates/export/vendor/marked.min.js
+//go:embed embedded/export/vendor/marked.min.js
 var markedJs string
 
-//go:embed live_templates/export/vendor/highlight.min.js
+//go:embed embedded/export/vendor/highlight.min.js
 var hljsJs string
 
 // Static export runtime, built by Vite from web/src/export/export-entry.js
@@ -22,7 +22,7 @@ var hljsJs string
 // frontend build must run before `go build` so this embed target exists —
 // the same constraint as web/dist.
 //
-//go:embed live_templates/export/export.js
+//go:embed embedded/export/export.js
 var exportJs string
 
 // renderExportSessionPage renders a self-contained HTML snapshot suitable for
@@ -46,37 +46,23 @@ func RenderExportSessionPage(session sessions.Session, theme string) string {
 	inlineScript := "<script>\n" + markedJs + "\n</script>\n<script>\n" + hljsJs + "\n</script>\n<script>\n" + exportJs + "\n</script>"
 
 	data := struct {
-		IsLive             bool
-		Title              string
-		LiveDocumentStart  template.HTML
-		ThemeBoot          template.HTML
-		ServiceWorker      template.HTML
-		SessionCommandMenu template.HTML
-		MobileCommandMenu  template.HTML
-		SessionPalette     template.HTML
-		SessionData        template.JS
-		SessionScript      template.HTML
-		FirstMessageStub   template.HTML
-		ChatComposer       template.HTML
-		LiveDocumentEnd    template.HTML
+		Title             string
+		LiveDocumentStart template.HTML
+		ThemeBoot         template.HTML
+		SessionData       template.JS
+		SessionScript     template.HTML
+		LiveDocumentEnd   template.HTML
 	}{
-		IsLive:             false,
-		Title:              session.Name,
-		LiveDocumentStart:  renderExportDocumentStart(session.Name, styles, bodyAttrs),
-		ThemeBoot:          exportThemeBootScript(sanitizeTheme(theme)),
-		ServiceWorker:      "",
-		SessionCommandMenu: "",
-		MobileCommandMenu:  "",
-		SessionPalette:     "",
-		SessionData:        template.JS(dataBase64),
-		SessionScript:      template.HTML(inlineScript),
-		FirstMessageStub:   "",
-		ChatComposer:       "",
-		LiveDocumentEnd:    template.HTML("</body>\n</html>"),
+		Title:             session.Name,
+		LiveDocumentStart: renderExportDocumentStart(session.Name, styles, bodyAttrs),
+		ThemeBoot:         exportThemeBootScript(sanitizeTheme(theme)),
+		SessionData:       template.JS(dataBase64),
+		SessionScript:     template.HTML(inlineScript),
+		LiveDocumentEnd:   template.HTML("</body>\n</html>"),
 	}
 
 	var buf bytes.Buffer
-	if err := liveSessionTmpl.Execute(&buf, data); err != nil {
+	if err := exportSessionTmpl.Execute(&buf, data); err != nil {
 		log.Printf("export: template execution failed for session %q: %v", session.ID, err)
 		return ""
 	}
@@ -107,4 +93,3 @@ func renderExportDocumentStart(title string, styles string, bodyAttrs string) te
 func exportThemeBootScript(defaultTheme string) template.HTML {
 	return themeBootScript(defaultTheme)
 }
-

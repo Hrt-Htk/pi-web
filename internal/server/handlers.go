@@ -2,10 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 
 	"pi-web/internal/agentdir"
 	"pi-web/internal/sessions"
+	"pi-web/internal/ui"
 )
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -23,49 +23,51 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// is a genuine 404. Serving index HTML for e.g. a missing /static/assets/*.js
 	// would surface in the browser as a "module script has MIME text/html" error.
 	if r.URL.Path != "/" {
+		if s.renderAppShell != nil && isSPABrowserPath(r) {
+			s.handleAppShell(w, r, "")
+			return
+		}
 		http.NotFound(w, r)
 		return
 	}
-	summaries, err := s.loadSummaries()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	s.handleAppShell(w, r, "")
+}
+
+func isSPABrowserPath(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
 	}
-	s.reapOrphanedBtw(summaries)
-	summaries = s.filterEnabledSummaries(summaries)
-	summaries = s.filterBtwSummaries(summaries)
-	sessions.SortSummariesByActivity(summaries)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.renderIndex(w, summaries); err != nil {
-		if !isBrokenPipe(err) {
-			fmt.Fprintf(os.Stderr, "template error: %v\n", err)
+	path := r.URL.Path
+	if path == "" || path == "/" {
+		return false
+	}
+	for _, prefix := range []string{
+		"/api/",
+		"/api",
+		"/static/",
+		"/sounds/",
+		"/debug/",
+	} {
+		if path == prefix || strings.HasPrefix(path, prefix) {
+			return false
 		}
 	}
+	last := path[strings.LastIndex(path, "/")+1:]
+	if strings.Contains(last, ".") {
+		return false
+	}
+	return true
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
-	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			http.Error(w, "invalid session id", 400)
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			http.Error(w, "session not found", 404)
-		default:
-			http.Error(w, err.Error(), 500)
-		}
-		return
+	// Embed the session payload so the SPA paints without round-trips to
+	// /api/session and /api/scratchpad. Empty when the id is missing/unresolved;
+	// the client then falls back to fetching (and shows a proper error).
+	bootstrap := ""
+	if id := r.URL.Query().Get("id"); id != "" {
+		bootstrap = s.sessionBootstrap(id)
 	}
-	scratchpad := ""
-	if resolved.Session.Header != nil {
-		if cwd, ok := resolved.Session.Header["cwd"].(string); ok && cwd != "" {
-			if content, err := s.lookupScratchpad(cwd); err == nil {
-				scratchpad = content
-			}
-		}
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.WriteString(w, s.renderLiveSession(resolved.Session, scratchpad))
+	s.handleAppShell(w, r, bootstrap)
 }
 
 func (s *Server) handleApiForkSession(w http.ResponseWriter, r *http.Request) {
@@ -230,15 +232,72 @@ func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {
 			entries = entries[f:end]
 			from = f
 		}
+	} else if q.Get("paginate") == "1" {
+		entries, total, from = paginatedEntries(resolved.Session.Entries)
 	}
 
-	writeJSON(w, 0, map[string]any{
-		"header":  resolved.Session.Header,
-		"entries": entries,
-		"name":    resolved.Session.Name,
-		"total":   total,
-		"from":    from,
-	})
+	writeJSON(w, 0, sessionResponseMap(resolved.Session, entries, total, from))
+}
+
+// paginatedEntries returns the tail window embedded on the initial session load
+// for huge sessions (mirrors the ?paginate=1 API path). `total` is always the
+// full count; `from` is the index the returned window starts at.
+func paginatedEntries(entries []map[string]any) (out []map[string]any, total, from int) {
+	total = len(entries)
+	out = entries
+	if total > ui.LargeSessionThreshold {
+		from = total - ui.LargeSessionTailEntries
+		if from < 0 {
+			from = 0
+		}
+		out = entries[from:]
+	}
+	return out, total, from
+}
+
+// sessionResponseMap is the JSON shape the SPA consumes for a session, shared by
+// the /api/session endpoint and the bootstrap embedded in the page shell.
+func sessionResponseMap(session sessions.Session, entries []map[string]any, total, from int) map[string]any {
+	return map[string]any{
+		"header":             session.Header,
+		"entries":            entries,
+		"name":               session.Name,
+		"total":              total,
+		"from":               from,
+		"chatAvailable":      session.ChatAvailable || session.ChatDisabledReason == "",
+		"chatDisabledReason": session.ChatDisabledReason,
+		"model":              session.Model,
+		"modelProvider":      session.ModelProvider,
+	}
+}
+
+// sessionBootstrap builds the base64 payload embedded in the session page shell
+// so the SPA can render its first paint without round-trips to /api/session and
+// /api/scratchpad. Returns "" when the id can't be resolved — the client then
+// falls back to fetching, which surfaces a proper 404/error state.
+func (s *Server) sessionBootstrap(id string) string {
+	if s.cache == nil {
+		return ""
+	}
+	resolved, err := s.cache.Resolve(s.sessionsDir, id)
+	if err != nil {
+		return ""
+	}
+	entries, total, from := paginatedEntries(resolved.Session.Entries)
+	data := sessionResponseMap(resolved.Session, entries, total, from)
+
+	scratchpad := ""
+	if cwd, _ := resolved.Session.Header["cwd"].(string); cwd != "" {
+		if content, err := s.lookupScratchpad(cwd); err == nil {
+			scratchpad = content
+		}
+	}
+
+	raw, err := json.Marshal(map[string]any{"id": id, "data": data, "scratchpad": scratchpad})
+	if err != nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(raw)
 }
 
 func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {

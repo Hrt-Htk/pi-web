@@ -1,3 +1,6 @@
+import { icon, Share2 } from '../../shared/icons.js';
+import { t } from '../../shared/i18n.js';
+
 export function hideShareOverlay(state, { documentImpl = document } = {}) {
   const overlay = documentImpl.getElementById('share-overlay');
   if (overlay) overlay.style.display = 'none';
@@ -7,7 +10,7 @@ export function hideShareOverlay(state, { documentImpl = document } = {}) {
 export function showShareCopiedNotice(label, text, state, { documentImpl = document, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
   const notice = documentImpl.getElementById('share-copy-notice');
   if (!notice) return;
-  notice.textContent = label + ' copied';
+  notice.textContent = t('share.copiedSuffix', { label });
   notice.title = text;
   clearTimeoutImpl(state.shareCopyHideTimer);
   notice.classList.add('visible');
@@ -109,7 +112,7 @@ export function setupShareButton({ documentImpl = document, fetchImpl = fetch, s
     fetchImpl('/share?id=' + encodeURIComponent(sessionId), { method: 'POST' })
       .then((response) => response.json())
       .then((data) => {
-        shareBtn.innerHTML = '<span>↗</span>Share';
+        shareBtn.innerHTML = icon(Share2, { size: 14 }) + 'Share';
         shareBtn.disabled = false;
         if (data.error) {
           showShareError(data.error + (data.stderr ? '\n\n' + data.stderr : ''), state, { documentImpl, escapeHtml });
@@ -118,7 +121,7 @@ export function setupShareButton({ documentImpl = document, fetchImpl = fetch, s
         }
       })
       .catch((err) => {
-        shareBtn.innerHTML = '<span>↗</span>Share';
+        shareBtn.innerHTML = icon(Share2, { size: 14 }) + 'Share';
         shareBtn.disabled = false;
         showShareError(err.message || 'Network error', state, { documentImpl, escapeHtml });
       });

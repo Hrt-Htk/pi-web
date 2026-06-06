@@ -1,3 +1,6 @@
+import { icon, X } from '../../shared/icons.js';
+import { t } from '../../shared/i18n.js';
+
 export function runChatComposer({
   documentImpl = document,
   windowImpl = window,
@@ -337,9 +340,9 @@ export function runChatComposer({
         }
       }
       if (ok) {
-        showCwdToast('Path copied');
+        showCwdToast(t('composer.pathCopied'));
       } else {
-        showCwdToast('Copy failed', true);
+        showCwdToast(t('common.copyFailed'), true);
       }
     });
   }
@@ -505,7 +508,7 @@ export function runChatComposer({
         remove.type = 'button';
         remove.className = 'pi-chat-remove';
         remove.setAttribute('aria-label', 'Remove ' + file.name);
-        remove.textContent = '×';
+        remove.innerHTML = icon(X, { size: 13 });
         remove.addEventListener('click', () => {
           const [removed] = selectedChatFiles.splice(index, 1);
           if (removed) revokeAttachmentObjectUrl(removed);
@@ -859,7 +862,18 @@ export function runChatComposer({
           positionPopover();
         }
       });
-      
+
+      // The popover renders as a sibling of the capsule (outside the toolbar for
+      // overflow safety), so clicks inside it never reach the capsule listener
+      // above. Handle the close button — and swallow inner clicks so the
+      // document-level outside-click handler doesn't immediately reopen/close.
+      popover.addEventListener('click', (e) => {
+        if (e.target.closest('.pi-popover-close')) {
+          popover.style.display = 'none';
+        }
+        e.stopPropagation();
+      });
+
       // Close popover when clicking anywhere else (excluding capsule and popover itself)
       document.addEventListener('click', (e) => {
         if (popover.style.display !== 'none') {

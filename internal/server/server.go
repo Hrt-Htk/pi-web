@@ -41,10 +41,8 @@ type Deps struct {
 	Auth                *auth.Middleware
 	ChatSender          ChatSender
 	Cache               *sessions.Cache
-	RenderIndex         func(w io.Writer, summaries []sessions.SessionSummary) error
-	RenderLiveSession   func(s sessions.Session, scratchpad string) string
 	RenderExportSession func(s sessions.Session, theme string) string
-	RenderSettings      func(w io.Writer) error
+	RenderAppShell      func(w io.Writer, bootstrap string) error
 	Models              func(ctx context.Context) (json.RawMessage, error)
 	Now                 func() time.Time
 	// Updater reports current/latest version + changelog. Optional; when nil
@@ -72,10 +70,8 @@ type Server struct {
 	auth                *auth.Middleware
 	shareRunner         shareCmdRunner
 	now                 func() time.Time
-	renderIndex         func(w io.Writer, summaries []sessions.SessionSummary) error
-	renderLiveSession   func(s sessions.Session, scratchpad string) string
 	renderExportSession func(s sessions.Session, theme string) string
-	renderSettings      func(w io.Writer) error
+	renderAppShell      func(w io.Writer, bootstrap string) error
 	models              func(ctx context.Context) (json.RawMessage, error)
 	lastKnown           map[string]struct{} // session ids currently broadcast as running
 	lastKnownMu         sync.Mutex
@@ -181,10 +177,8 @@ func New(deps Deps) *Server {
 		cache:               deps.Cache,
 		auth:                deps.Auth,
 		now:                 now,
-		renderIndex:         deps.RenderIndex,
-		renderLiveSession:   deps.RenderLiveSession,
 		renderExportSession: deps.RenderExportSession,
-		renderSettings:      deps.RenderSettings,
+		renderAppShell:      deps.RenderAppShell,
 		models:              deps.Models,
 		lastKnown:           make(map[string]struct{}),
 		titleInFlight:       make(map[string]bool),
@@ -234,6 +228,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/", s.auth.Wrap(s.handleIndex))
 	mux.HandleFunc("/session", s.auth.Wrap(s.handleSession))
 	mux.HandleFunc("/settings", s.auth.Wrap(s.handleSettingsPage))
+	mux.HandleFunc("/login", s.auth.Wrap(func(w http.ResponseWriter, r *http.Request) {
+		s.handleAppShell(w, r, "")
+	}))
 	mux.HandleFunc("/api/session", s.auth.Wrap(s.handleApiSession))
 	mux.HandleFunc("/api/sessions", s.auth.Wrap(s.handleApiSessions))
 	mux.HandleFunc("/api/chat", s.auth.Wrap(s.handleChat))

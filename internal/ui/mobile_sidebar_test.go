@@ -4,8 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"pi-web/internal/sessions"
 )
 
 // Mobile sidebar close-on-navigate is implemented in the shared sidebar and
@@ -36,13 +34,13 @@ func TestMobileSidebarClosesWhenNavigatingTree(t *testing.T) {
 
 func TestMobileSessionActionsStayAtTopAndHideBehindSidebar(t *testing.T) {
 	checks := []string{
-		`class="session-header-bar"`,
+		`class="session-header-bar export-only"`,
 		"@media (max-width: 900px)",
 		".session-header-bar {",
 		"position: fixed;",
 		"top: 0;",
 	}
-	combined := liveSessionCss + liveSessionHtml + exportJs + chatComposerHtmlForSession(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl"}}) + renderLiveSessionPage(sessions.Session{SessionSummary: sessions.SessionSummary{ID: "s.jsonl"}})
+	combined := liveSessionCss + exportSessionHtml + exportJs
 	for _, check := range checks {
 		if !strings.Contains(combined, check) {
 			t.Fatalf("mobile action UI missing %q", check)

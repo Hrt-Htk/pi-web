@@ -27,7 +27,7 @@ pi-web/
 │   │   ├── palette.go          # Session-list palette rendering
 │   │   ├── auth_page.go        # Auth/token entry page
 │   │   ├── pwa.go              # PWA routes: manifest, sw.js, icons, css, cat.webm
-│   │   └── live_templates/     # Embedded HTML/CSS/assets (shells, styles, export/)
+│   │   └── embedded/     # Embedded HTML/CSS/assets (shells, styles, export/)
 │   ├── auth/
 │   │   └── auth.go             # Token-based HTTP middleware
 │   ├── chat/
@@ -72,7 +72,7 @@ pi-web/
 │       └── manager.go          # ChatWorker lifecycle: create, cache, reap
 ```
 
-> The embedded standalone export bundle lives at `internal/ui/live_templates/export/`
+> The embedded standalone export bundle lives at `internal/ui/embedded/export/`
 > (`app/*.js` + `vendor/`), **not** at `internal/ui/export/`.
 
 ## Key Types
@@ -200,8 +200,8 @@ type piRPCWorker struct {
 
 | Route | Method | Handler | Description |
 |-------|--------|---------|-------------|
-| `/` | GET | `handleIndex` | Render session list (Vite index bundle shell) |
-| `/session` | GET | `handleSession` | Render single session page (Vite session bundle shell) |
+| `/` | GET | `handleIndex` | Render SPA shell for the sessions route |
+| `/session` | GET | `handleSession` | Render SPA shell for the session route |
 | `/api/session` | GET | `handleApiSession` | JSON session data |
 | `/api/sessions` | GET | `handleApiSessions` | JSON list of session summaries |
 | `/api/chat` | POST | `handleChat` | Send chat message (multipart) |
@@ -241,7 +241,7 @@ PWA / static asset routes (registered outside `Server.Register`):
 | Route | Source |
 |-------|--------|
 | `/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-maskable.svg`, `/pi-logo.svg`, `/cat.webm`, `/theme.css`, `/index.css`, `/menu.css`, `/palette.css` | `internal/ui/pwa.go` (embedded assets) |
-| `/static/assets/index-*.js`, `/static/assets/...` | Embedded Vite bundles (`internal/app/app.go` + `internal/frontend`) |
+| `/static/assets/app-*.js`, `/static/assets/...` | Embedded Vite SPA bundle and chunks (`internal/app/app.go` + `internal/frontend`) |
 
 ## Auth Flow
 

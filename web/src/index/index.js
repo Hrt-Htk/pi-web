@@ -4,6 +4,10 @@ import { toggleTheme, syncThemeIcons } from '../shared/theme.js';
 import { setupSessionListPalette } from '../shared/session-list-palette.js';
 import { createVersionController } from '../shared/version.js';
 import { configureSettingsSync, hydrateSettings, writeSetting } from '../shared/settings-store.js';
+import { icon, Sun, Moon } from '../shared/icons.js';
+import { t } from '../shared/i18n.js';
+
+const sessionsCountLabel = (n) => (n === 1 ? t('index.sessionCountOne') : t('index.sessionsCount', { count: n }));
 
 export { createSessionsPage };
 
@@ -12,6 +16,7 @@ export function runIndexPage({
   windowImpl = window,
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout,
+  refreshOnStart = false,
 } = {}) {
   configureSettingsSync({ fetchImpl: windowImpl.fetch ? windowImpl.fetch.bind(windowImpl) : undefined });
 
@@ -260,7 +265,7 @@ export function runIndexPage({
       const indexIcon = documentImpl.querySelector('[data-theme-icon]');
       if (indexIcon) {
         const isDark = (documentImpl.documentElement.dataset.theme || 'dark') === 'dark';
-        indexIcon.textContent = isDark ? '☀' : '◐';
+        indexIcon.innerHTML = icon(isDark ? Sun : Moon, { size: 14 });
       }
     }
   }, { capture: true });
@@ -362,7 +367,7 @@ export function runIndexPage({
         noResults = documentImpl.createElement('div');
         noResults.className = 'projects-empty';
         noResults.setAttribute('data-projects-no-results', '');
-        noResults.textContent = 'No projects match your search.';
+        noResults.textContent = t('index.noProjectsMatch');
         projectsList.appendChild(noResults);
       }
       noResults.classList.remove('hidden');
@@ -374,7 +379,7 @@ export function runIndexPage({
   function updateToggleAllLabel() {
     if (!projectsToggleAllBtn) return;
     const allEnabled = projectsCache.length > 0 && projectsCache.every((p) => p.enabled);
-    projectsToggleAllBtn.textContent = allEnabled ? 'Deselect all' : 'Select all';
+    projectsToggleAllBtn.textContent = allEnabled ? t('index.deselectAll') : t('index.selectAll');
     projectsToggleAllBtn.dataset.target = allEnabled ? 'disable' : 'enable';
     projectsToggleAllBtn.disabled = projectsCache.length === 0;
   }
@@ -387,7 +392,7 @@ export function runIndexPage({
     if (!projects.length) {
       const empty = documentImpl.createElement('div');
       empty.className = 'projects-empty';
-      empty.textContent = 'No projects found yet.';
+      empty.textContent = t('index.noProjectsFound');
       projectsList.appendChild(empty);
       return;
     }
@@ -405,7 +410,7 @@ export function runIndexPage({
           await page.setProjectEnabled(project.path, checkbox.checked);
         } catch (err) {
           checkbox.checked = !checkbox.checked;
-          if (projectsModalError) projectsModalError.textContent = err.message || 'Failed to update project';
+          if (projectsModalError) projectsModalError.textContent = err.message || t('index.failedUpdateProject');
         } finally {
           checkbox.disabled = false;
         }
@@ -427,7 +432,7 @@ export function runIndexPage({
       const meta = documentImpl.createElement('span');
       meta.className = 'project-row-count';
       const count = project.sessionCount || 0;
-      meta.textContent = count === 1 ? '1 session' : `${count} sessions`;
+      meta.textContent = sessionsCountLabel(count);
 
       row.appendChild(checkbox);
       row.appendChild(name);
@@ -437,7 +442,7 @@ export function runIndexPage({
         const remove = documentImpl.createElement('button');
         remove.type = 'button';
         remove.className = 'project-row-remove';
-        remove.textContent = 'Remove';
+        remove.textContent = t('index.removeProject');
         remove.addEventListener('click', async () => {
           remove.disabled = true;
           try {
@@ -445,7 +450,7 @@ export function runIndexPage({
             await refreshProjectsList();
           } catch (err) {
             remove.disabled = false;
-            if (projectsModalError) projectsModalError.textContent = err.message || 'Failed to remove project';
+            if (projectsModalError) projectsModalError.textContent = err.message || t('index.failedRemoveProject');
           }
         });
         row.appendChild(remove);
@@ -461,8 +466,8 @@ export function runIndexPage({
     if (projectsConfig) projectsConfig.classList.toggle('filter-off', !filterEnabled);
     if (projectsFilterDesc) {
       projectsFilterDesc.textContent = filterEnabled
-        ? 'Only checked projects appear on the homepage.'
-        : 'All projects are shown. Turn on to show only the checked ones.';
+        ? t('index.filterOnDesc')
+        : t('index.filterOffDesc');
     }
   }
 
@@ -579,7 +584,12 @@ export function runIndexPage({
   page.filter();
   sessionPalette.refresh();
   page.subscribe();
-  if (initialLayout === 'projects') {
+  if (refreshOnStart) {
+    page.refreshSessions()
+      .then(() => sessionPalette.refresh())
+      .catch(() => {})
+      .finally(markLayoutReady);
+  } else if (initialLayout === 'projects') {
     page.setLayout('projects')
       .then(() => sessionPalette.refresh())
       .catch(() => {})
@@ -643,7 +653,7 @@ export function runIndexPage({
       const total = group.querySelectorAll('.session-card').length;
       if (countEl) {
         countEl.dataset.total = String(total);
-        countEl.textContent = `${total} sessions`;
+        countEl.textContent = sessionsCountLabel(total);
       }
       if (collapsed[project]) {
         group.classList.add('collapsed');
@@ -674,7 +684,7 @@ export function runIndexPage({
       if (countEl) {
         countEl.setAttribute('data-running', String(running));
         const totalVal = countEl.dataset.total || String(group.querySelectorAll('.session-card').length);
-        countEl.textContent = running > 0 ? `(${running} active)` : `${totalVal} sessions`;
+        countEl.textContent = running > 0 ? t('index.activeCount', { count: running }) : sessionsCountLabel(Number(totalVal));
       }
     });
     documentImpl.querySelectorAll('[data-running-count]').forEach((countEl) => {
@@ -682,6 +692,10 @@ export function runIndexPage({
     });
     documentImpl.querySelectorAll('[data-running-stat]').forEach((statEl) => {
       statEl.classList.toggle('visible', total > 0);
+    });
+    const totalSessions = documentImpl.querySelectorAll('.session-card').length;
+    documentImpl.querySelectorAll('[data-total-count]').forEach((el) => {
+      el.textContent = sessionsCountLabel(totalSessions);
     });
   }
 
@@ -701,12 +715,4 @@ export function runIndexPage({
 
   documentImpl.addEventListener('pi-index-sessions-rendered', start);
   start();
-}
-
-if (typeof window !== 'undefined' && typeof document !== 'undefined' && (document.getElementById('session-palette-search') || document.getElementById('search') || document.querySelector('[data-sessions-content]'))) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => runIndexPage());
-  } else {
-    runIndexPage();
-  }
 }

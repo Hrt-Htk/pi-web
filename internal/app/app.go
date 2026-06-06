@@ -81,10 +81,8 @@ func Main(version string) {
 		Auth:                authMiddleware,
 		ChatSender:          manager,
 		Cache:               sessions.NewCache(),
-		RenderIndex:         ui.RenderIndex,
-		RenderLiveSession:   ui.RenderLiveSessionPage,
 		RenderExportSession: ui.RenderExportSessionPage,
-		RenderSettings:      ui.RenderSettings,
+		RenderAppShell:      ui.RenderAppShell,
 		Models: func(ctx context.Context) (json.RawMessage, error) {
 			return defaultModelsCache.get(ctx)
 		},
@@ -100,17 +98,12 @@ func Main(version string) {
 	srv.Register(mux)
 	ui.RegisterPWAHandlers(mux)
 	dfs := web.DistFS()
-	if scripts, err := frontend.LoadScripts(dfs, frontend.IndexEntry, frontend.SessionEntry, frontend.SettingsEntry, frontend.LiveEntry); err == nil {
+	if scripts, err := frontend.LoadScripts(dfs, frontend.AppEntry); err == nil {
 		for _, script := range scripts {
-			switch script.Entry {
-			case frontend.IndexEntry:
-				ui.SetIndexScriptPath(script.Path)
-			case frontend.SessionEntry:
-				ui.SetSessionScriptPath(script.Path)
-			case frontend.SettingsEntry:
-				ui.SetSettingsScriptPath(script.Path)
+			if script.Entry == frontend.AppEntry {
+				ui.SetAppScriptPath(script.Path)
 			}
-			mux.HandleFunc(script.Path, frontend.ServeJS(script.JS, script.Path != "/static/assets/index.js"))
+			mux.HandleFunc(script.Path, frontend.ServeJS(script.JS, true))
 		}
 		// Serve all other hashed assets (lazy chunks, runtime) from the embed FS.
 		mux.HandleFunc("/static/assets/", frontend.ServeStaticAssets(dfs))
