@@ -69,13 +69,14 @@ func TestToolsVisibilityAndOutputExpansionAreSeparateStates(t *testing.T) {
 
 func TestNavigationReappliesCurrentToggleStateAfterRenderingMessages(t *testing.T) {
 	// The message pane is now rendered by the reactive <SessionContent>, which
-	// runs an afterRender(container) hook after each (re)render; session.js wires
-	// that hook to re-apply persisted toggle state via applyToggleStateToNode.
+	// runs an afterRender(container) hook after each (re)render; the live content
+	// runtime wires that hook to re-apply persisted toggle state via
+	// applyToggleStateToNode.
 	contentSrc := readSrc(t, "web/src/components/session/SessionContent.svelte")
-	sessionSrc := readSrc(t, "web/src/session/session.js")
+	runtimeSrc := readSrc(t, "web/src/session/session-content-runtime.js")
 	srcChecks := map[string][]string{
 		contentSrc: {"afterRender(containerEl)"},
-		sessionSrc: {
+		runtimeSrc: {
 			"contentRuntime.afterRender =",
 			"target.applyToggleStateToNode?.(container)",
 		},
@@ -89,36 +90,12 @@ func TestNavigationReappliesCurrentToggleStateAfterRenderingMessages(t *testing.
 	}
 }
 
-func TestLiveReloadUpdatesExistingAssistantWhenToolResultsArrive(t *testing.T) {
-	entriesSrc, err := os.ReadFile(repoPath("web/src/session/live/live-entries.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-entries.js: %v", err)
-	}
-	eventsSrc, err := os.ReadFile(repoPath("web/src/session/live/live-events.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
-	}
-	combined := string(entriesSrc) + string(eventsSrc)
-	checks := []string{
-		"export function upsertEntry(",
-		".replaceWith(node)",
-		"state.liveRendered.add(entry.id)",
-		"liveRendered.has(entry.id)",
-		"export function refreshEntriesAffectedByToolResult(",
-		"block.type === 'toolCall'",
-		"block.id === toolResultEntry.message.toolCallId",
-		"refreshEntriesAffectedByToolResult(entry, entries)",
-	}
-	for _, check := range checks {
-		if !strings.Contains(combined, check) {
-			t.Fatalf("live reload does not refresh existing assistant entries when tool results arrive; missing %q", check)
-		}
-	}
-}
-
 func TestLiveReloadEntriesInheritCurrentToggleState(t *testing.T) {
-	// A single shared applyToggleStateToNode hook is reused by the controller,
-	// the live reload path, and static export — assert it exists in source.
+	// A single shared applyToggleStateToNode hook is reused by the controller and
+	// static export. Live reload no longer patches the DOM (the reactive model +
+	// <SessionContent>'s afterRender re-apply toggle state — see
+	// TestNavigationReappliesCurrentToggleStateAfterRenderingMessages), so only
+	// the shared hook's existence is asserted here.
 	toggleSrc := readSrc(t, "web/src/session/ui/toggle-state.js")
 	runnerSrc := readSrc(t, "web/src/session/ui/session-ui-runner.js")
 	hookChecks := map[string][]string{
@@ -135,42 +112,23 @@ func TestLiveReloadEntriesInheritCurrentToggleState(t *testing.T) {
 			}
 		}
 	}
-
-	liveReloadChecks := []string{
-		"applyToggleStateToNode: window.applyToggleStateToNode",
-		"applyToggleStateToNode?.(node)",
-	}
-	liveRunner, err := os.ReadFile(repoPath("web/src/session/live/live-reload-runner.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
-	}
-	liveEntries, err := os.ReadFile(repoPath("web/src/session/live/live-entries.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-entries.js: %v", err)
-	}
-	combined := string(liveRunner) + string(liveEntries)
-	for _, check := range liveReloadChecks {
-		if !strings.Contains(combined, check) {
-			t.Fatalf("live reload JS does not apply current toggle state to appended or replaced entries; missing %q", check)
-		}
-	}
 }
 
 func TestLiveReloadRendererUsesToggleableThinkingAndToolMarkup(t *testing.T) {
-	source, err := os.ReadFile(repoPath("web/src/session/live/live-renderer.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-renderer.js: %v", err)
+	// The message pane is rendered by <SessionEntry> (thinking blocks) + its
+	// <ToolOutput> child (expandable tool output) for both live reload and export;
+	// assert the toggle-compatible markup classes survive the decomposition.
+	entrySrc := readSrc(t, "web/src/components/session/SessionEntry.svelte")
+	outputSrc := readSrc(t, "web/src/components/session/ToolOutput.svelte")
+	srcChecks := map[string][]string{
+		entrySrc: {`thinking-block`, `Thinking ...`},
+		outputSrc: {`tool-output expandable`, `output-preview`, `output-full`},
 	}
-	checks := []string{
-		`<div class="thinking-block"><div class="thinking-text">`,
-		`<div class="thinking-collapsed">Thinking ...</div>`,
-		`tool-output expandable`,
-		`output-preview`,
-		`output-full`,
-	}
-	for _, check := range checks {
-		if !strings.Contains(string(source), check) {
-			t.Fatalf("live reload renderer missing toggle-compatible markup %q", check)
+	for src, checks := range srcChecks {
+		for _, check := range checks {
+			if !strings.Contains(src, check) {
+				t.Fatalf("entry markup missing toggle-compatible class %q", check)
+			}
 		}
 	}
 }

@@ -11,19 +11,16 @@ import (
 )
 
 func TestSessionViteSourceIncludesChatPreviewSSEHandling(t *testing.T) {
-	events, err := os.ReadFile(repoPath("web/src/session/live/live-events.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
-	}
 	preview, err := os.ReadFile(repoPath("web/src/session/live/chat-preview.js"))
 	if err != nil {
 		t.Fatalf("read web/src/session/live/chat-preview.js: %v", err)
 	}
-	runner, err := os.ReadFile(repoPath("web/src/session/live/live-reload-runner.js"))
+	// The live-reload runner + SSE primitives were absorbed into <LiveReload>.
+	runner, err := os.ReadFile(repoPath("web/src/components/session/LiveReload.svelte"))
 	if err != nil {
-		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
+		t.Fatalf("read web/src/components/session/LiveReload.svelte: %v", err)
 	}
-	combined := string(events) + string(preview) + string(runner)
+	combined := string(preview) + string(runner)
 	for _, want := range []string{
 		"chat-preview",
 		"renderChatPreview",
@@ -36,19 +33,13 @@ func TestSessionViteSourceIncludesChatPreviewSSEHandling(t *testing.T) {
 }
 
 func TestSessionViteSourceForcesFollowOnChatSendAndScrollsNewEntries(t *testing.T) {
-	runner, err := os.ReadFile(repoPath("web/src/session/live/live-reload-runner.js"))
+	// Follow/scroll + SSE primitives now live in <LiveReload> (absorbed from
+	// live-scroll.js / live-events.js).
+	runner, err := os.ReadFile(repoPath("web/src/components/session/LiveReload.svelte"))
 	if err != nil {
-		t.Fatalf("read web/src/session/live/live-reload-runner.js: %v", err)
+		t.Fatalf("read web/src/components/session/LiveReload.svelte: %v", err)
 	}
-	scroll, err := os.ReadFile(repoPath("web/src/session/live/live-scroll.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-scroll.js: %v", err)
-	}
-	events, err := os.ReadFile(repoPath("web/src/session/live/live-events.js"))
-	if err != nil {
-		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
-	}
-	combined := string(runner) + string(scroll) + string(events)
+	combined := string(runner)
 	for _, want := range []string{
 		"pi-chat-message-sent",
 		"forcePreviewFollowUntil",
