@@ -480,6 +480,93 @@ append/upsert/seen (live reload now flows through the reactive model); keep the
 new-entry highlight + auto-scroll as effects. Mirror in `export-entry.js` (mount
 `<SessionContent>` into `#messages`). Then delete `session-entry-renderer.js`.
 Verify full e2e (esp. live-reload, chat streaming, annotations anchoring).
+
+#### Sub-step B — DONE + verified
+
+The message pane is now rendered by the reactive `<SessionContent>` in **both** the
+live app and the static export; the imperative `#messages` build is gone.
+
+- **Live (`session.js` / `SessionPage.svelte`):** `SessionPage` owns a `$state`
+  content runtime exposed on `window.__piContentRuntime`; `runSessionApp` assigns
+  `renderEntry` (= the entry renderer) and `afterRender` (re-applies toggle state +
+  lazy highlight). `<SessionContent model={sessionModel} …>` renders inside
+  `#messages` (the `firstMessageStub` LCP placeholder was dropped). Copy/fork/label
+  are now ONE delegated `click` listener on `#messages`.
+- **Navigator gutted to nav-state + scroll only.** `session-navigation.js` no longer
+  builds DOM, caches nodes (`entryCache`/`renderEntryToNode` removed), or wires
+  per-entry buttons — it sets the model's active leaf/target (→ reactive
+  `activePath`) and scrolls after the Svelte flush.
+- **Live reload no longer patches the DOM.** `handleSessionReload` gained a reactive
+  mode (no `appendEntry`/`upsertEntry`): it reconciles purely via the model
+  (`onSessionDataReload` → `syncDataModelEntries`), tracks new ids for
+  follow/scroll, and flags them via `onNewEntries` so `live-reload-runner` applies
+  the new-entry highlight. `live-entries.js` is retained (still unit-tested + the
+  imperative path is kept for the legacy `handleSessionReload` branch) but is no
+  longer wired into the live content path — slated for the Phase-5 knip sweep.
+- **Export (`export-entry.js`):** mounts `<SessionContent>` into `#messages` bound to
+  the reactive `treeModel`; navigator simplified the same way. Guard test still
+  green (SessionContent/SessionEntry import no live-only modules).
+- **`session-entry-renderer.js` is KEPT** (not deleted): `<SessionEntry>` still wraps
+  its `renderEntry()` output via `{@html}` for this pass. Its decomposition into real
+  sub-components (and the renderer's deletion) is a later step.
+- **Critical fix uncovered by load-earlier e2e:** `byId`/`toolCallMap`/`labelMap`
+  switched from `$state(new Map())` to **`SvelteMap`**. A plain `$state` Map's
+  `.set`/`.clear` are NOT reactive (only reassignment is), so a derived reading
+  `byId` (e.g. `activePath`) failed to recompute when entries were prepended without
+  the active leaf changing (load-earlier). `SvelteMap` makes in-place mutation
+  reactive while keeping the stable identity that captured references need.
+- **CSS:** `#messages-list` is `display: contents` so entries keep `#messages`'
+  flex/gap layout and the optimistic chat-preview siblings stay correctly spaced.
+- **Go source-guard `TestNavigationReappliesCurrentToggleStateAfterRenderingMessages`**
+  repointed from the old navigator to `<SessionContent>`'s `afterRender` hook +
+  `session.js`.
+- **Verified:** web 554 green · `npm run build` (live + export) · `npm run knip`
+  clean · `go test ./...` green except the pre-existing sandbox-only
+  `internal/git TestDescribeDefaultBranch` (commit-signing) · `go vet` + binary build
+  · full **Desktop Chrome** e2e **53 passed / 2 skipped** (load-earlier's documented
+  contention flake passes on its configured retry). Other browsers untried (matching
+  the existing baseline).
+
+### Phase 3 — live-only components (IN PROGRESS)
+
+Sequencing note: the headline modules (`ChatComposer`, `LiveReload`, `RightSidebar`)
+are tightly coupled to `session.js` — they need `navigateTo`, the shared model, and
+a strict init ordering (chat must initialise after live-reload). Per the plan those
+can only be fully extracted as `session.js` is dismantled at the END of Phase 3, so
+Phase 3 starts with the genuinely **isolatable** components (no session-data /
+`navigateTo` coupling), each a clean, deletable, e2e-green increment, and works
+inward toward the coupled chat/live core.
+
+| Status | Item |
+|---|---|
+| ✅ DONE + verified | **`ImageModal.svelte`** (shared, live + export). Click-to-zoom overlay absorbed from `ui/image-modal.js`: reactive `open`/`src`/`alt`, document-level delegated listener for `.message-image` / `.pi-chat-attachment-preview`, Escape/backdrop close. Live renders `<ImageModal/>` in `SessionPage`; export mounts it into `#image-modal-host` (static `#image-modal` markup removed from `session.html`). **`ui/image-modal.js` + test DELETED**, tests ported to `ImageModal.test.js`. Verified: web 553 + knip clean + `go test ./internal/ui` + Desktop-Chrome e2e 53/2. |
+| ✅ DONE + verified | **Resume ("Terminal") + New Session buttons → `SessionHeader.svelte`.** Behavior absorbed from `live/resume-button.js` + `live/new-session-button.js` into the component that already owns the hidden command-relay buttons (`onMount` wires `#resume-btn`/`#new-btn` by id, so the many `getElementById(...).click()` callers keep working unchanged). `SessionPage` passes `cwd`/`sessionId`. `runLiveReload` lost its `resumeButton`/`newSessionButton`/`cwd` deps + setup calls; `session.js` lost the imports. **4 files DELETED** (both modules + tests). Go resume source-guards (`export_html_test.go`) repointed to `SessionHeader.svelte` (`document.*`/`navigator.*`). Verified: web 544 + knip clean + `go test ./internal/ui` + Desktop-Chrome e2e 53/2. |
+
+| ✅ DONE + verified | **`FullScreenSheet.svelte` + `ShortcutsModal.svelte`** (sheet-infra chunk, part 1/4). Svelte port of `live/full-screen-sheet.js` (`showSheet`): same markup/classes/behavior — ref-counted scroll-lock, focus trap, Escape/backdrop close (backdrop listener attached imperatively to match the codebase's delegated convention + avoid a11y lint), mobile synthetic-history back-gesture close — driven by a single bindable `open`. `ShortcutsModal` ports `live/shortcuts-modal.js` with reactive search. Triggers bridged via `window.__piOpenShortcuts` (set in `SessionPage`, called from `session.js` Cmd+/ + `#shortcuts-help-btn`). **`live/shortcuts-modal.js` DELETED**; component tests added. `full-screen-sheet.js` retained for the 3 remaining consumers. Verified: web 547 + knip clean + no a11y build warnings + `go test ./internal/ui` + Desktop-Chrome e2e 54/2. |
+
+| ✅ DONE + verified | **`ModelUsageModal.svelte`** (sheet-infra 2/4). Svelte port of `live/model-usage-modal.js`: pure stat/cost/breakdown helpers + reactive markup over `<FullScreenSheet>`, computed from the shared model via context (no `escapeHtml` needed — Svelte auto-escapes; `formatTokens` from `session-stats`). Trigger bridged via `window.__piOpenModelUsage` (command-menu's `model-usage` action). Also added `backdropClass`/`panelClass`/`bodyClass` props to `FullScreenSheet` (the former `showSheet` consumers tag the sheet for CSS) — **fixes a missed `shortcuts-sheet-*` styling regression** from 1/4 — and a destroy-time listener/scroll-lock cleanup. **`live/model-usage-modal.js` + test DELETED** (ported to `ModelUsageModal.test.js`); `command-menu.test.js` updated. Verified: web 545 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 53/2. |
+
+| ✅ DONE + verified | **`ForkModal.svelte`** (sheet-infra 3/4). Svelte port of `live/fork-modal.js`: searchable user-message palette with keyboard nav (↑/↓/Enter), preview pane, and `onSelect(entryId)` fork callback, over `<FullScreenSheet>`. `<script module>` exports `buildUserMessageList` so `SessionPage`'s bridge can do the "no user messages" empty check (returns false → command-menu shows the toast, parity with the old null-sheet). command-menu's `fork` action fetches fresh entries then calls `window.__piOpenForkModal({ entries, onSelect })`. **`live/fork-modal.js` + test DELETED** (ported to `ForkModal.test.js`). Verified: web 546 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 54/2. |
+
+| ✅ DONE + verified | **`CatGatekeeperSettings.svelte` (sheet-infra 4/4) + `full-screen-sheet.js` DELETED.** Moved the `showCatSettings` sheet UI into a reactive component over `<FullScreenSheet>`; the pure storage helpers stay in `cat-settings.js` (now also exports `LIMITS`; no longer imports `showSheet`). The cat-gatekeeper controller's `openSettings()` bridges via `window.__piOpenCatSettings({ controller, onChange })`. With its last consumer gone, **`live/full-screen-sheet.js` + test DELETED** (the `showSheet` util is fully replaced by `<FullScreenSheet>`). `cat-settings.test.js` keeps the pure-helper tests; sheet test ported to `CatGatekeeperSettings.test.js`. Verified: web 530 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 54/2. |
+
+**Sheet-infra chunk COMPLETE** — `FullScreenSheet` + 4 modals are Svelte; 5 modules
+deleted (`full-screen-sheet`, `shortcuts-modal`, `model-usage-modal`, `fork-modal`,
+and the `showCatSettings` UI).
+
+### Phase 3 — coupled core (IN PROGRESS)
+
+| Status | Item |
+|---|---|
+| ✅ DONE + verified | **`ShareDialog.svelte`** (self-contained). Absorbed `live/share-overlay.js`: wires the hidden `#share-btn` relay → `POST /share` → reactive overlay showing gist/preview URLs (or error) with clipboard-copy + toast. `runLiveReload` lost its `shareOverlay` dep + the `setupShareButton` block (and the now-unused `escapeHtml` helper); `session.js` lost the import. **`live/share-overlay.js` + test DELETED** (ported to `ShareDialog.test.js`); Go share source-guard repointed to `ShareDialog.svelte`. Verified: web 528 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 54/2. |
+
+| ✅ DONE + verified | **`CommandMenu.svelte`** (self-contained behavior). Absorbed `live/command-menu.js` into the component's `onMount`: open/close (desktop popover + mobile panel), outside-click/Escape close, and the action dispatch (share/new/terminal click hidden relays; tree → `sidebarApi`; model-usage/fork via window bridges; rename/clone via fetch; version/user-docs/diff). The session-list palette is now reached via `window.__piOpenSessionPalette` (set in `session.js`, used by the `list-sessions` action **and** Cmd+K), replacing the `setupCommandMenu._palette` coupling. `session.js` dropped the `setupCommandMenu` import + call. **`live/command-menu.js` + test DELETED** (ported to `CommandMenu.test.js`). Verified: web 528 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 53/2. |
+
+| ✅ DONE + verified | **`LabelModal.svelte`** (RightSidebar-group warm-up; well covered by `labels.spec.ts`). Svelte port of `ui/label-modal.js`: set/clear an entry's tree label, opened via `window.__piOpenLabelModal({ entryId, currentLabel, onSave })` (session.js's delegated label button still owns the save → API + tree refresh). **`ui/label-modal.js` + test DELETED** (ported to `LabelModal.test.js`). Verified: web 528 + knip clean + no a11y warnings + `go test ./internal/ui` + Desktop-Chrome e2e 54/2 (labels/annotations/artifacts/session-view all green). |
+
+Coupled core remaining: `RightSidebar`/`ArtifactPanel`/`AnnotationLayer`,
+`ChatComposer`, `LiveReload`, `btw-popup`, the `cat-gatekeeper` controller, then
+`session.js` teardown.
 | 🔶 remaining | **Phase 2 was NOT isolatable from `session.js` (resolved for tree+header).** The tree's rendering, the active leaf/target (`currentLeafId`/`currentTargetId`), and `filterMode`/`searchQuery` all live as imperative locals in `session.js` (and `export-entry.js`); tree clicks drive **content** rendering via the navigator. Swapping only the tree DOM to `<SessionTreeNodes>` would need a throwaway bridge between that imperative state and the reactive model — which Phase 3 then deletes. **Do the tree cut-over together with moving navigation + filter state into `SessionDataModel`** (i.e. merge the front of Phase 3 into Phase 2), so the model is the single source of truth and `session.js`/`export-entry.js` stop owning that state. The staged `TreeNode`/`SessionTreeNodes` components are ready for that step. |
 
 **Recommended next step (combined Phase 2/3a):** move `currentLeafId`,

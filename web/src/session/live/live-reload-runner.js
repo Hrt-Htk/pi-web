@@ -15,12 +15,15 @@ export function runLiveReload({
   liveStats,
   liveEvents,
   chatPreview,
-  shareOverlay,
-  resumeButton,
-  newSessionButton,
-  cwd = '',
   onSessionDataReload = () => {},
-  onAnnotations = null
+  onAnnotations = null,
+  // Reactive-content mode: the Svelte <SessionContent> owns #messages and
+  // re-renders from the shared model, so this runner stops patching the message
+  // DOM (no appendEntry/upsertEntry). It still drives SSE, chat preview, stats,
+  // follow/scroll, and the new-entry highlight. getInitialEntryIds seeds the
+  // "seen" set from the model (the DOM may not be flushed yet at startup).
+  reactiveContent = false,
+  getInitialEntryIds = null
 } = {}) {
   const document = documentImpl;
   const window = windowImpl;
@@ -38,20 +41,26 @@ export function runLiveReload({
   const __piLiveStats = liveStats;
   const __piLiveEvents = liveEvents;
   const __piChatPreview = chatPreview;
-  const __piShareOverlay = shareOverlay;
-  const __piResumeButton = resumeButton;
-  const __piNewSessionButton = newSessionButton;
+  // share-overlay removed — sharing is the <ShareDialog> Svelte component.
     var LIVE_ENTRY_STATE = {
-      seen: __piLiveEntries.createSeenEntrySet({ documentImpl: document }),
+      seen: reactiveContent && typeof getInitialEntryIds === 'function'
+        ? new Set(getInitialEntryIds())
+        : __piLiveEntries.createSeenEntrySet({ documentImpl: document }),
       liveRendered: new Set()
     };
 
+    // Reactive mode: after the model re-renders the path, highlight the entries
+    // that are genuinely new (parity with the imperative appendEntry highlight).
+    function highlightNewEntries(newIds) {
+      requestAnimationFrame(function() {
+        newIds.forEach(function(id) {
+          var el = document.getElementById('entry-' + id);
+          if (el) __piLiveEntries.highlightNewEntry(el, { windowImpl: window });
+        });
+      });
+    }
+
     var liveRenderer = __piLiveRenderer.createLiveRenderer({ documentImpl: document, markedImpl: marked });
-    var escapeHtml = function(t) {
-      var d = document.createElement('div');
-      d.textContent = t;
-      return d.innerHTML;
-    };
     var renderEntry = liveRenderer.renderEntry;
     var renderMarkdown = liveRenderer.renderMarkdown;
 
@@ -267,16 +276,19 @@ export function runLiveReload({
         fetchImpl: fetch,
         entryState: LIVE_ENTRY_STATE,
         clearChatPreview: clearChatPreview,
-        appendEntry: appendEntry,
-        upsertEntry: upsertEntry,
-        refreshEntriesAffectedByToolResult: refreshEntriesAffectedByToolResult,
+        // In reactive mode the Svelte model owns #messages — omit the DOM
+        // patchers so handleSessionReload only reconciles via onReloaded.
+        appendEntry: reactiveContent ? undefined : appendEntry,
+        upsertEntry: reactiveContent ? undefined : upsertEntry,
+        refreshEntriesAffectedByToolResult: reactiveContent ? undefined : refreshEntriesAffectedByToolResult,
         updateStats: updateStats,
         updateTitle: updateTitle,
         isFollowing: function() { return FOLLOW; },
         scrollAfterLayout: scrollAfterLayout,
         incrementPending: function(count) { pendingCount += count; },
         showFollowButton: showFollowButton,
-        onReloaded: function(data) { onSessionDataReload(data); }
+        onReloaded: function(data) { onSessionDataReload(data); },
+        onNewEntries: reactiveContent ? highlightNewEntries : null
       }).catch(function(err){ console.error('Live update failed:', err); });
     }
 
@@ -352,35 +364,8 @@ export function runLiveReload({
       triggerReload();
     });
 
-    // Share button
-    var SHARE_OVERLAY_STATE = { shareOverlay: null, shareCopyHideTimer: null };
-    __piShareOverlay.setupShareButton({
-      documentImpl: document,
-      fetchImpl: fetch,
-      sessionId: sessId,
-      state: SHARE_OVERLAY_STATE,
-      escapeHtml: escapeHtml,
-      navigatorImpl: navigator
-    });
+    // Share button is now the <ShareDialog> Svelte component; no setup here.
 
-    // Terminal button
-    __piResumeButton.setupResumeButton({
-      documentImpl: document,
-      navigatorImpl: navigator,
-      state: {},
-      setTimeoutImpl: setTimeout,
-      clearTimeoutImpl: clearTimeout
-    });
-
-    // New session button
-    __piNewSessionButton.setupNewSessionButton({
-      documentImpl: document,
-      fetchImpl: fetch,
-      locationImpl: location,
-      cwd: cwd,
-      sessionId: sessId,
-      state: {},
-      setTimeoutImpl: setTimeout,
-      clearTimeoutImpl: clearTimeout
-    });
+    // Terminal (resume) + New Session buttons are now owned by the
+    // <SessionHeader> Svelte component (Phase 3); no setup needed here.
 }

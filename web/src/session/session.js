@@ -2,7 +2,7 @@ import { marked } from 'marked';
 import { icon, Loader } from '../shared/icons.js';
 
 import { buildSessionLookups, loadSessionData, getSessionSearchParams } from './data/session-data.js';
-import { buildActivePathIds as buildActivePathIdsForModel, buildTree as buildTreeForModel, buildTreeNodeMap, buildTreePrefix, findNewestLeaf as findNewestLeafInTree, flattenTree, getPath as getPathForModel } from './tree/session-tree.js';
+import { buildTree as buildTreeForModel, buildTreeNodeMap, findNewestLeaf as findNewestLeafInTree } from './tree/session-tree.js';
 import { extractContent, filterNodes as filterNodesForState, getSearchableText, hasTextContent, recalculateVisualStructure } from './tree/session-filter.js';
 import { escapeHtml, formatToolCall, getTreeNodeDisplayHtml as getTreeNodeDisplayHtmlForState, shortenPath, truncate } from './render/session-format.js';
 import { configureSessionMarkdown, safeMarkedParse } from './render/markdown.js';
@@ -18,7 +18,6 @@ import { filterArtifacts, readArtifactSettings, ARTIFACT_SETTING_KEYS } from './
 import { createAnnotationApi } from './annotations/annotation-api.js';
 import { createAnnotationLayer } from './annotations/annotation-layer.js';
 import { setupLoadEarlierBanner } from './ui/load-earlier.js';
-import { setupImageModal } from './ui/image-modal.js';
 import * as chatComposerRunner from './chat/chat-composer-runner.js';
 import * as doneNotifier from './chat/done-notifier.js';
 import * as chatApi from './chat/chat-api.js';
@@ -35,19 +34,14 @@ import * as liveScroll from './live/live-scroll.js';
 import * as liveStats from './live/live-stats.js';
 import * as liveEntries from './live/live-entries.js';
 import * as chatPreview from './live/chat-preview.js';
-import * as shareOverlay from './live/share-overlay.js';
-import * as resumeButton from './live/resume-button.js';
-import * as newSessionButton from './live/new-session-button.js';
 import * as liveEvents from './live/live-events.js';
 import * as liveRenderer from './live/live-renderer.js';
-import { setupCommandMenu } from './live/command-menu.js';
+// share-overlay absorbed into <ShareDialog> (rendered by SessionPage).
 import { createVersionController } from '../shared/version.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
 import { toggleTheme, syncThemeIcons } from '../shared/theme.js';
 import { setupSessionListPalette } from '../shared/session-list-palette.js';
-import { showShortcutsModal } from './live/shortcuts-modal.js';
 import { setupCatGatekeeper } from './cat-gatekeeper/cat-gatekeeper.js';
-import { openLabelModal } from './ui/label-modal.js';
 import { configureSettingsSync, hydrateSettings } from '../shared/settings-store.js';
 import { t } from '../shared/i18n.js';
 export { buildSessionLookups, createSessionDataModel, decodeBase64JSON, getSessionSearchParams, loadSessionData, readSessionPayload } from './data/session-data.js';
@@ -173,18 +167,6 @@ export function runSessionApp({ target = window } = {}) {
     refreshArtifacts();
   }
 
-  const sessionTree = {
-    buildTree: () => buildTreeForModel(dataModel.entries, dataModel.labelMap),
-    buildActivePathIds: (targetId) => buildActivePathIdsForModel(targetId, dataModel.byId),
-    getPath: (targetId) => getPathForModel(targetId, dataModel.byId),
-    findNewestLeaf: (nodeId) => {
-      const roots = buildTreeForModel(dataModel.entries, dataModel.labelMap);
-      return findNewestLeafInTree(nodeId, buildTreeNodeMap(roots));
-    },
-    flattenTree,
-    buildTreePrefix
-  };
-
   let currentLeafId = dataModel.leafId;
   let currentTargetId = dataModel.urlTargetId || dataModel.leafId;
   let navigatorInstance;
@@ -296,85 +278,121 @@ export function runSessionApp({ target = window } = {}) {
   }
 
   const navigateTo = (targetId, scrollMode = 'target', scrollToEntryId = null) => navigatorInstance.navigateTo(targetId, scrollMode, scrollToEntryId);
-  const renderEntryToNode = (entry) => navigatorInstance.renderEntryToNode(entry);
+
+  // Copy/fork/label are handled by ONE delegated click listener on #messages
+  // (wired below) rather than per-entry bindings, because <SessionContent>
+  // renders and reactively re-renders the message DOM.
+  const forkEntry = (entryId, btn) => {
+    if (!target.confirm('Are you sure you want to fork a new session starting from this message?')) {
+      return;
+    }
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = icon(Loader, { size: 13, class: 'spinner' });
+    btn.disabled = true;
+
+    const url = `?id=${encodeURIComponent(sessionId)}`;
+    target.fetch(`/api/fork-session${url}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.id) {
+          target.location.href = '/session?id=' + encodeURIComponent(data.id);
+        } else {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+          let notice = documentImpl.getElementById('command-menu-toast');
+          if (notice) {
+            notice.textContent = data.error || 'Fork failed';
+            notice.classList.add('visible');
+            setTimeout(() => notice.classList.remove('visible'), 1500);
+          } else {
+            target.alert(data.error || 'Fork failed');
+          }
+        }
+      })
+      .catch(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        target.alert('Fork failed');
+      });
+  };
+
+  const labelEntry = (entryId) => {
+    // The label modal is the <LabelModal> Svelte component; SessionPage exposes
+    // the opener. session.js still owns the save (API + tree refresh).
+    target.__piOpenLabelModal?.({
+      entryId,
+      currentLabel: dataModel.labelMap.get(entryId) || '',
+      onSave: ({ entryId: id, label }) => {
+        target.fetch(`/api/label-session?id=${encodeURIComponent(sessionId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entryId: id, label }),
+        })
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || t('session.labelSaveFailed'));
+            if (label) dataModel.labelMap.set(id, label);
+            else dataModel.labelMap.delete(id);
+            forceTreeRerender();
+          })
+          .catch((err) => target.alert(err?.message || t('session.labelSaveFailed')));
+      }
+    });
+  };
 
   navigatorInstance = createSessionNavigator({
     documentImpl,
-    windowImpl: target,
-    getPath: sessionTree.getPath,
     renderTree,
-    renderEntry: entryRenderer.renderEntry,
-    buildShareUrl: entryRenderer.buildShareUrl,
-    copyToClipboard: entryRenderer.copyToClipboard,
     onNavigate: (leaf, targetId) => {
       currentLeafId = leaf;
       currentTargetId = targetId;
       dataModel.currentLeafId = leaf;
       dataModel.currentTargetId = targetId;
     },
-    onFork: (entryId, btn) => {
-      if (!target.confirm('Are you sure you want to fork a new session starting from this message?')) {
-        return;
-      }
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = icon(Loader, { size: 13, class: 'spinner' });
-      btn.disabled = true;
+  });
 
-      const url = `?id=${encodeURIComponent(sessionId)}`;
-      target.fetch(`/api/fork-session${url}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.id) {
-            target.location.href = '/session?id=' + encodeURIComponent(data.id);
-          } else {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            let notice = documentImpl.getElementById('command-menu-toast');
-            if (notice) {
-              notice.textContent = data.error || 'Fork failed';
-              notice.classList.add('visible');
-              setTimeout(() => notice.classList.remove('visible'), 1500);
-            } else {
-              target.alert(data.error || 'Fork failed');
-            }
-          }
-        })
-        .catch(() => {
-          btn.innerHTML = originalHtml;
-          btn.disabled = false;
-          target.alert('Fork failed');
-        });
-    },
-    onLabel: (entryId) => {
-      openLabelModal({
-        entryId,
-        currentLabel: dataModel.labelMap.get(entryId) || '',
-        documentImpl,
-        onSave: ({ entryId: id, label }) => {
-          target.fetch(`/api/label-session?id=${encodeURIComponent(sessionId)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entryId: id, label }),
-          })
-            .then(async (res) => {
-              const data = await res.json().catch(() => ({}));
-              if (!res.ok || data.error) throw new Error(data.error || t('session.labelSaveFailed'));
-              if (label) dataModel.labelMap.set(id, label);
-              else dataModel.labelMap.delete(id);
-              forceTreeRerender();
-            })
-            .catch((err) => target.alert(err?.message || t('session.labelSaveFailed')));
-        }
-      });
+  // Wire the reactive message pane: <SessionContent> (mounted by SessionPage in
+  // #messages) renders model.activePath via the injected renderEntry, and runs
+  // afterRender(container) after each (re)render to (re)apply toggle state and
+  // lazy code highlighting. Assigning onto the shared $state runtime makes the
+  // entries paint as soon as renderEntry is available.
+  const contentRuntime = target.__piContentRuntime;
+  if (contentRuntime) {
+    contentRuntime.renderEntry = entryRenderer.renderEntry;
+    contentRuntime.afterRender = (container) => {
+      target.applyToggleStateToNode?.(container);
+      applyLazyHighlighting(documentImpl);
+    };
+  }
+
+  // Single delegated handler for the per-entry copy/fork/label buttons rendered
+  // inside #messages by renderEntry. One binding survives reactive re-renders.
+  const messagesElForButtons = documentImpl.getElementById('messages');
+  messagesElForButtons?.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest?.('.copy-link-btn');
+    if (copyBtn) {
+      e.stopPropagation();
+      entryRenderer.copyToClipboard(entryRenderer.buildShareUrl(copyBtn.dataset.entryId), copyBtn);
+      return;
+    }
+    const forkBtn = e.target.closest?.('.fork-btn');
+    if (forkBtn) {
+      e.stopPropagation();
+      forkEntry(forkBtn.dataset.entryId, forkBtn);
+      return;
+    }
+    const labelBtn = e.target.closest?.('.label-btn');
+    if (labelBtn) {
+      e.stopPropagation();
+      labelEntry(labelBtn.dataset.entryId);
     }
   });
 
   target.navigateTo = navigateTo;
-  target.renderEntryToNode = renderEntryToNode;
   target.__piSessionNavigator = navigatorInstance;
   // Exposed for <SessionTree>'s node-click handler so it can auto-close the
   // mobile drawer (parity with the old tree renderer).
@@ -429,7 +447,8 @@ export function runSessionApp({ target = window } = {}) {
     target.addEventListener('pi-session-reload', () => annotationLayer.reapply());
   }
 
-  setupImageModal({ documentImpl });
+  // Image click-to-zoom is now the <ImageModal> Svelte component (rendered by
+  // SessionPage); no imperative setup needed here.
 
   doneNotifier.setupDoneNotifyToggle({ documentImpl, windowImpl: target });
   doneNotifier.setupAppBadgeClearing({ documentImpl, windowImpl: target });
@@ -455,10 +474,11 @@ export function runSessionApp({ target = window } = {}) {
     liveStats,
     liveEvents,
     chatPreview,
-    shareOverlay,
-    resumeButton,
-    newSessionButton,
     cwd: dataModel.header?.cwd || '',
+    // The Svelte <SessionContent> owns #messages and re-renders from the model,
+    // so live reload reconciles through onSessionDataReload (no DOM patching).
+    reactiveContent: true,
+    getInitialEntryIds: () => dataModel.entries.map((e) => e.id).filter(Boolean),
     onSessionDataReload: (data) => syncDataModelEntries(data.entries),
     onAnnotations: (list) => annotationLayer?.setAnnotations(list)
   });
@@ -471,19 +491,13 @@ export function runSessionApp({ target = window } = {}) {
   // timer; settings open from the command menu (data-action="cat-gatekeeper").
   target.__piCatGatekeeper = setupCatGatekeeper({ documentImpl, windowImpl: target }).start();
 
-  setupCommandMenu({
-    documentImpl,
-    windowImpl: target,
-    setSidebarOpen: (open) => sidebarApi.setSidebarOpen(open, { documentImpl }),
-    setSidebarCollapsed: (collapsed) => sidebarApi.setSidebarCollapsed(collapsed, { documentImpl }),
-    getEntries: () => dataModel.entries,
-    getLeafId: () => currentLeafId,
-    escapeHtml: sessionFormat.escapeHtml,
-    formatTokens: entryRenderer.formatTokens,
-  });
+  // The session actions menu is the <CommandMenu> Svelte component (rendered by
+  // SessionPage); it wires its own behavior in onMount.
 
-  // Set up session list palette (Cmd+K / "List Sessions" menu item)
-  setupCommandMenu._palette = setupSessionListPalette({
+  // Set up session list palette (Cmd+K / "List Sessions" menu item). Exposed on
+  // window so <CommandMenu>'s list-sessions action and the Cmd+K shortcut below
+  // can open it without a direct reference.
+  const sessionPalette = setupSessionListPalette({
     documentImpl,
     windowImpl: target,
     overlayId: 'sessionPalette',
@@ -494,12 +508,13 @@ export function runSessionApp({ target = window } = {}) {
       if (newBtn) newBtn.click();
     },
   });
+  target.__piOpenSessionPalette = () => sessionPalette.open();
 
   // Cmd+K keyboard shortcut for session list palette
   target.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      if (setupCommandMenu._palette) setupCommandMenu._palette.open();
+      target.__piOpenSessionPalette?.();
     }
   });
 
@@ -548,11 +563,12 @@ export function runSessionApp({ target = window } = {}) {
     }
   });
 
-  // Cmd+/ keyboard shortcut to show keyboard shortcuts help modal
+  // Cmd+/ keyboard shortcut to show keyboard shortcuts help modal. The modal is
+  // the <ShortcutsModal> Svelte component; SessionPage exposes the opener.
   target.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === '/') {
       e.preventDefault();
-      showShortcutsModal({ documentImpl, windowImpl: target });
+      target.__piOpenShortcuts?.();
     }
   });
 
@@ -560,7 +576,7 @@ export function runSessionApp({ target = window } = {}) {
   if (shortcutsBtn) {
     shortcutsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      showShortcutsModal({ documentImpl, windowImpl: target });
+      target.__piOpenShortcuts?.();
     });
   }
 
