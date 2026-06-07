@@ -7,41 +7,21 @@ import { extractContent, filterNodes as filterNodesForState, getSearchableText, 
 import { escapeHtml, formatToolCall, getTreeNodeDisplayHtml as getTreeNodeDisplayHtmlForState, shortenPath, truncate } from './render/session-format.js';
 import { configureSessionMarkdown, safeMarkedParse } from './render/markdown.js';
 import * as sessionEntryRenderer from './render/session-entry-renderer.js';
-import { createSessionNavigator } from './navigation/session-navigation.js';
 import * as toggleStateApi from './ui/toggle-state.js';
 import * as sidebarApi from './ui/sidebar.js';
 import * as searchFiltersApi from './ui/search-filters.js';
 import { setupSessionUi } from './ui/session-ui-runner.js';
 import { collectArtifacts } from './artifacts/artifact-registry.js';
-import { createArtifactPanel } from './artifacts/artifact-panel.js';
 import { filterArtifacts, readArtifactSettings, ARTIFACT_SETTING_KEYS } from './artifacts/artifact-filter.js';
 import { createAnnotationApi } from './annotations/annotation-api.js';
-import { createAnnotationLayer } from './annotations/annotation-layer.js';
 import { setupLoadEarlierBanner } from './ui/load-earlier.js';
-import * as chatComposerRunner from './chat/chat-composer-runner.js';
 import * as doneNotifier from './chat/done-notifier.js';
-import * as chatApi from './chat/chat-api.js';
-import * as gitApi from './chat/git-api.js';
-import { setupGitFooter } from './chat/git-footer.js';
-import { setupBtwPopup } from './live/btw-popup.js';
-import * as chatSelectors from './chat/chat-selectors.js';
-import * as thinkingSelector from './chat/thinking-selector.js';
-import * as modelSelector from './chat/model-selector.js';
-import * as slashSelector from './chat/slash-command.js';
-import * as mentionSelector from './chat/mention-autocomplete.js';
-import * as liveReloadRunner from './live/live-reload-runner.js';
-import * as liveScroll from './live/live-scroll.js';
-import * as liveStats from './live/live-stats.js';
-import * as liveEntries from './live/live-entries.js';
-import * as chatPreview from './live/chat-preview.js';
-import * as liveEvents from './live/live-events.js';
-import * as liveRenderer from './live/live-renderer.js';
-// share-overlay absorbed into <ShareDialog> (rendered by SessionPage).
+// Chat composer + git footer → <ChatComposer>; live reload (SSE) → <LiveReload>.
+// share-overlay → <ShareDialog>. All rendered by SessionPage.
 import { createVersionController } from '../shared/version.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
 import { toggleTheme, syncThemeIcons } from '../shared/theme.js';
 import { setupSessionListPalette } from '../shared/session-list-palette.js';
-import { setupCatGatekeeper } from './cat-gatekeeper/cat-gatekeeper.js';
 import { configureSettingsSync, hydrateSettings } from '../shared/settings-store.js';
 import { t } from '../shared/i18n.js';
 export { buildSessionLookups, createSessionDataModel, decodeBase64JSON, getSessionSearchParams, loadSessionData, readSessionPayload } from './data/session-data.js';
@@ -79,12 +59,16 @@ export function runSessionApp({ target = window } = {}) {
     atobImpl: target.atob?.bind(target)
   });
   target.__piSessionDataModel = dataModel;
+  // The reactive SessionDataModel initializes these; the plain fallback model
+  // (loadSessionData) doesn't, so seed them from leafId/urlTargetId.
+  if (dataModel.currentLeafId == null) dataModel.currentLeafId = dataModel.leafId;
+  if (dataModel.currentTargetId == null) dataModel.currentTargetId = dataModel.urlTargetId || dataModel.leafId;
   const sessionId = getSessionSearchParams(target.location).get('id') || '';
   const hljs = null; // loaded lazily after initial render via applyLazyHighlighting
 
-  let filterMode = 'default';
-  let searchQuery = '';
-  target.__piFilterState = { filterMode, searchQuery };
+  // View state (active leaf/target, filter, search) lives on the reactive
+  // SessionDataModel — the single source of truth. navigateTo (owned by
+  // SessionPage) writes the model; the Svelte tree/content recompute reactively.
 
   const sessionFormat = {
     shortenPath,
@@ -98,8 +82,11 @@ export function runSessionApp({ target = window } = {}) {
     })
   };
 
-  let artifactPanel = null;
   let annotationLayer = null;
+  // The artifacts panel is the <ArtifactPanel> Svelte component (rendered inside
+  // <RightSidebar>); it exposes its imperative API on window.__piArtifactPanel.
+  // session.js still owns artifact collection/filtering and pushes the visible
+  // set into the component.
   // Hide the Artifacts tab entirely when the feature is disabled; if it was the
   // active tab, fall back to Scratchpad so the user isn't left on a blank pane.
   function applyArtifactsEnabled(enabled) {
@@ -111,12 +98,12 @@ export function runSessionApp({ target = window } = {}) {
     }
   }
   function refreshArtifacts() {
-    if (!artifactPanel) return;
+    if (!target.__piArtifactPanel) return;
     const all = collectArtifacts(dataModel.entries);
     const settings = readArtifactSettings(target.localStorage);
     applyArtifactsEnabled(settings.enabled);
     const { visible, hiddenCount } = filterArtifacts(all, settings);
-    artifactPanel.setArtifacts(visible, { hiddenCount });
+    target.__piArtifactPanel.setArtifacts(visible, { hiddenCount });
     const countEl = documentImpl.getElementById('artifact-tab-count');
     if (countEl) {
       countEl.textContent = String(visible.length);
@@ -139,6 +126,7 @@ export function runSessionApp({ target = window } = {}) {
 
     const roots = buildTreeForModel(dataModel.entries, dataModel.labelMap);
     const nodeMap = buildTreeNodeMap(roots);
+    const currentLeafId = dataModel.currentLeafId;
     let nextLeafId = currentLeafId && nodeMap.has(currentLeafId)
       ? findNewestLeafInTree(currentLeafId, nodeMap)
       : '';
@@ -152,46 +140,22 @@ export function runSessionApp({ target = window } = {}) {
     }
     if (nextLeafId) {
       dataModel.leafId = nextLeafId;
-      currentLeafId = nextLeafId;
-      if (!currentTargetId) currentTargetId = nextLeafId;
-      dataModel.currentLeafId = currentLeafId;
-      dataModel.currentTargetId = currentTargetId;
+      dataModel.currentLeafId = nextLeafId;
+      if (!dataModel.currentTargetId) dataModel.currentTargetId = nextLeafId;
     }
 
     // Live reload reconciles the data model when the session JSONL changes.
     // The in-place entries splice + map refills above are reactive, so the
-    // Svelte <SessionTreeNodes> sidebar updates automatically; just keep the
-    // model's filter/active view state in sync.
-    syncTreeRendererState();
-
+    // Svelte <SessionTreeNodes> sidebar + <SessionContent> update automatically.
     refreshArtifacts();
   }
-
-  let currentLeafId = dataModel.leafId;
-  let currentTargetId = dataModel.urlTargetId || dataModel.leafId;
-  let navigatorInstance;
-
-  // The tree sidebar is now rendered by <SessionTreeNodes> from the reactive
-  // dataModel (Svelte migration). renderTree/forceTreeRerender just push the
-  // current view state (filter/search/active path) into the model; the Svelte
-  // tree recomputes reactively — no manual DOM build/diff.
-  const syncTreeRendererState = () => {
-    target.__piFilterState.filterMode = filterMode;
-    target.__piFilterState.searchQuery = searchQuery;
-    dataModel.filterMode = filterMode;
-    dataModel.searchQuery = searchQuery;
-    dataModel.currentLeafId = currentLeafId;
-    dataModel.currentTargetId = currentTargetId;
-  };
-  const renderTree = () => { syncTreeRendererState(); };
-  const forceTreeRerender = () => { syncTreeRendererState(); };
 
   const entryRenderer = sessionEntryRenderer.createSessionEntryRenderer({
     entries: dataModel.entries,
     header: dataModel.header,
     toolCallMap: dataModel.toolCallMap,
     renderedTools: dataModel.renderedTools,
-    currentLeafIdRef: () => currentLeafId,
+    currentLeafIdRef: () => dataModel.currentLeafId,
     escapeHtml: sessionFormat.escapeHtml,
     shortenPath,
     formatToolCall,
@@ -217,42 +181,19 @@ export function runSessionApp({ target = window } = {}) {
     sidebarApi,
     toggleStateApi,
     getLeafId: () => dataModel.leafId,
-    setSearchQuery: (value) => { searchQuery = value; },
-    setFilterMode: (value) => { filterMode = value; },
-    forceTreeRerender,
+    setSearchQuery: (value) => { dataModel.searchQuery = value; },
+    setFilterMode: (value) => { dataModel.filterMode = value; },
+    // The reactive model recomputes filteredNodes; no manual rerender needed.
+    forceTreeRerender: () => {},
     navigateTo: (...args) => navigateTo(...args),
-    projectPath: dataModel.header?.cwd || ''
   });
 
-  // Artifacts panel (right-sidebar "Artifacts" tab). Live-only: the host element
-  // is rendered only when IsLive, so this is a no-op on export snapshots.
+  // Artifacts panel (right-sidebar "Artifacts" tab). Live-only: the
+  // <ArtifactPanel> component (and its window bridge) exists only when IsLive,
+  // so this is a no-op on export snapshots.
   const artifactHost = documentImpl.getElementById('artifact-panel-host');
   if (artifactHost) {
-    let artifactHljs = null;
-    const artifactHighlight = (code, lang) => {
-      if (!artifactHljs) return null;
-      try {
-        return lang && artifactHljs.getLanguage(lang)
-          ? artifactHljs.highlight(code, { language: lang }).value
-          : artifactHljs.highlightAuto(code).value;
-      } catch { return null; }
-    };
-    artifactPanel = createArtifactPanel({
-      host: artifactHost,
-      escapeHtml: sessionFormat.escapeHtml,
-      highlight: artifactHighlight,
-      renderMarkdown: (text) => safeMarkedParse(text, { marked }),
-      documentImpl,
-      windowImpl: target,
-      navigatorImpl: target.navigator,
-      URLImpl: target.URL,
-      BlobImpl: target.Blob
-    });
     refreshArtifacts();
-    import('highlight.js').then(({ default: loaded }) => {
-      artifactHljs = loaded;
-      artifactPanel.render();
-    });
 
     // Reflect artifact-setting changes made on the /settings page (in another
     // tab) without a reload. The `storage` event fires only in other documents,
@@ -277,7 +218,9 @@ export function runSessionApp({ target = window } = {}) {
     }
   }
 
-  const navigateTo = (targetId, scrollMode = 'target', scrollToEntryId = null) => navigatorInstance.navigateTo(targetId, scrollMode, scrollToEntryId);
+  // navigateTo is owned by SessionPage (created from the reactive model) and
+  // exposed on window; the tree/chat/live components share this one instance.
+  const navigateTo = target.navigateTo;
 
   // Copy/fork/label are handled by ONE delegated click listener on #messages
   // (wired below) rather than per-entry bindings, because <SessionContent>
@@ -337,23 +280,11 @@ export function runSessionApp({ target = window } = {}) {
             if (!res.ok || data.error) throw new Error(data.error || t('session.labelSaveFailed'));
             if (label) dataModel.labelMap.set(id, label);
             else dataModel.labelMap.delete(id);
-            forceTreeRerender();
           })
           .catch((err) => target.alert(err?.message || t('session.labelSaveFailed')));
       }
     });
   };
-
-  navigatorInstance = createSessionNavigator({
-    documentImpl,
-    renderTree,
-    onNavigate: (leaf, targetId) => {
-      currentLeafId = leaf;
-      currentTargetId = targetId;
-      dataModel.currentLeafId = leaf;
-      dataModel.currentTargetId = targetId;
-    },
-  });
 
   // Wire the reactive message pane: <SessionContent> (mounted by SessionPage in
   // #messages) renders model.activePath via the injected renderEntry, and runs
@@ -392,8 +323,6 @@ export function runSessionApp({ target = window } = {}) {
     }
   });
 
-  target.navigateTo = navigateTo;
-  target.__piSessionNavigator = navigatorInstance;
   // Exposed for <SessionTree>'s node-click handler so it can auto-close the
   // mobile drawer (parity with the old tree renderer).
   target.__piIsMobileLayout = ui.isMobileLayout;
@@ -406,25 +335,25 @@ export function runSessionApp({ target = window } = {}) {
   // Replace the server-rendered first-message LCP stub with the canonical
   // active path before live reload starts. Otherwise reload appends canonical
   // entries below the stub and the conversation appears duplicated.
-  navigateTo(currentLeafId, dataModel.urlTargetId ? 'target' : 'bottom', dataModel.urlTargetId || null);
+  navigateTo(dataModel.currentLeafId, dataModel.urlTargetId ? 'target' : 'bottom', dataModel.urlTargetId || null);
 
-  // Annotation layer (right-sidebar "Notes" tab). Live-only: the host element is
-  // rendered only when IsLive. Anchors to entries by `entry-<id>` + offsets.
-  const annotationListHost = documentImpl.getElementById('annotation-list-host');
+  // Annotation layer (right-sidebar "Notes" tab) is the <AnnotationLayer> Svelte
+  // component (rendered inside <RightSidebar>), exposing init/setAnnotations/
+  // reapply on window.__piAnnotationLayer. Live-only: the component (and bridge)
+  // exist only when IsLive. session.js supplies the runtime deps here. Anchors to
+  // entries by `entry-<id>` + offsets.
+  annotationLayer = target.__piAnnotationLayer || null;
   const messagesEl = documentImpl.getElementById('messages');
-  if (annotationListHost && messagesEl && sessionId) {
+  if (annotationLayer && messagesEl && sessionId) {
     const annotationArtifactHost = documentImpl.getElementById('artifact-panel-host');
-    annotationLayer = createAnnotationLayer({
-      sessionId,
+    annotationLayer.init({
       api: createAnnotationApi({ sessionId, fetchImpl: target.fetch.bind(target) }),
       scopes: [messagesEl, annotationArtifactHost].filter(Boolean),
-      listHost: annotationListHost,
       composerEl: documentImpl.getElementById('pi-chat-message'),
       countEl: documentImpl.getElementById('annotation-tab-count'),
-      escapeHtml: sessionFormat.escapeHtml,
       onSelectArtifact: (artifactId) => {
         ui.activateRightTab('artifacts');
-        artifactPanel?.selectArtifact(artifactId);
+        target.__piArtifactPanel?.selectArtifact(artifactId);
       },
       onCreate: () => {
         ui.openRightSidebar();
@@ -439,11 +368,8 @@ export function runSessionApp({ target = window } = {}) {
         target.dispatchEvent(new target.CustomEvent('pi-chat-attach-text', { detail: attachment }));
         if (ui.isMobileLayout()) ui.collapseRightSidebar();
       },
-      resolveArtifact: (artifactId) => artifactPanel?.getArtifact(artifactId) || null,
-      documentImpl,
-      windowImpl: target
+      resolveArtifact: (artifactId) => target.__piArtifactPanel?.getArtifact(artifactId) || null,
     });
-    annotationLayer.init();
     target.addEventListener('pi-session-reload', () => annotationLayer.reapply());
   }
 
@@ -456,40 +382,19 @@ export function runSessionApp({ target = window } = {}) {
     doneNotifier.notifyDone({ documentImpl, windowImpl: target });
   });
 
-  globalThis.__PI_TEST_LIVE_RELOAD_HOOK__?.();
-  liveReloadRunner.runLiveReload({
-    documentImpl,
-    windowImpl: target,
-    locationImpl: target.location,
-    navigatorImpl: target.navigator,
-    markedImpl: marked,
-    fetchImpl: target.fetch.bind(target),
-    EventSourceImpl: target.EventSource,
-    requestAnimationFrameImpl: target.requestAnimationFrame.bind(target),
-    setTimeoutImpl: target.setTimeout.bind(target),
-    clearTimeoutImpl: target.clearTimeout.bind(target),
-    liveEntries,
-    liveRenderer,
-    liveScroll,
-    liveStats,
-    liveEvents,
-    chatPreview,
-    cwd: dataModel.header?.cwd || '',
-    // The Svelte <SessionContent> owns #messages and re-renders from the model,
-    // so live reload reconciles through onSessionDataReload (no DOM patching).
-    reactiveContent: true,
-    getInitialEntryIds: () => dataModel.entries.map((e) => e.id).filter(Boolean),
-    onSessionDataReload: (data) => syncDataModelEntries(data.entries),
-    onAnnotations: (list) => annotationLayer?.setAnnotations(list)
-  });
+  // Live reload (SSE) is the <LiveReload> Svelte component (rendered by
+  // SessionPage); it self-inits in onMount. session.js still owns model
+  // reconciliation (shared with load-earlier), exposed here for <LiveReload>'s
+  // onSessionDataReload to call when the JSONL changes.
+  target.__piReconcileEntries = (entries) => syncDataModelEntries(entries);
 
   setupKeyboardNav({ windowImpl: target, documentImpl });
 
   createVersionController({ documentImpl, windowImpl: target });
 
-  // Cat Gatekeeper — focus/break + bedtime companion. Self-paced background
-  // timer; settings open from the command menu (data-action="cat-gatekeeper").
-  target.__piCatGatekeeper = setupCatGatekeeper({ documentImpl, windowImpl: target }).start();
+  // Cat Gatekeeper (focus/break + bedtime companion) is the <CatGatekeeper>
+  // Svelte component (rendered by SessionPage); it wires its controller +
+  // overlay in onMount and exposes it on window.__piCatGatekeeper.
 
   // The session actions menu is the <CommandMenu> Svelte component (rendered by
   // SessionPage); it wires its own behavior in onMount.
@@ -588,45 +493,13 @@ export function runSessionApp({ target = window } = {}) {
     });
   }
 
-  // Initialize chat after live reload so the optimistic "message sent" event
-  // has a listener before the user can submit. Otherwise cold-start sends can
-  // clear/disable the composer without rendering the pending message preview.
-  globalThis.__PI_TEST_CHAT_COMPOSER_HOOK__?.();
-  chatComposerRunner.runChatComposer({
-    documentImpl,
-    windowImpl: target,
-    locationImpl: target.location,
-    localEntries: dataModel.entries,
-    leafId: dataModel.leafId,
-    urlTargetId: dataModel.urlTargetId,
-    byId: dataModel.byId,
-    navigateTo,
-    escapeHtml: sessionFormat.escapeHtml,
-    chatApi,
-    chatSelectors,
-    modelSelector,
-    thinkingSelector,
-    slashSelector,
-    mentionSelector,
-    FormDataImpl: target.FormData,
-    URLSearchParamsImpl: target.URLSearchParams,
-    CustomEventImpl: target.CustomEvent,
-    setIntervalImpl: target.setInterval.bind(target)
-  });
+  // The chat composer (+ git footer) is the <ChatComposer> Svelte component
+  // (rendered by SessionPage); it self-inits in onMount. <LiveReload> mounts
+  // first, so its optimistic "message sent" listener exists before the user can
+  // submit.
 
-  setupGitFooter({
-    documentImpl,
-    windowImpl: target,
-    sessionId: getSessionSearchParams({ documentImpl, windowImpl: target }).get('id') || '',
-    gitApi
-  });
-
-  setupBtwPopup({
-    documentImpl,
-    windowImpl: target,
-    cwd: dataModel.header?.cwd || '',
-    parentId: getSessionSearchParams({ documentImpl, windowImpl: target }).get('id') || '',
-  });
+  // The btw floating scratch-chat is the <BtwPopup> Svelte component (rendered
+  // by SessionPage); it self-wires its #pi-btw-button trigger in onMount.
 
   // For huge sessions the server embeds only the tail entries in the initial
   // HTML render. Wire a "Load earlier" banner that fetches preceding windows

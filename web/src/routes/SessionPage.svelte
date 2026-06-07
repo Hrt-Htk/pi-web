@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import ChatComposer from '../components/session/ChatComposer.svelte';
+  import LiveReload from '../components/session/LiveReload.svelte';
   import CommandMenu from '../components/session/CommandMenu.svelte';
   import RightSidebar from '../components/session/RightSidebar.svelte';
   import SessionHeader from '../components/session/SessionHeader.svelte';
@@ -11,6 +12,8 @@
   import ModelUsageModal from '../components/session/ModelUsageModal.svelte';
   import ForkModal, { buildUserMessageList } from '../components/session/ForkModal.svelte';
   import CatGatekeeperSettings from '../components/session/CatGatekeeperSettings.svelte';
+  import CatGatekeeper from '../components/session/CatGatekeeper.svelte';
+  import BtwPopup from '../components/session/BtwPopup.svelte';
   import LabelModal from '../components/session/LabelModal.svelte';
   import SessionTree from '../components/session/SessionTree.svelte';
   import ShareDialog from '../components/session/ShareDialog.svelte';
@@ -18,6 +21,7 @@
   import { loadSessionPageState } from './session-page-data.js';
   import { SessionDataModel } from '../session/data/session-data.svelte.js';
   import { createSessionDataModel, decodeBase64JSON } from '../session/data/session-data.js';
+  import { createSessionNavigator } from '../session/navigation/session-navigation.js';
   import { setSessionModel } from '../session/session-context.js';
   import { t } from '../shared/i18n.js';
 
@@ -130,6 +134,16 @@
           new URLSearchParams(window.location.search),
         ));
         window.__piSessionDataModel = sessionModel;
+        // navigateTo ownership lives here (not session.js): the navigator writes
+        // the reactive model's active leaf/target (→ <SessionContent>/<SessionTree>
+        // recompute) and scrolls. Exposed on window BEFORE the child components
+        // mount so the tree, chat composer, and live reload share this one
+        // instance. session.js reads target.navigateTo.
+        const navigator = createSessionNavigator({
+          onNavigate: (leaf, target) => { sessionModel.currentLeafId = leaf; sessionModel.currentTargetId = target; },
+        });
+        window.navigateTo = navigator.navigateTo;
+        window.__piSessionNavigator = navigator;
         // Expose the content runtime BEFORE runSessionApp so session.js can hand
         // it the entry renderer + afterRender hook that drive <SessionContent>.
         window.__piContentRuntime = contentRuntime;
@@ -171,6 +185,10 @@
 
   <CommandMenu {sessionId} />
 
+  <!-- Live reload (SSE) mounts before <ChatComposer> so its optimistic
+       "message sent" listener is attached before the user can send. -->
+  <LiveReload />
+
   <div id="sidebar-overlay"></div>
   <div id="app">
     <SessionTree />
@@ -178,7 +196,7 @@
       <main id="content"><div id="header-container">{#if sessionModel}<SessionInfoHeader model={sessionModel} />{/if}</div><div id="messages">{#if sessionModel}<SessionContent model={sessionModel} renderEntry={contentRuntime.renderEntry} afterRender={contentRuntime.afterRender} />{/if}</div></main>
       <ChatComposer {sessionId} {chatAvailable} {chatDisabledReason} {cwd} {modelLabel} />
     </div>
-    <RightSidebar {scratchpad} />
+    <RightSidebar {scratchpad} projectPath={cwd} />
     <ImageModal />
   </div>
 
@@ -189,5 +207,7 @@
   <LabelModal bind:open={labelOpen} entryId={labelEntryId} currentLabel={labelCurrent} onSave={labelOnSave} />
 
   <ShareDialog {sessionId} />
+  <CatGatekeeper />
+  <BtwPopup {cwd} parentId={sessionId} />
   <script id="session-data" type="application/json" bind:this={dataEl}></script>
 {/if}
