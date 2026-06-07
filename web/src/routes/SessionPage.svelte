@@ -4,11 +4,22 @@
   import CommandMenu from '../components/session/CommandMenu.svelte';
   import RightSidebar from '../components/session/RightSidebar.svelte';
   import SessionHeader from '../components/session/SessionHeader.svelte';
+  import SessionInfoHeader from '../components/session/SessionInfoHeader.svelte';
   import SessionTree from '../components/session/SessionTree.svelte';
   import ShareDialog from '../components/session/ShareDialog.svelte';
   import { applyLazyHighlighting, runSessionApp } from '../session/session.js';
   import { firstMessageStub, loadSessionPageState } from './session-page-data.js';
+  import { SessionDataModel } from '../session/data/session-data.svelte.js';
+  import { createSessionDataModel, decodeBase64JSON } from '../session/data/session-data.js';
+  import { setSessionModel } from '../session/session-context.js';
   import { t } from '../shared/i18n.js';
+
+  // Phase 1 of the Svelte migration (docs/dev/svelte-migration-plan.md):
+  // create the reactive model once and provide it via context so descendant
+  // components can begin reading from it in later phases. It is hydrated when
+  // the session payload loads below. The legacy runSessionApp() render path is
+  // still in charge of the DOM for now — this model is not yet consumed.
+  const sessionModel = setSessionModel(new SessionDataModel());
 
   let loading = $state(true);
   let showLoading = $state(false);
@@ -54,6 +65,15 @@
         chatAvailable = state.chatAvailable;
         chatDisabledReason = state.chatDisabledReason;
         modelLabel = state.modelLabel;
+        // Hydrate the shared reactive model from the SAME payload the imperative
+        // runtime reads, then hand it to that runtime (window.__piSessionDataModel)
+        // so session.js reuses this one instance instead of building its own.
+        // The Svelte tree renders from it; session.js mutates it on live reload.
+        sessionModel.load(createSessionDataModel(
+          decodeBase64JSON(payloadBase64, { atobImpl: window.atob?.bind(window) }),
+          new URLSearchParams(window.location.search),
+        ));
+        window.__piSessionDataModel = sessionModel;
         loading = false;
         clearTimeout(loadingTimer);
         await tick();
@@ -96,7 +116,7 @@
   <div id="app">
     <SessionTree />
     <div id="content-container" class="content-container">
-      <main id="content"><div id="header-container"></div><div id="messages">{@html firstMessageStub(entries)}</div></main>
+      <main id="content"><div id="header-container">{#if sessionModel}<SessionInfoHeader model={sessionModel} />{/if}</div><div id="messages">{@html firstMessageStub(entries)}</div></main>
       <ChatComposer {sessionId} {chatAvailable} {chatDisabledReason} {cwd} {modelLabel} />
     </div>
     <RightSidebar {scratchpad} />
