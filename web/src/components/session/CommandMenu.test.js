@@ -4,18 +4,17 @@ import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import CommandMenu from './CommandMenu.svelte';
 import { sessionModals, resetSessionModals } from '../../session/session-modals.svelte.js';
 import { setSessionPaletteApi } from '../../shared/command-palette-runtime.js';
+import { sessionTitle } from '../../session/session-title.svelte.js';
 
-// The menu button (#command-menu-btn) + title live in SessionHeader; the menu
-// reads them by id, so the test provides them in the document.
+// The menu button (#command-menu-btn) lives in SessionHeader; the menu reads it
+// by id, so the test provides it. The session name now flows through the shared
+// reactive store, seeded here.
 beforeEach(() => {
   document.body.innerHTML = '';
   const btn = document.createElement('button');
   btn.id = 'command-menu-btn';
   document.body.appendChild(btn);
-  const title = document.createElement('span');
-  title.id = 'session-header-title';
-  title.textContent = 'Old';
-  document.body.appendChild(title);
+  sessionTitle.name = 'Old';
   window.matchMedia = vi.fn(() => ({ matches: false }));
 });
 
@@ -39,14 +38,11 @@ describe('CommandMenu', () => {
     await tick();
 
     await fireEvent.click(document.querySelector('[data-action="rename"]'));
-    await waitFor(() =>
-      expect(document.getElementById('session-header-title').textContent).toBe('New Name'),
-    );
+    await waitFor(() => expect(sessionTitle.name).toBe('New Name'));
     expect(fetch).toHaveBeenCalledWith(
       '/api/rename-session?id=session.jsonl',
       expect.objectContaining({ method: 'POST' }),
     );
-    expect(document.title).toBe('New Name');
   });
 
   it('keeps the old title when the rename API fails', async () => {
@@ -62,7 +58,7 @@ describe('CommandMenu', () => {
     await waitFor(() =>
       expect(document.getElementById('command-menu-toast')?.textContent).toBe('Rename failed'),
     );
-    expect(document.getElementById('session-header-title').textContent).toBe('Old');
+    expect(sessionTitle.name).toBe('Old');
   });
 
   it('opens model usage via the modal store + the session-list palette runtime', async () => {

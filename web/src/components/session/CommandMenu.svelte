@@ -28,6 +28,7 @@
   import { openSessionPalette } from '../../shared/command-palette-runtime.js';
   import { openModelUsage, openFork } from '../../session/session-modals.svelte.js';
   import { showToast } from '../../shared/toast.js';
+  import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
 
   let { sessionId = '' } = $props();
 
@@ -133,17 +134,14 @@
           closeMenu();
           break;
         case 'rename': {
-          const titleEl = document.getElementById('session-header-title');
-          const current = titleEl ? titleEl.textContent : '';
+          const current = sessionTitle.name;
           const next = window.prompt(t('menu.renamePrompt'), current);
           const trimmed = next ? next.trim() : '';
           closeMenu();
           if (!trimmed || trimmed === current) break;
           renameSession(trimmed)
             .then((data) => {
-              const savedName = (data && data.name) || trimmed;
-              if (titleEl) titleEl.textContent = savedName;
-              document.title = savedName;
+              setSessionTitle((data && data.name) || trimmed);
               toast(t('menu.renamed'));
             })
             .catch(() => toast(t('git.renameFailed')));

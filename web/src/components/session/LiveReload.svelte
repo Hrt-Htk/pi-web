@@ -26,6 +26,7 @@
   import { updateStatsDom } from '../../session/live/live-stats.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
+  import { setSessionTitle } from '../../session/session-title.svelte.js';
 
   onMount(() => {
     const documentImpl = document;
@@ -109,11 +110,7 @@
       return updateStatsDom(entries, { documentImpl });
     }
     function updateTitle(name) {
-      const title = String(name || '').trim();
-      if (!title) return;
-      const titleEl = documentImpl.getElementById('session-header-title');
-      if (titleEl) titleEl.textContent = title;
-      documentImpl.title = title;
+      setSessionTitle(name);
     }
 
     const sessId = getSessionIdFromLocation({ locationImpl: windowImpl.location });

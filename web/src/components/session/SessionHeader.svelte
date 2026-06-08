@@ -4,7 +4,16 @@
   import { t } from '../../shared/i18n.js';
   import { navigate } from '../../shared/navigation.js';
   import { showToast } from '../../shared/toast.js';
+  import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
   let { title = 'Session', cwd = '', sessionId = '' } = $props();
+
+  // The title prop seeds the shared store (and re-seeds it on session switch);
+  // renames/auto-titling update the store, which this component renders and
+  // mirrors into document.title.
+  $effect(() => setSessionTitle(title));
+  $effect(() => {
+    if (sessionTitle.name) document.title = sessionTitle.name;
+  });
 
   // Resume ("Terminal") + New Session behavior, absorbed from the former
   // live/resume-button.js and live/new-session-button.js (Svelte migration
@@ -110,7 +119,7 @@
       aria-pressed="true">{@html icon(PanelLeft, { size: 14 })}</button
     >
   </div>
-  <span class="session-header-title" id="session-header-title">{title}</span>
+  <span class="session-header-title" id="session-header-title">{sessionTitle.name || title}</span>
   <div class="session-header-right">
     <button
       id="new-session-header-btn"
