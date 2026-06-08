@@ -1,9 +1,7 @@
 <script module>
-  // SSE/scroll/stats primitives absorbed from live-events.js / live-scroll.js /
-  // live-stats.js (Svelte migration teardown). Exported so their unit tests drive
-  // them directly; the instance onMount below calls them.
-  import { icon, ArrowDown } from '../../shared/icons.js';
-
+  // SSE/stats primitives absorbed from live-events.js / live-stats.js (Svelte
+  // migration teardown). Exported so their unit tests drive them directly; the
+  // instance onMount below calls them.
   // ── live-events ───────────────────────────────────────────────────────────
 export function getSessionIdFromLocation({ locationImpl = location } = {}) {
   return locationImpl.search.split('id=')[1]?.split('&')[0] || '';
@@ -137,94 +135,6 @@ export function wireSessionEvents({
   return eventSource;
 }
 
-  // ── live-scroll ───────────────────────────────────────────────────────────
-
-export function chatComposerHeight() {
-  return 0;
-}
-
-export function isAtBottom({ documentImpl = document, windowImpl = window, threshold = 80 } = {}) {
-  const de = documentImpl.documentElement;
-  const body = documentImpl.body;
-  const content = documentImpl.getElementById('content');
-
-  // If the window has scrollable height, the main window is the active scroll container (Desktop).
-  // Otherwise, #content is the active scroll container (Mobile).
-  const isWindowScrollable = de.scrollHeight > windowImpl.innerHeight;
-
-  if (isWindowScrollable) {
-    const docHeight = Math.max(de.scrollHeight, body.scrollHeight);
-    const scrolled = windowImpl.scrollY || windowImpl.pageYOffset || de.scrollTop || body.scrollTop;
-    const viewport = windowImpl.innerHeight;
-    const remaining = docHeight - scrolled - viewport;
-    return remaining < threshold;
-  }
-
-  if (content && content.scrollHeight > content.clientHeight) {
-    const contentRemaining = content.scrollHeight - content.scrollTop - content.clientHeight;
-    return contentRemaining < threshold;
-  }
-
-  // Fallback to window measurements if content is not scrollable/present
-  const docHeight = Math.max(de.scrollHeight, body.scrollHeight);
-  const scrolled = windowImpl.scrollY || windowImpl.pageYOffset || de.scrollTop || body.scrollTop;
-  const viewport = windowImpl.innerHeight;
-  return (docHeight - scrolled - viewport) < threshold;
-}
-
-export function scrollToBottom(smooth, { documentImpl = document, windowImpl = window } = {}) {
-  const content = documentImpl.getElementById('content');
-  if (content && content.scrollHeight > content.clientHeight) {
-    content.scrollTo({ top: content.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
-  }
-  windowImpl.scrollTo({ top: Math.max(documentImpl.documentElement.scrollHeight, documentImpl.body.scrollHeight), behavior: smooth ? 'smooth' : 'auto' });
-}
-
-export function scrollElementAboveComposer(el, smooth, { documentImpl = document, windowImpl = window } = {}) {
-  if (!el) {
-    scrollToBottom(smooth, { documentImpl, windowImpl });
-    return;
-  }
-  const gap = chatComposerHeight({ documentImpl }) + 24;
-  const content = documentImpl.getElementById('content');
-  if (content && content.contains(el)) {
-    const contentRect = content.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const delta = elRect.bottom - (contentRect.bottom - gap);
-    if (delta > 0) {
-      content.scrollTo({ top: content.scrollTop + delta, behavior: smooth ? 'smooth' : 'auto' });
-    }
-  }
-  const rect = el.getBoundingClientRect();
-  const viewportDelta = rect.bottom - (windowImpl.innerHeight - gap);
-  if (viewportDelta > 0) {
-    windowImpl.scrollTo({ top: (windowImpl.scrollY || windowImpl.pageYOffset) + viewportDelta, behavior: smooth ? 'smooth' : 'auto' });
-  }
-}
-
-export function createFollowButton({ documentImpl = document, requestAnimationFrameImpl = requestAnimationFrame, onClick } = {}) {
-  const button = documentImpl.createElement('button');
-  button.className = 'follow-button';
-  button.setAttribute('aria-label', 'Scroll to bottom');
-  button.innerHTML = icon(ArrowDown, { size: 18 });
-  documentImpl.body.appendChild(button);
-  requestAnimationFrameImpl(() => { button.classList.add('visible'); });
-  if (onClick) button.addEventListener('click', onClick);
-  return button;
-}
-
-export function setFollowButtonText(button, pendingCount) {
-  if (button) button.innerHTML = icon(ArrowDown, { size: 18 });
-}
-
-export function removeFollowButton(button, { windowImpl = window } = {}) {
-  if (!button) return;
-  button.classList.remove('visible');
-  windowImpl.setTimeout(() => {
-    if (button.parentNode) button.parentNode.removeChild(button);
-  }, 200);
-}
-
   // ── live-stats ────────────────────────────────────────────────────────────
 export function formatTokens(n) {
   if (n < 1000) return n.toString();
@@ -310,9 +220,9 @@ export function updateStatsDom(entries, { documentImpl = document } = {}) {
   //
   // Absorbed from live-reload-runner.js + live-events/live-scroll/live-stats
   // during the Svelte migration teardown (docs/dev/svelte-migration-plan.md §11).
-  // Those SSE/scroll/stats primitives now live in the <script module> above
-  // (exported for their unit tests). The streaming chat-preview renderer lives
-  // in session/live/chat-preview.js, shared with <BtwPopup>'s spinner config.
+  // SSE/stats primitives remain in the <script module> above (exported for
+  // their unit tests). Follow-scroll and chat-preview helpers live in
+  // session/live/ modules.
   import { onMount } from 'svelte';
   import { marked } from 'marked';
   import { escapeHtml } from '../../session/render/session-format.js';
@@ -323,6 +233,14 @@ export function updateStatsDom(entries, { documentImpl = document } = {}) {
     renderChatPreviewState,
     renderPendingChatState,
   } from '../../session/live/chat-preview.js';
+  import {
+    createFollowButton,
+    isAtBottom,
+    removeFollowButton,
+    scrollElementAboveComposer,
+    scrollToBottom,
+    setFollowButtonText,
+  } from '../../session/live/live-scroll.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
 
@@ -377,8 +295,8 @@ export function updateStatsDom(entries, { documentImpl = document } = {}) {
     let pendingCount = 0;
     let forcePreviewFollowUntil = 0;
 
-    // The absorbed scroll helpers (module scope) default to the real document /
-    // window, so they're called directly — no per-call wrappers.
+    // The scroll helpers default to the real document/window, so they're called
+    // directly here with the component-scoped dependencies only where needed.
     function showFollowButton() {
       if (followBtn) return;
       followBtn = createFollowButton({

@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { createFollowButton, removeFollowButton, scrollToBottom, setFollowButtonText, isAtBottom } from './LiveReload.svelte';
+import {
+  createFollowButton,
+  isAtBottom,
+  removeFollowButton,
+  scrollToBottom,
+  setFollowButtonText,
+} from './live-scroll.js';
 
 describe('live scroll helpers', () => {
   it('creates, labels, and removes follow button', () => {
