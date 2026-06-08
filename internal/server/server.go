@@ -107,7 +107,7 @@ type Server struct {
 	titleUserOwned map[string]bool   // sessID -> user named it; never auto-title
 }
 
-func New(deps Deps) *Server {
+func New(deps Deps) (*Server, error) {
 	now := deps.Now
 	if now == nil {
 		now = time.Now
@@ -117,55 +117,13 @@ func New(deps Deps) *Server {
 		agentDir = agentdir.Path()
 	}
 
-	// Ensure the agentDir exists
 	if err := os.MkdirAll(agentDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create agent directory %s: %v\n", agentDir, err)
+		return nil, fmt.Errorf("create agent directory %s: %w", agentDir, err)
 	}
 
-	var db *sql.DB
-	dbPath := filepath.Join(agentDir, "pi-web.sqlite")
-	var dbErr error
-	db, dbErr = sql.Open("sqlite", dbPath)
-	if dbErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to open sqlite database: %v\n", dbErr)
-	} else {
-		// SQLite allows only one writer at a time; multiple pooled connections
-		// racing to write surface as "database is locked" errors (e.g. concurrent
-		// annotation writes). Serialize on a single connection so writes queue
-		// instead of failing.
-		db.SetMaxOpenConns(1)
-		_, err := db.Exec(`CREATE TABLE IF NOT EXISTS scratchpads (
-			project_path TEXT PRIMARY KEY,
-			content TEXT,
-			updated_at DATETIME
-		)`)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create scratchpads table: %v\n", err)
-		}
-		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS settings (
-			key        TEXT PRIMARY KEY,
-			value      TEXT,
-			updated_at DATETIME
-		)`)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create settings table: %v\n", err)
-		}
-		if _, err := db.Exec(projectPrefsSchema); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create project_prefs table: %v\n", err)
-		}
-		if _, err := db.Exec(appSettingsSchema); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create app_settings table: %v\n", err)
-		}
-		if _, err := db.Exec(btwSessionsSchema); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create btw_sessions table: %v\n", err)
-		}
-		if _, err := db.Exec(annotationsSchema); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create annotations table: %v\n", err)
-		}
-		if _, err := db.Exec(annotationsIndex); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create annotations index: %v\n", err)
-		}
-		migrateLegacyBtwSession(db)
+	db, err := initDB(agentDir)
+	if err != nil {
+		return nil, err
 	}
 
 	s := &Server{
@@ -207,7 +165,52 @@ func New(deps Deps) *Server {
 		defer s.wg.Done()
 		s.runStatusSweeper(s.stopCh, time.Second)
 	}()
-	return s
+	return s, nil
+}
+
+// initDB opens the SQLite database and creates the schema. Any failure is
+// returned so the server refuses to start rather than running with a
+// half-initialized database that fails opaquely on first use.
+func initDB(agentDir string) (*sql.DB, error) {
+	dbPath := filepath.Join(agentDir, "pi-web.sqlite")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite database: %w", err)
+	}
+	// SQLite allows only one writer at a time; multiple pooled connections
+	// racing to write surface as "database is locked" errors (e.g. concurrent
+	// annotation writes). Serialize on a single connection so writes queue
+	// instead of failing.
+	db.SetMaxOpenConns(1)
+
+	schema := []struct {
+		name string
+		stmt string
+	}{
+		{"scratchpads table", `CREATE TABLE IF NOT EXISTS scratchpads (
+			project_path TEXT PRIMARY KEY,
+			content TEXT,
+			updated_at DATETIME
+		)`},
+		{"settings table", `CREATE TABLE IF NOT EXISTS settings (
+			key        TEXT PRIMARY KEY,
+			value      TEXT,
+			updated_at DATETIME
+		)`},
+		{"project_prefs table", projectPrefsSchema},
+		{"app_settings table", appSettingsSchema},
+		{"btw_sessions table", btwSessionsSchema},
+		{"annotations table", annotationsSchema},
+		{"annotations index", annotationsIndex},
+	}
+	for _, s := range schema {
+		if _, err := db.Exec(s.stmt); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create %s: %w", s.name, err)
+		}
+	}
+	migrateLegacyBtwSession(db)
+	return db, nil
 }
 
 // Shutdown stops background goroutines and waits for them to exit.

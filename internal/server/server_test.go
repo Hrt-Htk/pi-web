@@ -18,7 +18,7 @@ import (
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	dir := t.TempDir()
-	return New(Deps{
+	s, err := New(Deps{
 		AgentDir:            dir,
 		SessionsDir:         dir,
 		Auth:                auth.New(""),
@@ -26,6 +26,10 @@ func newTestServer(t *testing.T) *Server {
 		RenderExportSession: func(s sessions.Session, theme string) string { return "" },
 		Models:              func(ctx context.Context) (json.RawMessage, error) { return nil, nil },
 	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return s
 }
 
 func TestHandleCustomThemesServesConfiguredStylesheet(t *testing.T) {
@@ -75,7 +79,7 @@ func TestCustomThemesPublicWhenAuthEnabled(t *testing.T) {
 	// The login gate loads /custom-themes.css before the user authenticates, so
 	// the route must stay reachable without a token even when auth is on.
 	dir := t.TempDir()
-	s := New(Deps{
+	s, err := New(Deps{
 		AgentDir:            dir,
 		SessionsDir:         dir,
 		Auth:                auth.New("secret"),
@@ -83,6 +87,9 @@ func TestCustomThemesPublicWhenAuthEnabled(t *testing.T) {
 		RenderExportSession: func(s sessions.Session, theme string) string { return "" },
 		Models:              func(ctx context.Context) (json.RawMessage, error) { return nil, nil },
 	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	mux := http.NewServeMux()
 	s.Register(mux)
 
