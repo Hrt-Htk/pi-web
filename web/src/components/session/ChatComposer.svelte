@@ -3,7 +3,7 @@
   // and inject selector implementations. Model selector wiring has been split
   // into components/session/chat/model-selector.js; the remaining selector
   // helpers below are still being extracted incrementally.
-  import { icon, Maximize2, Paperclip, TextQuote, X } from '../../shared/icons.js';
+  import { icon, Maximize2, Paperclip } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
     THINKING_LEVELS,
@@ -27,10 +27,9 @@
   import { setupComposerExpansion } from './chat/composer-expand.js';
   import { setupWorkerStatusPolling } from './chat/worker-status.js';
   import { setupAskQuestionHandlers } from './chat/ask-question-handler.js';
-  import { setupTextAttachmentViewer } from './chat/text-attachment-viewer.js';
-  import { composeMessageWithTextAttachments, textAttachmentLabel } from './chat/text-attachments.js';
   import { setupContextPopover } from './chat/context-popover.js';
   import { setupTextareaControls } from './chat/textarea-controls.js';
+  import { setupAttachmentManager } from './chat/attachment-manager.js';
 
   export {
     setupModelSelector,
@@ -237,11 +236,6 @@ export function runChatComposer({
     const status = document.getElementById('pi-chat-status');
     const sendButton = document.getElementById('pi-chat-send');
     const cancelButton = document.getElementById('pi-chat-cancel');
-    let selectedChatFiles = [];
-    // Text selections added via the annotations "Add to chat" button. Rendered as
-    // clickable chips alongside image attachments and folded into the message on send.
-    let selectedTextAttachments = [];
-    const attachmentObjectUrls = new WeakMap();
 
     function updateComposerHeightVar() {
       const height = Math.ceil(form.getBoundingClientRect().height || 0);
@@ -257,13 +251,12 @@ export function runChatComposer({
     // Expand/collapse the composer for larger typing area. State persists
     // per-session in localStorage.
     const shell = form.querySelector('.pi-chat-shell');
+    let attachments = { hasAttachments: () => false };
 
     // Enable Send only when there is text or an attachment.
     function hasComposerContent() {
       const v = textarea ? textarea.value : '';
-      return (v && v.trim().length > 0)
-        || (typeof selectedChatFiles !== 'undefined' && selectedChatFiles.length > 0)
-        || (typeof selectedTextAttachments !== 'undefined' && selectedTextAttachments.length > 0);
+      return (v && v.trim().length > 0) || attachments.hasAttachments();
     }
     function updateSendEnabled() {
       if (!sendButton) return;
@@ -271,6 +264,16 @@ export function runChatComposer({
       if (sendButton.dataset.sending === '1') return;
       sendButton.disabled = !hasComposerContent();
     }
+
+    attachments = setupAttachmentManager({
+      documentImpl: document,
+      windowImpl: window,
+      textarea,
+      fileInput,
+      attachButton,
+      attachmentList,
+      updateSendEnabled,
+    });
 
     const textareaControls = setupTextareaControls({
       windowImpl: window,
@@ -307,139 +310,6 @@ export function runChatComposer({
       setChatStatus(text, cls);
     }
 
-    function fileKey(file) {
-      return [file.name, file.size, file.lastModified].join(':');
-    }
-
-    function getAttachmentObjectUrl(file) {
-      if (!file.type || !file.type.startsWith('image/')) return '';
-      const urlApi = window.URL || window.webkitURL;
-      if (!urlApi || typeof urlApi.createObjectURL !== 'function') return '';
-      let url = attachmentObjectUrls.get(file);
-      if (!url) {
-        url = urlApi.createObjectURL(file);
-        attachmentObjectUrls.set(file, url);
-      }
-      return url;
-    }
-
-    function revokeAttachmentObjectUrl(file) {
-      const url = attachmentObjectUrls.get(file);
-      const urlApi = window.URL || window.webkitURL;
-      if (url && urlApi && typeof urlApi.revokeObjectURL === 'function') {
-        urlApi.revokeObjectURL(url);
-      }
-      attachmentObjectUrls.delete(file);
-    }
-
-    function clearSelectedChatFiles() {
-      selectedChatFiles.forEach(revokeAttachmentObjectUrl);
-      selectedChatFiles = [];
-    }
-
-    function renderAttachments() {
-      const fragment = document.createDocumentFragment();
-      selectedChatFiles.forEach((file, index) => {
-        const item = document.createElement('span');
-        const previewUrl = getAttachmentObjectUrl(file);
-        item.className = 'pi-chat-attachment' + (previewUrl ? ' image-only' : '');
-
-        if (previewUrl) {
-          const preview = document.createElement('img');
-          preview.className = 'pi-chat-attachment-preview';
-          preview.src = previewUrl;
-          preview.alt = '';
-          preview.loading = 'lazy';
-          preview.decoding = 'async';
-          item.appendChild(preview);
-        } else {
-          const name = document.createElement('span');
-          name.className = 'pi-chat-attachment-name';
-          name.textContent = file.name;
-          item.appendChild(name);
-        }
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'pi-chat-remove';
-        remove.setAttribute('aria-label', 'Remove ' + file.name);
-        remove.innerHTML = icon(X, { size: 13 });
-        remove.addEventListener('click', () => {
-          const [removed] = selectedChatFiles.splice(index, 1);
-          if (removed) revokeAttachmentObjectUrl(removed);
-          renderAttachments();
-        });
-        item.appendChild(remove);
-        fragment.appendChild(item);
-      });
-
-      selectedTextAttachments.forEach((att, index) => {
-        const item = document.createElement('span');
-        item.className = 'pi-chat-attachment pi-chat-attachment-text';
-        item.setAttribute('role', 'button');
-        item.tabIndex = 0;
-        item.title = t('composer.viewAttachment');
-
-        const name = document.createElement('span');
-        name.className = 'pi-chat-attachment-name';
-        name.innerHTML = icon(TextQuote, { size: 12 });
-        const label = document.createElement('span');
-        label.textContent = textAttachmentLabel(att, t('composer.attachmentText'));
-        name.appendChild(label);
-        item.appendChild(name);
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'pi-chat-remove';
-        remove.setAttribute('aria-label', t('composer.removeAttachment'));
-        remove.innerHTML = icon(X, { size: 13 });
-        remove.addEventListener('click', (event) => {
-          event.stopPropagation();
-          selectedTextAttachments.splice(index, 1);
-          renderAttachments();
-        });
-        item.appendChild(remove);
-
-        item.addEventListener('click', (event) => {
-          if (event.target.closest('.pi-chat-remove')) return;
-          openTextAttachment(att);
-        });
-        item.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openTextAttachment(att);
-          }
-        });
-        fragment.appendChild(item);
-      });
-
-      attachmentList.replaceChildren(fragment);
-      updateSendEnabled();
-    }
-
-    attachButton.addEventListener('click', () => fileInput.click());
-
-    const textAttachmentViewer = setupTextAttachmentViewer({ documentImpl: document });
-    const openTextAttachment = textAttachmentViewer.open;
-
-    // Selections handed off from the annotations layer ("Add to chat").
-    window.addEventListener('pi-chat-attach-text', (event) => {
-      const detail = (event && event.detail) || {};
-      const original = String(detail.original || '').trim();
-      if (!original) return;
-      selectedTextAttachments.push({
-        id: 'txt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-        original,
-        note: String(detail.note || '').trim(),
-      });
-      renderAttachments();
-      if (textarea && typeof textarea.focus === 'function') textarea.focus();
-    });
-
-    function composeMessage(typed) {
-      return composeMessageWithTextAttachments(typed, selectedTextAttachments);
-    }
-
     let refreshWorkerStatus = async () => {};
     if (cancelButton) {
       cancelButton.addEventListener('click', async () => {
@@ -458,57 +328,7 @@ export function runChatComposer({
         }
       });
     }
-    fileInput.addEventListener('change', () => {
-      const seen = new Set(selectedChatFiles.map(fileKey));
-      for (const file of fileInput.files) {
-        if (!seen.has(fileKey(file))) {
-          selectedChatFiles.push(file);
-          seen.add(fileKey(file));
-        }
-      }
-      fileInput.value = '';
-      renderAttachments();
-    });
-    textarea.addEventListener('paste', (event) => {
-      const data = event.clipboardData;
-      if (!data) return;
-      const seen = new Set(selectedChatFiles.map(fileKey));
-      let added = false;
-
-      if (data.items) {
-        for (const item of data.items) {
-          if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (file && !seen.has(fileKey(file))) {
-              selectedChatFiles.push(file);
-              seen.add(fileKey(file));
-              added = true;
-            }
-          }
-        }
-      }
-
-      if (!added && data.files) {
-        for (const file of data.files) {
-          if (file.type && file.type.startsWith('image/') && !seen.has(fileKey(file))) {
-            selectedChatFiles.push(file);
-            seen.add(fileKey(file));
-            added = true;
-          }
-        }
-      }
-
-      if (added) {
-        const pastedText = data.getData?.('text/plain') || '';
-        if (!pastedText) {
-          event.preventDefault();
-        }
-        renderAttachments();
-        textarea.focus();
-      }
-    });
-
-    async function sendChatMessage(message, files = selectedChatFiles) {
+    async function sendChatMessage(message, files = attachments.files()) {
       if (!message && files.length === 0) {
         setStatus('message or image required', 'error');
         return false;
@@ -539,9 +359,9 @@ export function runChatComposer({
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const typed = textarea.value.trim();
-      const filesToSend = selectedChatFiles.slice();
-      const textAttachmentsToSend = selectedTextAttachments.slice();
-      const message = composeMessage(typed);
+      const filesToSend = attachments.files().slice();
+      const textAttachmentsToSend = attachments.textAttachments().slice();
+      const message = attachments.composeMessage(typed);
       if (!message && filesToSend.length === 0) {
         setStatus('message or image required', 'error');
         return;
@@ -552,19 +372,14 @@ export function runChatComposer({
       // the backend starts/reuses the RPC worker. If the request fails before
       // pi accepts it, restore the draft so the user can retry.
       textarea.value = '';
-      clearSelectedChatFiles();
-      selectedTextAttachments = [];
-      fileInput.value = '';
-      renderAttachments();
+      attachments.clear();
       autoResizeTextarea();
       updateSendEnabled();
 
       const sent = await sendChatMessage(message, filesToSend);
       if (!sent) {
         textarea.value = typed;
-        selectedChatFiles = filesToSend;
-        selectedTextAttachments = textAttachmentsToSend;
-        renderAttachments();
+        attachments.restore({ files: filesToSend, textAttachments: textAttachmentsToSend });
         autoResizeTextarea();
         updateSendEnabled();
       }
