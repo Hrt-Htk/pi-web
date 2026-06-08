@@ -8,7 +8,7 @@ This document explains how the live Svelte SPA, Go-embedded shell, shared styles
 |---|---|
 | `web/` | Client runtime source — Svelte + Vite modules compiled into `web/dist/` and served as `/static/assets/...` |
 | `internal/ui/embedded/app.html` | One Go-embedded live SPA shell for browser routes |
-| `internal/ui/embedded/session.html` | Static export/share shell only; rendered with `IsLive: false` by `internal/ui/export.go` |
+| `internal/ui/embedded/share-session.html` | Static export/share shell only; rendered with `IsLive: false` by `internal/ui/export.go` |
 | `internal/ui/embedded/styles/` | Shared CSS tokens and page styles used by the SPA shell, PWA CSS routes, and export |
 
 ---
@@ -64,7 +64,7 @@ Export/share snapshots are still fully self-contained and must not depend on the
 | | Live App | Static Export |
 |---|---|---|
 | Go renderer | `internal/ui/spa_page.go` | `internal/ui/export.go` |
-| HTML shell | `embedded/app.html` | `embedded/session.html` (`IsLive: false`) |
+| HTML shell | `embedded/app.html` | `embedded/share-session.html` (`IsLive: false`) |
 | JS source | `web/src/main.js` | `web/src/export/export-entry.js` |
 | JS delivery | `/static/assets/app-*.js` | inline IIFE `internal/ui/embedded/export/export.js` |
 | Network required | Yes | No |

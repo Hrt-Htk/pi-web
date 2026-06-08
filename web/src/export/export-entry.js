@@ -200,7 +200,7 @@ export function runExportApp({ target = window } = {}) {
   }
 
   // Mount the Svelte tree sidebar into #sidebar (the static #tree-container /
-  // #tree-status were removed from session.html; the component renders them).
+  // #tree-status were removed from share-session.html; the component renders them).
   const sidebarEl = documentImpl.getElementById('sidebar');
   if (sidebarEl) {
     mount(SessionTreeNodes, {

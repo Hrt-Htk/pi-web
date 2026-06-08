@@ -25,7 +25,7 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 
 ## Critical Rules
 
-1. **Live app and export are separate renders.** Live = Svelte SPA via `internal/ui/embedded/app.html` (`spa_page.go`). Export/share = static snapshot via `internal/ui/embedded/session.html` (`export.go`), built from `web/src/export/export-entry.js` which reuses the live `web/src/session/` modules. Never leak live-only chrome (SPA scripts, SSE, chat) into the export.
+1. **Live app and export are separate renders.** Live = Svelte SPA via `internal/ui/embedded/app.html` (`spa_page.go`). Export/share = static snapshot via `internal/ui/embedded/share-session.html` (`export.go`), built from `web/src/export/export-entry.js` which reuses the live `web/src/session/` modules. Never leak live-only chrome (SPA scripts, SSE, chat) into the export.
 2. **Existing session files are append-only for `session_info`** (browser rename + auto-titling). Conversation entries come from the `pi --mode rpc` worker, not pi-web.
 3. **One worker per session.** Reused; crashed = evicted + replaced; idle reaped after 10 min.
 4. **Icons:** Lucide only, via `web/src/shared/icons.js` — no hand-drawn SVG or unicode glyphs.
