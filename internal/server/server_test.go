@@ -71,6 +71,34 @@ func TestHandleCustomThemesFallbackWhenMissing(t *testing.T) {
 	}
 }
 
+func TestCustomThemesPublicWhenAuthEnabled(t *testing.T) {
+	// The login gate loads /custom-themes.css before the user authenticates, so
+	// the route must stay reachable without a token even when auth is on.
+	dir := t.TempDir()
+	s := New(Deps{
+		AgentDir:            dir,
+		SessionsDir:         dir,
+		Auth:                auth.New("secret"),
+		Cache:               sessions.NewCache(),
+		RenderExportSession: func(s sessions.Session, theme string) string { return "" },
+		Models:              func(ctx context.Context) (json.RawMessage, error) { return nil, nil },
+	})
+	mux := http.NewServeMux()
+	s.Register(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/custom-themes.css", nil)
+	req.Header.Set("Accept", "text/css")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /custom-themes.css without token = %d, want 200 (public)", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.Contains(got, "text/css") {
+		t.Fatalf("Content-Type = %q, want text/css", got)
+	}
+}
+
 func TestShutdownStopsBackgroundGoroutines(t *testing.T) {
 	s := newTestServer(t)
 	done := make(chan struct{})

@@ -249,7 +249,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/files", s.auth.Wrap(s.handleApiFiles))
 	mux.HandleFunc("/api/git/info", s.auth.Wrap(s.handleGitInfo))
 	mux.HandleFunc("/api/git/rename-branch", s.auth.Wrap(s.handleGitRenameBranch))
-	mux.HandleFunc("/custom-themes.css", s.auth.Wrap(s.handleCustomThemes))
+	// Public (no auth): the login gate needs the custom palette to theme
+	// correctly before the user authenticates. Contents are non-secret color
+	// variables only.
+	mux.HandleFunc("/custom-themes.css", s.handleCustomThemes)
 	mux.HandleFunc("/api/scratchpad", s.getPostHandler(s.handleGetScratchpad, s.handleSaveScratchpad))
 	mux.HandleFunc("/api/annotations", s.auth.Wrap(s.handleAnnotations))
 	mux.HandleFunc("/api/settings", s.getPostHandler(s.handleGetSettings, s.handleSaveSettings))
