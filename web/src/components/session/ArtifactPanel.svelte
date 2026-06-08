@@ -1,5 +1,5 @@
 <script>
-  import { onMount, untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { marked } from 'marked';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { getSessionModel } from '../../session/session-context.js';
@@ -24,16 +24,35 @@
   // handle instead.
   const model = getSessionModel();
   const COPIED_RESET_MS = 1500;
-  // Bumped by the cross-tab `storage` listener so the collection effect re-reads
-  // the artifact settings (enable/include filter) without a reload.
+  // Bumped by the cross-tab `storage` listener so `collected` re-reads the
+  // artifact settings (enable/include filter) without a reload.
   let settingsTick = $state(0);
 
-  let artifacts = $state([]);
-  let selectedId = $state('');
-  let hiddenCount = $state(0);
+  // Standalone/imperative mode (tests, no shared model): artifacts pushed in via
+  // sessionRuntime.artifacts.setArtifacts. In live mode `collected` drives them.
+  let imperative = $state(null);
+  let pickedId = $state('');
   // Preview is opt-in (click-to-run): never auto-execute artifact content.
   let previewing = $state(false);
   let loadedHljs = $state(null);
+
+  // Collected artifacts from the shared model (live only; null standalone).
+  // Recomputes when entries change (live reload) or the settings tick bumps.
+  const collected = $derived.by(() => {
+    if (!model) return null;
+    settingsTick;
+    const all = collectArtifacts(model.entries);
+    const settings = readArtifactSettings(window.localStorage);
+    const { visible, hiddenCount: hidden } = filterArtifacts(all, settings);
+    return { visible, hiddenCount: hidden, enabled: settings.enabled };
+  });
+
+  const artifacts = $derived(collected ? collected.visible : (imperative?.visible ?? []));
+  const hiddenCount = $derived(collected ? collected.hiddenCount : (imperative?.hiddenCount ?? 0));
+  // Keep the user's pick while it's still in the list; otherwise default to first.
+  const selectedId = $derived(
+    artifacts.some((a) => a.id === pickedId) ? pickedId : (artifacts[0]?.id ?? ''),
+  );
 
   const selected = $derived(artifacts.find((a) => a.id === selectedId) || null);
   const noun = $derived(hiddenCount === 1 ? t('artifact.nounOne') : t('artifact.nounMany'));
@@ -110,18 +129,16 @@
   }
 
   function setArtifacts(next, { hiddenCount: hidden = 0 } = {}) {
-    artifacts = Array.isArray(next) ? next : [];
-    hiddenCount = Number.isFinite(hidden) && hidden > 0 ? hidden : 0;
-    if (!artifacts.some((a) => a.id === selectedId)) {
-      selectedId = artifacts.length > 0 ? artifacts[0].id : '';
-      previewing = false;
-    }
+    imperative = {
+      visible: Array.isArray(next) ? next : [],
+      hiddenCount: Number.isFinite(hidden) && hidden > 0 ? hidden : 0,
+    };
   }
 
   function selectArtifact(id) {
     if (!artifacts.some((a) => a.id === id)) return;
-    if (id !== selectedId) previewing = false;
-    selectedId = id;
+    if (id !== pickedId) previewing = false;
+    pickedId = id;
   }
 
   // Hide the Artifacts tab entirely when the feature is disabled; if it was the
@@ -135,27 +152,21 @@
     }
   }
 
-  // Reactive collection from the shared model (live only; null in standalone /
-  // imperative mode). Recomputes when entries change (live reload) or the
-  // settings tick bumps (cross-tab settings change). Kept as a $derived so the
-  // sync $effect below depends only on this value, not on the artifact $state it
-  // writes (which would self-trigger).
-  const collected = $derived.by(() => {
-    if (!model) return null;
-    settingsTick;
-    const all = collectArtifacts(model.entries);
-    const settings = readArtifactSettings(window.localStorage);
-    const { visible, hiddenCount: hidden } = filterArtifacts(all, settings);
-    return { visible, hiddenCount: hidden, enabled: settings.enabled };
+  // Whenever the resolved selection changes (user pick or a list change that
+  // re-defaults it), drop back to the source view.
+  let lastSelectedId = '';
+  $effect(() => {
+    if (selectedId !== lastSelectedId) {
+      lastSelectedId = selectedId;
+      previewing = false;
+    }
   });
 
-  // Push the derived collection into the panel's display $state + tab chrome.
-  // Reading/writing artifacts/selectedId via setArtifacts is untracked so the
-  // effect's only dependency is `collected`.
+  // Live-only tab chrome: reflect enabled state + the artifact count badge.
+  // Writes DOM only, so it depends purely on `collected`.
   $effect(() => {
     const c = collected;
     if (!c) return;
-    untrack(() => setArtifacts(c.visible, { hiddenCount: c.hiddenCount }));
     applyArtifactsEnabled(c.enabled);
     const countEl = document.getElementById('artifact-tab-count');
     if (countEl) {
