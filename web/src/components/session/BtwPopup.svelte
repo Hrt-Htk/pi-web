@@ -5,11 +5,9 @@
   // drag/resize/SSE/status-polling/submit stay imperative. Live-only — never in
   // the export bundle. See docs/sequence-flows/btw.md.
   import { onMount } from 'svelte';
-  import { marked } from 'marked';
-  import { safeMarkedParse } from '../../session/render/markdown.js';
-  import { formatToolCall } from '../../session/render/session-format.js';
   import { getSpinnerConfig } from '../../session/live/chat-preview.js';
   import { t } from '../../shared/i18n.js';
+  import { btwContentText, createBtwMarkdownRenderer, renderBtwEntryParts } from './btw-render.js';
 
   let { cwd = '', parentId = '' } = $props();
 
@@ -40,52 +38,8 @@
   const parentTopic = () => parentId || GLOBAL_PARENT;
   const isMobile = () => !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
   const doFetch = (...args) => window.fetch(...args);
-
-  function escapeText(text) {
-    const d = document.createElement('div');
-    d.textContent = String(text == null ? '' : text);
-    return d.innerHTML;
-  }
-  function toHtml(text) {
-    try {
-      return safeMarkedParse(String(text == null ? '' : text), { marked });
-    } catch {
-      return escapeText(text);
-    }
-  }
-  function contentText(content) {
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-      return content.filter((c) => c && c.type === 'text' && c.text).map((c) => c.text).join('');
-    }
-    return '';
-  }
-
-  // Structured render of one transcript entry, or null to skip it.
-  function renderEntryParts(entry) {
-    if (!entry || entry.type !== 'message' || !entry.message) return null;
-    const msg = entry.message;
-    if (msg.role === 'user') {
-      const text = contentText(msg.content).trim();
-      if (!text) return null;
-      return { role: 'user', parts: [{ kind: 'md', html: toHtml(text) }] };
-    }
-    if (msg.role === 'assistant') {
-      const parts = [];
-      const blocks = Array.isArray(msg.content) ? msg.content : [];
-      blocks.forEach((block) => {
-        if (block.type === 'text' && block.text && block.text.trim()) parts.push({ kind: 'md', html: toHtml(block.text) });
-        else if (block.type === 'toolCall') parts.push({ kind: 'tool', text: formatToolCall(block.name, block.arguments || {}) });
-      });
-      if (parts.length === 0 && typeof msg.content === 'string' && msg.content.trim()) parts.push({ kind: 'md', html: toHtml(msg.content) });
-      if (parts.length === 0) return null;
-      return { role: 'assistant', parts };
-    }
-    if (msg.role === 'bashExecution' && msg.command) {
-      return { role: 'assistant', parts: [{ kind: 'tool', text: `$ ${msg.command}` }] };
-    }
-    return null;
-  }
+  const toHtml = createBtwMarkdownRenderer({ documentImpl: document });
+  const renderEntryParts = (entry) => renderBtwEntryParts(entry, { toHtml });
 
   const renderedEntries = $derived(entries.map(renderEntryParts).filter(Boolean));
   const isEmpty = $derived(renderedEntries.length === 0 && !pendingUser && !(running || streamingText));
@@ -123,7 +77,7 @@
         if (pendingUser) {
           const arrived = entries.some((e) =>
             e && e.type === 'message' && e.message && e.message.role === 'user'
-            && contentText(e.message.content).trim() === pendingUser);
+            && btwContentText(e.message.content).trim() === pendingUser);
           if (arrived) pendingUser = null;
         }
       })
