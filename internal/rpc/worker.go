@@ -39,14 +39,6 @@ type piRPCWorker struct {
 	streamPreview        *streamPreviewAccumulator
 }
 
-// idleReportable is implemented by workers that can report when they were last
-// touched by a user-initiated action. The reaper uses it to decide which idle
-// workers to close. Workers that don't implement it (e.g. test fakes) are not
-// reaped.
-type idleReportable interface {
-	IdleSince(now time.Time) time.Duration
-}
-
 func (w *piRPCWorker) touch() {
 	w.lastActive.Store(time.Now().UnixNano())
 }
