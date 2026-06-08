@@ -22,11 +22,10 @@
     renderPendingChatState,
   } from '../../session/live/chat-preview.js';
   import {
-    createSessionEventSource,
     getSessionIdFromLocation,
     handleSessionReload,
-    wireSessionEvents,
   } from '../../session/live/live-events.js';
+  import { setupSessionLiveConnection } from '../../session/live/live-connection.js';
   import {
     createFollowButton,
     isAtBottom,
@@ -50,7 +49,6 @@
     const fetchImpl = windowImpl.fetch.bind(windowImpl);
     const requestAnimationFrame = windowImpl.requestAnimationFrame.bind(windowImpl);
     const setTimeout = windowImpl.setTimeout.bind(windowImpl);
-    const clearTimeout = windowImpl.clearTimeout.bind(windowImpl);
 
     const cleanups = [];
     const on = (host, type, handler, opts) => {
@@ -201,9 +199,6 @@
     }
 
     const sessId = getSessionIdFromLocation({ locationImpl: windowImpl.location });
-    let es = null;
-    let reconnectTimer = null;
-    let reconnectAttempt = 0;
 
     // ── Streaming chat preview ─────────────────────────────────────────────────
     const CHAT_PREVIEW_STATE = { chatPreviewEl: null, pendingUserEl: null };
@@ -256,63 +251,18 @@
       triggerReload();
     });
 
-    function connect() {
-      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-      try { if (es) es.close(); } catch (_) {}
-      es = createSessionEventSource(sessId, { EventSourceImpl: windowImpl.EventSource });
-      wireSessionEvents({
-        eventSource: es,
-        onReload: triggerReload,
-        onChatPreview: renderChatPreview,
-        onAnnotations: (list) => sessionRuntime.annotations?.setAnnotations(list),
-        onError: () => {
-          // EventSource onerror fires for transient blips (auto-retried) and
-          // terminal closures (readyState===CLOSED, e.g. device wake). Handle
-          // the latter by closing + scheduling a manual reconnect with backoff.
-          if (!es || es.readyState !== 2 /* CLOSED */) return;
-          scheduleReconnect();
-        },
-      });
-      reconnectAttempt = 0;
-    }
-
-    function scheduleReconnect() {
-      if (reconnectTimer) return;
-      // 1s, 2s, 4s … capped at 30s, with jitter to avoid a thundering herd.
-      const base = Math.min(30000, 1000 * Math.pow(2, reconnectAttempt));
-      const delay = base + Math.floor(Math.random() * 500);
-      reconnectAttempt += 1;
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        connect();
-        triggerReload();
-      }, delay);
-    }
-
-    connect();
-
-    // When the user unlocks the phone / refocuses the tab the SSE connection is
-    // often already dead (mobile browsers tear it down). Force reconnect+reload.
-    on(documentImpl, 'visibilitychange', () => {
-      if (documentImpl.hidden) return;
-      if (!es || es.readyState === 2 /* CLOSED */) {
-        reconnectAttempt = 0;
-        connect();
-        triggerReload();
-      } else {
-        triggerReload();
-      }
+    const liveConnection = setupSessionLiveConnection({
+      documentImpl,
+      windowImpl,
+      sessionId: sessId,
+      onReload: triggerReload,
+      onChatPreview: renderChatPreview,
+      onAnnotations: (list) => sessionRuntime.annotations?.setAnnotations(list),
     });
-
-    on(windowImpl, 'online', () => {
-      reconnectAttempt = 0;
-      connect();
-      triggerReload();
-    });
+    liveConnection.connect();
+    cleanups.push(liveConnection.dispose);
 
     return () => {
-      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-      try { if (es) es.close(); } catch (_) {}
       for (const fn of cleanups) fn();
     };
   });
