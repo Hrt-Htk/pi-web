@@ -29,10 +29,15 @@
   import { openModelUsage, openFork } from '../../session/session-modals.svelte.js';
   import { showToast } from '../../shared/toast.js';
   import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
+  import { USER_DOCS_URL, TELEGRAM_INVITE_URL } from '../../shared/links.js';
 
   let { sessionId = '' } = $props();
 
-  const userDocsUrl = 'https://github.com/ygncode/pi-web/tree/main/user-docs';
+  // Close animations must outlast the matching CSS transitions before the panel
+  // is display:none'd (see command-menu styles).
+  const MOBILE_PANEL_CLOSE_MS = 260;
+  const DESKTOP_POPOVER_CLOSE_MS = 160;
+
   const chatUrl = (path, id) => `${path}?id=${encodeURIComponent(id)}`;
 
   const toast = (message) => showToast(message, { id: 'command-menu-toast' });
@@ -78,7 +83,7 @@
           mobileBackdrop.style.display = 'none';
           mobilePanel.style.display = 'none';
         }
-      }, 260);
+      }, MOBILE_PANEL_CLOSE_MS);
     };
     const openDesktopPopover = () => {
       if (!desktopPopover) return;
@@ -90,7 +95,7 @@
       desktopPopover.classList.remove('open');
       setTimeout(() => {
         if (!desktopPopover.classList.contains('open')) desktopPopover.style.display = 'none';
-      }, 160);
+      }, DESKTOP_POPOVER_CLOSE_MS);
     };
 
     const openMenu = () => {
@@ -194,7 +199,7 @@
           break;
         case 'user-docs':
           closeMenu();
-          window.open(userDocsUrl, '_blank', 'noreferrer');
+          window.open(USER_DOCS_URL, '_blank', 'noreferrer');
           break;
         case 'diff':
           toast(t('menu.notImplemented'));
@@ -305,7 +310,7 @@
       >
       <a
         class="command-menu-item"
-        href="https://t.me/+NJvFOTTa0wNjNTc9"
+        href={TELEGRAM_INVITE_URL}
         target="_blank"
         rel="noreferrer"
         role="menuitem"
@@ -382,7 +387,7 @@
       >
       <a
         class="mobile-command-item"
-        href="https://t.me/+NJvFOTTa0wNjNTc9"
+        href={TELEGRAM_INVITE_URL}
         target="_blank"
         rel="noreferrer"
         role="menuitem"

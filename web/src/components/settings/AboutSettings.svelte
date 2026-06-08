@@ -1,5 +1,6 @@
 <script>
   import { t } from '../../shared/i18n.js';
+  import { REPO_URL, USER_DOCS_URL } from '../../shared/links.js';
 </script>
 
 <section class="settings-section">
@@ -21,11 +22,8 @@
       <span class="hint">{t('settings.docsHint')}</span>
     </div>
     <div class="settings-control">
-      <a
-        class="settings-link"
-        href="https://github.com/ygncode/pi-web/tree/main/user-docs"
-        target="_blank"
-        rel="noreferrer">{t('settings.openDocs')}</a
+      <a class="settings-link" href={USER_DOCS_URL} target="_blank" rel="noreferrer"
+        >{t('settings.openDocs')}</a
       >
     </div>
   </div>
@@ -35,11 +33,8 @@
       <span class="hint">{t('settings.githubHint')}</span>
     </div>
     <div class="settings-control">
-      <a
-        class="settings-link"
-        href="https://github.com/ygncode/pi-web"
-        target="_blank"
-        rel="noreferrer">{t('settings.starGithub')}</a
+      <a class="settings-link" href={REPO_URL} target="_blank" rel="noreferrer"
+        >{t('settings.starGithub')}</a
       >
     </div>
   </div>

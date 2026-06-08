@@ -10,6 +10,7 @@
     Tag,
   } from '../../shared/icons.js';
   import { openVersionModal } from '../../shared/version.js';
+  import { USER_DOCS_URL, TELEGRAM_INVITE_URL } from '../../shared/links.js';
   import { handleNavClick } from '../../shared/navigation.js';
 
   let {
@@ -83,7 +84,7 @@
   <div class="web-menu-section">
     <a
       class="web-menu-item"
-      href="https://github.com/ygncode/pi-web/tree/main/user-docs"
+      href={USER_DOCS_URL}
       target="_blank"
       rel="noreferrer"
       role="menuitem"
@@ -94,7 +95,7 @@
     >
     <a
       class="web-menu-item"
-      href="https://t.me/+NJvFOTTa0wNjNTc9"
+      href={TELEGRAM_INVITE_URL}
       target="_blank"
       rel="noreferrer"
       role="menuitem"
