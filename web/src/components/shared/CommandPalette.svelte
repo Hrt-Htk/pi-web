@@ -93,6 +93,7 @@
 
 <script>
   import { onMount, tick } from 'svelte';
+  import { getSessionPaletteApi, setSessionPaletteApi } from '../../shared/command-palette-runtime.js';
   import { icon, X } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
 
@@ -228,14 +229,19 @@
 
   onMount(() => {
     const api = { open: openPalette, close, refresh };
+    const previousApi = getSessionPaletteApi();
+    setSessionPaletteApi(api);
     const previousOpenBridge = window.__piOpenSessionPalette;
     const openBridge = () => api.open();
+    // Compatibility shims for existing external/browser entry points. In-app
+    // code should import command-palette-runtime helpers instead.
     window.__piSessionPalette = api;
     if (typeof previousOpenBridge !== 'function') window.__piOpenSessionPalette = openBridge;
     const keydown = (e) => handleKeydown(e);
     window.addEventListener('keydown', keydown);
     return () => {
       window.removeEventListener('keydown', keydown);
+      if (getSessionPaletteApi() === api) setSessionPaletteApi(previousApi);
       if (window.__piSessionPalette === api) delete window.__piSessionPalette;
       if (window.__piOpenSessionPalette === openBridge) delete window.__piOpenSessionPalette;
       else if (previousOpenBridge && window.__piOpenSessionPalette == null) window.__piOpenSessionPalette = previousOpenBridge;

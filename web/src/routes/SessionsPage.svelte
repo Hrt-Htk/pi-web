@@ -7,6 +7,7 @@
   import ProjectsModal from '../components/index/ProjectsModal.svelte';
   import SessionsList from '../components/index/SessionsList.svelte';
   import { createStatusEvents } from '../shared/status-events.js';
+  import { openSessionPalette, refreshSessionPalette } from '../shared/command-palette-runtime.js';
   import { setupKeyboardNav } from '../shared/keyboard-nav.js';
   import { toggleTheme, syncThemeIcons } from '../shared/theme.js';
   import { configureSettingsSync, hydrateSettings, writeSetting } from '../shared/settings-store.js';
@@ -75,7 +76,7 @@
       const response = await defaultFetchSessions();
       sessions = (response.sessions || []).map(normalizeSession);
       await tick();
-      window.__piSessionPalette?.refresh?.();
+      refreshSessionPalette();
     } catch {
       // Keep existing list if a soft refresh fails.
     } finally {
@@ -189,7 +190,7 @@
     }
   }
 
-  function openPalette() { window.__piOpenSessionPalette?.(); }
+  function openPalette() { openSessionPalette(); }
 
   onMount(() => {
     const previousTitle = document.title;

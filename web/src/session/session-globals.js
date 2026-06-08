@@ -8,6 +8,7 @@
 
 import * as doneNotifier from './chat/done-notifier.js';
 import * as sidebarApi from './ui/sidebar.js';
+import { openSessionPalette } from '../shared/command-palette-runtime.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
 import { openShortcuts } from './session-modals.svelte.js';
 import { sessionRuntime } from './session-runtime.js';
@@ -41,15 +42,15 @@ export function setupSessionGlobals({
   setupKeyboardNav({ windowImpl: target, documentImpl });
 
   // Session list palette (Cmd+K / "List Sessions" menu item). The Svelte
-  // <CommandPalette> component owns the palette and exposes
-  // window.__piOpenSessionPalette for this global shortcut and <CommandMenu>.
+  // <CommandPalette> component owns the palette and registers its API in
+  // command-palette-runtime.
 
   // ── Global keyboard shortcuts ──────────────────────────────────────────────
   // Cmd+K — session list palette
   on(target, 'keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      target.__piOpenSessionPalette?.();
+      openSessionPalette();
     }
   });
 

@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import CommandMenu from './CommandMenu.svelte';
 import { sessionModals, resetSessionModals } from '../../session/session-modals.svelte.js';
+import { setSessionPaletteApi } from '../../shared/command-palette-runtime.js';
 
 // The menu button (#command-menu-btn) + title live in SessionHeader; the menu
 // reads them by id, so the test provides them in the document.
@@ -18,7 +19,12 @@ beforeEach(() => {
   window.matchMedia = vi.fn(() => ({ matches: false }));
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); resetSessionModals(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  resetSessionModals();
+  setSessionPaletteApi(null);
+});
 
 describe('CommandMenu', () => {
   it('renames via the API and updates the page title', async () => {
@@ -44,15 +50,15 @@ describe('CommandMenu', () => {
     expect(document.getElementById('session-header-title').textContent).toBe('Old');
   });
 
-  it('opens model usage via the modal store + the session-list palette via its window bridge', async () => {
-    window.__piOpenSessionPalette = vi.fn();
+  it('opens model usage via the modal store + the session-list palette runtime', async () => {
+    const openPalette = vi.fn();
     render(CommandMenu, { props: { sessionId: 's' } });
     await tick();
+    setSessionPaletteApi({ open: openPalette });
 
     await fireEvent.click(document.querySelector('[data-action="model-usage"]'));
     await fireEvent.click(document.querySelector('[data-action="list-sessions"]'));
     expect(sessionModals.modelUsage).toBe(true);
-    expect(window.__piOpenSessionPalette).toHaveBeenCalled();
-    delete window.__piOpenSessionPalette;
+    expect(openPalette).toHaveBeenCalled();
   });
 });

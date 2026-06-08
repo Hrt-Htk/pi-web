@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupSessionGlobals } from './session-globals.js';
 import { sessionModals, resetSessionModals } from './session-modals.svelte.js';
 import { sessionRuntime, resetSessionRuntime } from './session-runtime.js';
+import { setSessionPaletteApi } from '../shared/command-palette-runtime.js';
 
 // Focused coverage for the global keyboard shortcuts + relay buttons, which the
 // e2e suite does not exercise. The other wiring (done-notifier, version, palette,
@@ -49,12 +50,12 @@ describe('setupSessionGlobals — keyboard shortcuts', () => {
     document.body.innerHTML = '';
     resetSessionModals();
     resetSessionRuntime();
-    delete window.__piOpenSessionPalette;
+    setSessionPaletteApi(null);
   });
 
-  it('Cmd+K calls the Svelte command-palette bridge when present', () => {
+  it('Cmd+K calls the Svelte command-palette runtime when present', () => {
     const open = vi.fn();
-    window.__piOpenSessionPalette = open;
+    setSessionPaletteApi({ open });
     dispatchKey('k', { meta: true });
     expect(open).toHaveBeenCalledOnce();
   });

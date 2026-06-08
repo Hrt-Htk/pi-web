@@ -2,8 +2,7 @@
   // Session actions menu — Svelte port of live/command-menu.js. Renders the
   // desktop popover + mobile panel (+ the session-list <CommandPalette>) and, in
   // onMount, wires open/close + the action dispatch. Several actions delegate to
-  // window bridges set by SessionPage / shared live chrome (model-usage, fork,
-  // the session-list palette) or click hidden relay buttons (share/new/terminal).
+  // shared live runtime helpers or click hidden relay buttons (share/new/terminal).
   import { onMount } from 'svelte';
   import CommandPalette from '../shared/CommandPalette.svelte';
   import { t } from '../../shared/i18n.js';
@@ -11,6 +10,7 @@
   import * as sidebarApi from '../../session/ui/sidebar.js';
   import { openVersionModal } from '../../shared/version.js';
   import { navigate } from '../../shared/navigation.js';
+  import { openSessionPalette } from '../../shared/command-palette-runtime.js';
   import { openModelUsage, openFork } from '../../session/session-modals.svelte.js';
 
   let { sessionId = '' } = $props();
@@ -105,7 +105,7 @@
     function handleAction(action) {
       switch (action) {
         case 'share': clickHidden('share-btn'); closeMenu(); break;
-        case 'list-sessions': closeMenu(); window.__piOpenSessionPalette?.(); break;
+        case 'list-sessions': closeMenu(); openSessionPalette(); break;
         case 'new-session': clickHidden('new-btn'); closeMenu(); break;
         case 'terminal': clickHidden('resume-btn'); closeMenu(); break;
         case 'tree':
