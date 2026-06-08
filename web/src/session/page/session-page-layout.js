@@ -1,3 +1,5 @@
+import { isMobileLayout } from '../ui/sidebar.js';
+
 export function applySessionPageBodyClasses({ documentImpl = document } = {}) {
   documentImpl.documentElement.classList.add('pi-session-page');
   documentImpl.body.classList.add('pi-session-page');
@@ -29,7 +31,7 @@ export function applyStoredSessionLayout({
 
   try {
     const collapsed = storage.getItem('pi-web:v1:right-sidebar-collapsed');
-    const mobile = windowImpl?.matchMedia?.('(max-width: 900px)').matches;
+    const mobile = isMobileLayout({ windowImpl });
     if (collapsed === 'true' || mobile) {
       documentImpl.body.classList.add('right-sidebar-collapsed');
     }

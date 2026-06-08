@@ -75,7 +75,7 @@
   const toast = (message) => showToast(message, { id: 'command-menu-toast' });
 
   const clickHidden = (id) => document.getElementById(id)?.click();
-  const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+  const isMobile = () => sidebarApi.isMobileLayout();
 
   onMount(() => {
     const menuBtn = document.getElementById('command-menu-btn');

@@ -53,7 +53,7 @@ export function setupSessionGlobals({ windowImpl, documentImpl }) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
       e.preventDefault();
       const sidebar = documentImpl.getElementById('sidebar');
-      if (target.matchMedia('(max-width: 900px)').matches) {
+      if (sidebarApi.isMobileLayout({ windowImpl: target })) {
         const isOpen = sidebar?.classList.contains('open');
         sidebarApi.setSidebarOpen(!isOpen, { documentImpl });
       } else {

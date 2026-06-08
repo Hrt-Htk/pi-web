@@ -2,11 +2,17 @@ export const SIDEBAR_WIDTH_STORAGE_KEY = 'pi-share:v1:sidebar-width';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'pi-share:v1:sidebar-collapsed';
 export const MIN_CONTENT_WIDTH = 320;
 
+// Width at/below which the session UI switches to the mobile layout (drawer
+// sidebars instead of inline panels). Shared so the media query lives in one
+// place; see isMobileLayout.
+export const MOBILE_BREAKPOINT_PX = 900;
+export const MOBILE_MEDIA_QUERY = `(max-width: ${MOBILE_BREAKPOINT_PX}px)`;
+
 export function isMobileLayout({ windowImpl = window } = {}) {
   if (!windowImpl || typeof windowImpl.matchMedia !== 'function') {
     return false;
   }
-  return windowImpl.matchMedia('(max-width: 900px)').matches;
+  return windowImpl.matchMedia(MOBILE_MEDIA_QUERY).matches;
 }
 
 export function getSidebarBounds({ documentImpl = document, windowImpl = window } = {}) {
