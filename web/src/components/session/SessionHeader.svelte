@@ -4,6 +4,7 @@
   import { t } from '../../shared/i18n.js';
   import { navigate } from '../../shared/navigation.js';
   import { showToast } from '../../shared/toast.js';
+  import { copyToClipboard } from '../../shared/clipboard.js';
   import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
   let { title = 'Session', cwd = '', sessionId = '' } = $props();
 
@@ -20,24 +21,8 @@
   // Phase 3). These are hidden command-relay buttons that the command menu and
   // header buttons .click() by id; live-only (export omits this header).
 
-  // Copy with a clipboard guard + execCommand fallback for insecure contexts.
-  function copyText(text, onCopied) {
-    function fallbackCopy() {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if (ok) onCopied();
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(onCopied).catch(fallbackCopy);
-    } else {
-      fallbackCopy();
-    }
+  async function copyText(text, onCopied) {
+    if (await copyToClipboard(text)) onCopied();
   }
 
   // Passive "Copied" toast — does NOT mutate the resume button's own text.

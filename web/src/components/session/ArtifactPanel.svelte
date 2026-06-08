@@ -10,6 +10,7 @@
     ARTIFACT_SETTING_KEYS,
   } from '../../session/artifacts/artifact-filter.js';
   import { t } from '../../shared/i18n.js';
+  import { copyToClipboard } from '../../shared/clipboard.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
 
   // `highlight`/`renderMarkdown` are injectable for tests; in the live app the
@@ -81,30 +82,8 @@
     return selected?.previewType === 'markdown' ? t('artifact.preview') : t('artifact.runPreview');
   });
 
-  async function copyToClipboard(textValue, button) {
-    let ok = false;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(textValue);
-        ok = true;
-      }
-    } catch {
-      /* fall through to execCommand */
-    }
-    if (!ok) {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = textValue;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-      } catch {
-        /* give up silently */
-      }
-    }
+  async function copyArtifactSource(textValue, button) {
+    const ok = await copyToClipboard(textValue);
     if (ok && button) {
       const original = button.textContent;
       button.textContent = t('common.copied');
@@ -266,7 +245,7 @@
               class="artifact-action"
               data-action="copy"
               title={t('artifact.copySource')}
-              onclick={(e) => copyToClipboard(selected.content, e.currentTarget)}
+              onclick={(e) => copyArtifactSource(selected.content, e.currentTarget)}
               >{t('artifact.copy')}</button
             >
             <button

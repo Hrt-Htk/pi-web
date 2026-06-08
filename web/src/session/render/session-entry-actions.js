@@ -5,6 +5,7 @@
 // copy/download controls.
 
 import { setIconElement, Check } from '../../shared/icons.js';
+import { copyToClipboard as writeClipboard } from '../../shared/clipboard.js';
 
 // Download the session as JSONL: header line + entry lines.
 export function downloadSessionJson({
@@ -58,30 +59,7 @@ export async function copyToClipboard(
   button,
   { documentImpl = document, navigatorImpl = navigator } = {},
 ) {
-  let success = false;
-  try {
-    if (navigatorImpl.clipboard && navigatorImpl.clipboard.writeText) {
-      await navigatorImpl.clipboard.writeText(text);
-      success = true;
-    }
-  } catch {
-    /* fall through to execCommand */
-  }
-
-  if (!success) {
-    try {
-      const textarea = documentImpl.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      documentImpl.body.appendChild(textarea);
-      textarea.select();
-      success = documentImpl.execCommand('copy');
-      documentImpl.body.removeChild(textarea);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }
+  const success = await writeClipboard(text, { documentImpl, navigatorImpl });
 
   if (success && button) {
     const originalChildren = Array.from(button.childNodes).map((node) => node.cloneNode(true));

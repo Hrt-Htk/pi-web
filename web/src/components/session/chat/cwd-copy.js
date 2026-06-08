@@ -1,4 +1,5 @@
 import { t } from '../../../shared/i18n.js';
+import { copyToClipboard } from '../../../shared/clipboard.js';
 
 export function showCwdToast(
   { documentImpl = document, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {},
@@ -38,29 +39,10 @@ export function setupCwdCopy({
   if (!cwdEl) return;
   cwdEl.addEventListener('click', async () => {
     const path = cwdEl.dataset.cwd || cwdEl.textContent.replace(/^cwd:\s*/, '');
-    let ok = false;
-    try {
-      if (windowImpl.navigator?.clipboard?.writeText) {
-        await windowImpl.navigator.clipboard.writeText(path);
-        ok = true;
-      }
-    } catch {
-      /* ignore clipboard API failure, try fallback */
-    }
-    if (!ok) {
-      try {
-        const ta = documentImpl.createElement('textarea');
-        ta.value = path;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        documentImpl.body.appendChild(ta);
-        ta.select();
-        ok = documentImpl.execCommand('copy');
-        documentImpl.body.removeChild(ta);
-      } catch {
-        /* ignore fallback copy failure */
-      }
-    }
+    const ok = await copyToClipboard(path, {
+      documentImpl,
+      navigatorImpl: windowImpl.navigator,
+    });
     if (ok) {
       showCwdToast(
         { documentImpl, setTimeoutImpl, clearTimeoutImpl },

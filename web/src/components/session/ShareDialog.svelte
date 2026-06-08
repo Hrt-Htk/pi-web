@@ -7,6 +7,7 @@
   import { icon, Share2 } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { showToast } from '../../shared/toast.js';
+  import { copyToClipboard } from '../../shared/clipboard.js';
 
   let { sessionId = '' } = $props();
 
@@ -26,27 +27,8 @@
     });
   }
 
-  // Copy with a clipboard guard + execCommand fallback for insecure contexts.
-  function copyShareUrl(text, label) {
-    function fallbackCopy() {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if (ok) showShareCopiedNotice(label, text);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => showShareCopiedNotice(label, text))
-        .catch(fallbackCopy);
-    } else {
-      fallbackCopy();
-    }
+  async function copyShareUrl(text, label) {
+    if (await copyToClipboard(text)) showShareCopiedNotice(label, text);
   }
 
   function close() {

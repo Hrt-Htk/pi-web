@@ -120,6 +120,24 @@ func TestPrepareSessionPageDataUsesLastNonLabelEntryWithIDAsLeaf(t *testing.T) {
 	}
 }
 
+func TestClipboardHelperGuardsAndFallsBack(t *testing.T) {
+	// The clipboard guard + insecure-context execCommand fallback live in one
+	// shared helper (web/src/shared/clipboard.js); the copy sites delegate to it.
+	source, err := os.ReadFile(repoPath("web/src/shared/clipboard.js"))
+	if err != nil {
+		t.Fatalf("read web/src/shared/clipboard.js: %v", err)
+	}
+	for _, want := range []string{
+		"export async function copyToClipboard(",
+		"navigatorImpl.clipboard && navigatorImpl.clipboard.writeText",
+		"documentImpl.execCommand('copy')",
+	} {
+		if !strings.Contains(string(source), want) {
+			t.Fatalf("shared clipboard helper missing %q", want)
+		}
+	}
+}
+
 func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
 	// Share UI now lives in the <ShareDialog> Svelte component (absorbed from the
 	// former live/share-overlay.js in migration Phase 3).
@@ -129,8 +147,7 @@ func TestShareResultCopyButtonsUseClipboardFallbackAndToast(t *testing.T) {
 	}
 	for _, want := range []string{
 		"function copyShareUrl(",
-		"navigator.clipboard && navigator.clipboard.writeText",
-		"document.execCommand('copy')",
+		"copyToClipboard(text)",
 		"share-copy-notice",
 		"t('share.copiedSuffix', { label })",
 	} {
@@ -147,11 +164,8 @@ func TestResumeButtonClipboardGuardAndFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read web/src/components/session/SessionHeader.svelte: %v", err)
 	}
-	if !strings.Contains(string(source), "navigator.clipboard && navigator.clipboard.writeText") {
-		t.Fatalf("resume clipboard code should guard navigator.clipboard before writeText")
-	}
-	if !strings.Contains(string(source), "document.execCommand('copy')") {
-		t.Fatalf("resume clipboard code should include execCommand fallback")
+	if !strings.Contains(string(source), "copyToClipboard(text)") {
+		t.Fatalf("resume clipboard code should delegate to the shared copyToClipboard helper")
 	}
 }
 
