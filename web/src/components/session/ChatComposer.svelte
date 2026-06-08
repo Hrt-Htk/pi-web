@@ -3,7 +3,6 @@
   // and inject selector implementations. Model selector wiring has been split
   // into components/session/chat/model-selector.js; the remaining selector
   // helpers below are still being extracted incrementally.
-  import { icon, Maximize2 } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
     THINKING_LEVELS,
@@ -297,6 +296,7 @@ export function runChatComposer({
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
   import * as chatApi from '../../session/chat/chat-api.js';
   import GitFooter from './GitFooter.svelte';
+  import ChatExpandButton from './chat/ChatExpandButton.svelte';
   import ChatSelectorPopups from './chat/ChatSelectorPopups.svelte';
   import ChatToolbar from './chat/ChatToolbar.svelte';
   import ContextUsage from './chat/ContextUsage.svelte';
@@ -341,7 +341,7 @@ export function runChatComposer({
 <form id="pi-chat-composer" class="pi-chat-composer" data-session-id={sessionId} data-chat-available={chatAvailable} data-chat-disabled-reason={chatDisabledReason}>
   <input id="pi-chat-images" name="images" type="file" accept="image/*" multiple hidden disabled={!chatAvailable}>
   <div class="pi-chat-shell">
-    <button type="button" id="pi-chat-expand" class="pi-chat-expand-button" title={t('composer.expand')} aria-label={t('composer.expand')} aria-pressed="false" disabled={!chatAvailable}>{@html icon(Maximize2, { size: 14 })}</button>
+    <ChatExpandButton {chatAvailable} />
     {#if cwd}<div class="pi-chat-toolbar pi-chat-cwd-bar"><span class="pi-chat-cwd" title={t('composer.copyPath')} data-cwd={cwd}>cwd: {cwd}</span><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span></div>{/if}
     {#if !chatAvailable}<div class="pi-chat-disabled-notice">{chatDisabledReason}</div>{/if}
     <textarea id="pi-chat-message" name="message" rows="1" placeholder={t('composer.placeholder')} disabled={!chatAvailable}></textarea>
