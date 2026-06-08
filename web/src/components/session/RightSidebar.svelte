@@ -6,6 +6,7 @@
   import AnnotationLayer from './AnnotationLayer.svelte';
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { createScratchpadController } from './right-sidebar-scratchpad.js';
+  import { createRightSidebarTabs } from './right-sidebar-tabs.js';
 
   let { scratchpad = '', projectPath = '' } = $props();
 
@@ -27,39 +28,20 @@
     const closeBtn = documentImpl.getElementById('close-right-sidebar');
     const expandBtn = documentImpl.getElementById('expand-right-sidebar');
     const toggleBtn = documentImpl.getElementById('toggle-right-sidebar-btn');
+    const cleanups = [];
 
     // ── Tabs ───────────────────────────────────────────────────────────────
-    const tabs = Array.from(documentImpl.querySelectorAll('.right-sidebar-tab'));
-    const panes = Array.from(documentImpl.querySelectorAll('.right-sidebar-pane'));
-
-    function activateTab(pane) {
-      if (!tabs.some((tab) => tab.dataset.pane === pane)) return;
-      for (const tab of tabs) {
-        const isActive = tab.dataset.pane === pane;
-        tab.classList.toggle('active', isActive);
-        tab.setAttribute('aria-selected', String(isActive));
-      }
-      for (const p of panes) {
-        const isActive = p.id === `right-pane-${pane}`;
-        p.classList.toggle('active', isActive);
-        if (isActive) p.removeAttribute('hidden');
-        else p.setAttribute('hidden', '');
-      }
-      if (sidebar) sidebar.dataset.activeTab = pane;
-      try { storage?.setItem(RIGHT_SIDEBAR_TAB_KEY, pane); } catch {}
-    }
-
-    for (const tab of tabs) {
-      tab.addEventListener('click', () => activateTab(tab.dataset.pane));
-    }
-
-    let initialTab = '';
-    try { initialTab = storage?.getItem(RIGHT_SIDEBAR_TAB_KEY) || ''; } catch {}
-    if (initialTab && initialTab !== 'scratchpad') activateTab(initialTab);
-    if (sidebar && !sidebar.dataset.activeTab) sidebar.dataset.activeTab = 'scratchpad';
+    const tabController = createRightSidebarTabs({
+      documentImpl,
+      sidebar,
+      storage,
+      storageKey: RIGHT_SIDEBAR_TAB_KEY,
+    });
+    const activateTab = tabController.activateTab;
+    cleanups.push(tabController.bind());
+    tabController.restoreInitialTab();
 
     // ── Sidebar visibility/resize/scratchpad ─────────────────────────────────
-    const cleanups = [];
     if (!sidebar) {
       sessionRuntime.rightSidebar = {
         toggle: () => {},
@@ -67,7 +49,10 @@
         collapse: () => {},
         activateTab,
       };
-      return () => { sessionRuntime.rightSidebar = null; };
+      return () => {
+        for (const fn of cleanups) fn();
+        sessionRuntime.rightSidebar = null;
+      };
     }
 
     function isCollapsed() {
