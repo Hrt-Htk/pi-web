@@ -88,15 +88,7 @@ func (s *Server) handleApiForkSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			writeJSONError(w, http.StatusNotFound, "not found")
-		default:
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-		}
+	if resolveOrWriteError(w, err) {
 		return
 	}
 
@@ -126,15 +118,7 @@ func (s *Server) handleApiCloneSession(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			writeJSONError(w, http.StatusNotFound, "not found")
-		default:
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-		}
+	if resolveOrWriteError(w, err) {
 		return
 	}
 
@@ -195,15 +179,7 @@ func (s *Server) handleApiSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleApiSession(w http.ResponseWriter, r *http.Request) {
 	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			writeJSONError(w, http.StatusNotFound, "not found")
-		default:
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-		}
+	if resolveOrWriteError(w, err) {
 		return
 	}
 
@@ -364,15 +340,7 @@ func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resolved, err = sessions.ResolveByID(s.sessionsDir, id)
 	}
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			writeJSONError(w, http.StatusNotFound, "not found")
-		default:
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-		}
+	if resolveOrWriteError(w, err) {
 		return
 	}
 
@@ -420,15 +388,7 @@ func (s *Server) handleLabelSessionEntry(w http.ResponseWriter, r *http.Request)
 	} else {
 		resolved, err = sessions.ResolveByID(s.sessionsDir, id)
 	}
-	if err != nil {
-		switch {
-		case errors.Is(err, sessions.ErrInvalidSessionID):
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-		case errors.Is(err, sessions.ErrSessionNotFound):
-			writeJSONError(w, http.StatusNotFound, "not found")
-		default:
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-		}
+	if resolveOrWriteError(w, err) {
 		return
 	}
 
