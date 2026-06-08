@@ -13,7 +13,7 @@
 
   let open = $state(false);
   let isError = $state(false);
-  let title = $state('Share session');
+  let title = $state(t('share.defaultTitle'));
   let gistUrl = $state('');
   let previewUrl = $state('');
   let errorMsg = $state('');
@@ -43,26 +43,26 @@
       fetch('/share?id=' + encodeURIComponent(sessionId), { method: 'POST' })
         .then((r) => r.json())
         .then((data) => {
-          shareBtn.innerHTML = icon(Share2, { size: 14 }) + 'Share';
+          shareBtn.innerHTML = icon(Share2, { size: 14 }) + t('menu.share');
           shareBtn.disabled = false;
           if (data.error) {
             isError = true;
-            title = 'Share Failed';
+            title = t('share.failedTitle');
             errorMsg = data.error + (data.stderr ? '\n\n' + data.stderr : '');
           } else {
             isError = false;
-            title = 'Session Shared';
+            title = t('share.successTitle');
             gistUrl = data.gistUrl;
             previewUrl = data.previewUrl;
           }
           open = true;
         })
         .catch((err) => {
-          shareBtn.innerHTML = icon(Share2, { size: 14 }) + 'Share';
+          shareBtn.innerHTML = icon(Share2, { size: 14 }) + t('menu.share');
           shareBtn.disabled = false;
           isError = true;
-          title = 'Share Failed';
-          errorMsg = err.message || 'Network error';
+          title = t('share.failedTitle');
+          errorMsg = err.message || t('share.networkError');
           open = true;
         });
     };
@@ -94,7 +94,7 @@
     <h3 id="share-title">{title}</h3>
     <div id="share-fields" style:display={isError ? 'none' : ''}>
       <div class="share-field">
-        <label for="share-gist-url">Gist URL</label><input
+        <label for="share-gist-url">{t('share.gistUrlLabel')}</label><input
           id="share-gist-url"
           readonly
           class="share-url-input"
@@ -102,7 +102,7 @@
         />
       </div>
       <div class="share-field">
-        <label for="share-preview-url">Preview URL</label><input
+        <label for="share-preview-url">{t('share.previewUrlLabel')}</label><input
           id="share-preview-url"
           readonly
           class="share-url-input"
@@ -118,15 +118,18 @@
         id="share-copy-gist"
         class="share-btn-primary"
         style:display={isError ? 'none' : ''}
-        onclick={() => copyShareUrl(gistUrl, 'Gist')}>Copy Gist</button
+        onclick={() => copyShareUrl(gistUrl, t('share.gistLabel'))}>{t('share.copyGist')}</button
       >
       <button
         id="share-copy-preview"
         class="share-btn-secondary"
         style:display={isError ? 'none' : ''}
-        onclick={() => copyShareUrl(previewUrl, 'Preview')}>Copy Preview</button
+        onclick={() => copyShareUrl(previewUrl, t('share.previewLabel'))}
+        >{t('share.copyPreview')}</button
       >
-      <button id="share-close" class="share-btn-secondary" onclick={close}>Close</button>
+      <button id="share-close" class="share-btn-secondary" onclick={close}
+        >{t('common.close')}</button
+      >
     </div>
   </div>
 </div>

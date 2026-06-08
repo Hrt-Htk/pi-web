@@ -160,6 +160,16 @@ export default {
 
   // ── Share / export ──
   'share.copiedSuffix': '{label} copied',
+  'share.defaultTitle': 'Share session',
+  'share.failedTitle': 'Share Failed',
+  'share.successTitle': 'Session Shared',
+  'share.gistUrlLabel': 'Gist URL',
+  'share.previewUrlLabel': 'Preview URL',
+  'share.copyGist': 'Copy Gist',
+  'share.copyPreview': 'Copy Preview',
+  'share.gistLabel': 'Gist',
+  'share.previewLabel': 'Preview',
+  'share.networkError': 'Network error',
 
   // ── Settings ──
   'settings.title': 'Settings',
