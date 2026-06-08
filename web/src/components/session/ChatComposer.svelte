@@ -32,6 +32,7 @@
   import { setupAttachmentManager } from './chat/attachment-manager.js';
   import { setupCwdCopy } from './chat/cwd-copy.js';
   import { createChatToolbarState } from './chat/toolbar-state.js';
+  import { setupChatSubmission } from './chat/chat-submit.js';
 
   export {
     setupModelSelector,
@@ -204,82 +205,23 @@ export function runChatComposer({
       setChatStatus(text, cls);
     }
 
-    let refreshWorkerStatus = async () => {};
-    if (cancelButton) {
-      cancelButton.addEventListener('click', async () => {
-        cancelButton.disabled = true;
-        setStatus('cancelling', 'running');
-        try {
-          const response = await __piChatApi.cancelChat(sessionId);
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.error || 'cancel failed');
-          setStatus('idle', '');
-          refreshWorkerStatus();
-        } catch (error) {
-          setStatus(error.message || String(error), 'error');
-        } finally {
-          cancelButton.disabled = false;
-        }
-      });
-    }
-    async function sendChatMessage(message, files = attachments.files()) {
-      if (!message && files.length === 0) {
-        setStatus('message or image required', 'error');
-        return false;
-      }
-      const body = new FormData();
-      body.set('message', message);
-      for (const file of files) body.append('images', file);
-      sendButton.dataset.sending = '1';
-      sendButton.disabled = true;
-      setStatus('sending', 'running');
-      window.dispatchEvent(new CustomEvent('pi-chat-message-sent', { detail: { message } }));
-      try {
-        const response = await __piChatApi.sendChat(sessionId, body);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'chat request failed');
-        setStatus(data.status || 'queued', 'running');
-        return true;
-      } catch (error) {
-        setStatus(error.message || String(error), 'error');
-        return false;
-      } finally {
-        delete sendButton.dataset.sending;
-        sendButton.disabled = false;
-        updateSendEnabled();
-      }
-    }
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const typed = textarea.value.trim();
-      const filesToSend = attachments.files().slice();
-      const textAttachmentsToSend = attachments.textAttachments().slice();
-      const message = attachments.composeMessage(typed);
-      if (!message && filesToSend.length === 0) {
-        setStatus('message or image required', 'error');
-        return;
-      }
-
-      // Optimistically move the draft out of the composer immediately. The
-      // live preview area shows the pending user message + "working…" while
-      // the backend starts/reuses the RPC worker. If the request fails before
-      // pi accepts it, restore the draft so the user can retry.
-      textarea.value = '';
-      attachments.clear();
-      autoResizeTextarea();
-      updateSendEnabled();
-
-      const sent = await sendChatMessage(message, filesToSend);
-      if (!sent) {
-        textarea.value = typed;
-        attachments.restore({ files: filesToSend, textAttachments: textAttachmentsToSend });
-        autoResizeTextarea();
-        updateSendEnabled();
-      }
+    const submission = setupChatSubmission({
+      windowImpl: window,
+      form,
+      textarea,
+      sendButton,
+      cancelButton,
+      attachments,
+      chatApi: __piChatApi,
+      sessionId,
+      setStatus,
+      autoResizeTextarea,
+      updateSendEnabled,
+      FormDataImpl: FormData,
+      CustomEventImpl: CustomEvent,
     });
 
-    setupAskQuestionHandlers({ documentImpl: document, sendChatMessage });
+    setupAskQuestionHandlers({ documentImpl: document, sendChatMessage: submission.sendChatMessage });
 
     const workerStatus = setupWorkerStatusPolling({
       windowImpl: window,
@@ -297,7 +239,7 @@ export function runChatComposer({
       setIntervalImpl: setInterval,
       CustomEventImpl: CustomEvent,
     });
-    refreshWorkerStatus = workerStatus.refresh;
+    submission.setRefreshWorkerStatus(workerStatus.refresh);
 
     // Focus the message textarea on page load so the user can start typing immediately.
     if (textarea && typeof textarea.focus === 'function') {
