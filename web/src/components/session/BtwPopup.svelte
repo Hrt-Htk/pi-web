@@ -303,13 +303,15 @@
     else submitMessage();
   }
 
+  // Changes whenever the visible transcript does, so the auto-scroll effect can
+  // depend on one value instead of listing each piece of state separately.
+  const transcriptSignature = $derived(
+    [renderedEntries.length, pendingUser ?? '', streamingText, running, open].join('|'),
+  );
+
   // Auto-scroll to bottom when the transcript changes if the user was near it.
   $effect(() => {
-    void renderedEntries;
-    void pendingUser;
-    void streamingText;
-    void running;
-    void open;
+    void transcriptSignature;
     if (open && nearBottom) scrollToBottom();
   });
 
