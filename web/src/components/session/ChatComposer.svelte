@@ -30,6 +30,7 @@
   import { setupContextPopover } from './chat/context-popover.js';
   import { setupTextareaControls } from './chat/textarea-controls.js';
   import { setupAttachmentManager } from './chat/attachment-manager.js';
+  import { setupCwdCopy } from './chat/cwd-copy.js';
 
   export {
     setupModelSelector,
@@ -158,64 +159,6 @@ export function runChatComposer({
     } else {
       btn.setAttribute('title', 'Switch effort (Shift+Tab)');
     }
-  }
-
-  function showCwdToast(message, isError = false) {
-    const composer = document.getElementById('pi-chat-composer');
-    if (!composer) return;
-    let notice = document.getElementById('pi-chat-cwd-toast');
-    if (!notice) {
-      notice = document.createElement('div');
-      notice.id = 'pi-chat-cwd-toast';
-      notice.style.cssText = 'position:fixed;top:60px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;pointer-events:none;';
-      document.body.appendChild(notice);
-    }
-    notice.textContent = message;
-    notice.style.background = isError ? 'var(--error)' : 'var(--accent)';
-    notice.style.opacity = '1';
-    clearTimeout(notice._hideTimer);
-    notice._hideTimer = setTimeout(() => {
-      notice.style.opacity = '0';
-      setTimeout(() => {
-        if (notice.parentNode) notice.parentNode.removeChild(notice);
-      }, 300);
-    }, 1200);
-  }
-
-  function setupCwdCopy() {
-    const cwdEl = document.querySelector('.pi-chat-cwd');
-    if (!cwdEl) return;
-    cwdEl.addEventListener('click', async () => {
-      const path = cwdEl.dataset.cwd || cwdEl.textContent.replace(/^cwd:\s*/, '');
-      let ok = false;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(path);
-          ok = true;
-        }
-      } catch {
-        /* ignore clipboard API failure, try fallback */
-      }
-      if (!ok) {
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = path;
-          ta.style.position = 'fixed';
-          ta.style.opacity = '0';
-          document.body.appendChild(ta);
-          ta.select();
-          ok = document.execCommand('copy');
-          document.body.removeChild(ta);
-        } catch {
-          /* ignore fallback copy failure */
-        }
-      }
-      if (ok) {
-        showCwdToast(t('composer.pathCopied'));
-      } else {
-        showCwdToast(t('common.copyFailed'), true);
-      }
-    });
   }
 
   function setupPiChatComposer() {
@@ -422,7 +365,7 @@ export function runChatComposer({
   let _mentionSelectorApi = null;
 
   function initPiChatControls() {
-    setupCwdCopy();
+    setupCwdCopy({ documentImpl: document, windowImpl: window });
     if (!setupPiChatComposer()) return;
 
     // Immediately set correct tooltips on load
