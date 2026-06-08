@@ -31,6 +31,7 @@
   import { setupTextareaControls } from './chat/textarea-controls.js';
   import { setupAttachmentManager } from './chat/attachment-manager.js';
   import { setupCwdCopy } from './chat/cwd-copy.js';
+  import { createChatToolbarState } from './chat/toolbar-state.js';
 
   export {
     setupModelSelector,
@@ -101,65 +102,15 @@ export function runChatComposer({
     return !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
   }
 
-  function setChatStatus(text, cls) {
-    const status = document.getElementById('pi-chat-status');
-    const cancelButton = document.getElementById('pi-chat-cancel');
-    const isRunning = cls === 'running' || text === 'running' || text === 'sending' || text === 'queued' || text === 'accepted' || text === 'cancelling';
-    if (status) {
-      status.textContent = text;
-      status.className = 'pi-chat-status' + (cls ? ' ' + cls : '');
-    }
-    if (cancelButton) {
-      cancelButton.style.display = isRunning ? '' : 'none';
-      cancelButton.disabled = text === 'cancelling';
-    }
-  }
-
-  function setModelLabel(label) {
-    const btn = document.getElementById('pi-chat-model-label');
-    if (!btn) return;
-    if (label) {
-      btn.textContent = label;
-      btn.style.display = '';
-    } else if (!btn.textContent || btn.textContent.trim() === '') {
-      // Show a placeholder so the button is always visible and clickable.
-      btn.textContent = 'Model';
-      btn.style.display = '';
-    }
-    if (isMobileTextInputMode()) {
-      btn.setAttribute('title', 'Switch model');
-    } else {
-      btn.setAttribute('title', 'Switch model (Ctrl+I)');
-    }
-    updateContextUsage();
-  }
-
   const THINKING_LEVELS = __piChatSelectors.THINKING_LEVELS;
-  const THINKING_COLORS = {
-    off: 'var(--thinkingOff)',
-    minimal: 'var(--thinkingMinimal)',
-    low: 'var(--thinkingLow)',
-    medium: 'var(--thinkingMedium)',
-    high: 'var(--thinkingHigh)',
-    xhigh: 'var(--thinkingXhigh)'
-  };
-
-  function setThinkingLabel(level) {
-    const btn = document.getElementById('pi-chat-thinking-label');
-    if (!btn) return;
-    if (level) {
-      btn.textContent = level;
-      btn.style.display = '';
-      btn.className = 'pi-chat-thinking-label thinking-' + level;
-    } else {
-      btn.style.display = 'none';
-    }
-    if (isMobileTextInputMode()) {
-      btn.setAttribute('title', 'Switch effort');
-    } else {
-      btn.setAttribute('title', 'Switch effort (Shift+Tab)');
-    }
-  }
+  const toolbarState = createChatToolbarState({
+    documentImpl: document,
+    isMobileTextInputMode,
+    updateContextUsage,
+  });
+  const setChatStatus = toolbarState.setStatus;
+  const setModelLabel = toolbarState.setModelLabel;
+  const setThinkingLabel = toolbarState.setThinkingLabel;
 
   function setupPiChatComposer() {
     const form = document.getElementById('pi-chat-composer');
@@ -368,23 +319,7 @@ export function runChatComposer({
     setupCwdCopy({ documentImpl: document, windowImpl: window });
     if (!setupPiChatComposer()) return;
 
-    // Immediately set correct tooltips on load
-    const modelBtn = document.getElementById('pi-chat-model-label');
-    if (modelBtn) {
-      if (isMobileTextInputMode()) {
-        modelBtn.setAttribute('title', 'Switch model');
-      } else {
-        modelBtn.setAttribute('title', 'Switch model (Ctrl+I)');
-      }
-    }
-    const thinkingBtn = document.getElementById('pi-chat-thinking-label');
-    if (thinkingBtn) {
-      if (isMobileTextInputMode()) {
-        thinkingBtn.setAttribute('title', 'Switch effort');
-      } else {
-        thinkingBtn.setAttribute('title', 'Switch effort (Shift+Tab)');
-      }
-    }
+    toolbarState.updateInitialTooltips();
 
     _modelSelectorApi = loadModelSelector();
     _thinkingSelectorApi = loadThinkingSelector();
