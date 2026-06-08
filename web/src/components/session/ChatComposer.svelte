@@ -26,6 +26,7 @@
   import { createContextUsageController } from './chat/context-usage.js';
   import { setupComposerExpansion } from './chat/composer-expand.js';
   import { setupWorkerStatusPolling } from './chat/worker-status.js';
+  import { setupAskQuestionHandlers } from './chat/ask-question-handler.js';
 
   export {
     setupModelSelector,
@@ -634,63 +635,7 @@ export function runChatComposer({
       }
     });
 
-    document.addEventListener('click', async (event) => {
-      // Submit button: send all collected answers
-      const submitBtn = event.target.closest?.('.ask-question-submit-btn');
-      if (submitBtn) {
-        event.preventDefault();
-        const card = submitBtn.closest('.ask-question-card');
-        if (!card) return;
-        const parts = [];
-        card.querySelectorAll('.ask-question-block').forEach(block => {
-          const questionText = block.dataset.questionText || '';
-          const answers = Array.from(block.querySelectorAll('.ask-question-option-action.selected'))
-            .map(el => el.dataset.answer || '')
-            .filter(Boolean);
-          if (answers.length && questionText) parts.push(`"${questionText}" = "${answers.join(', ')}"`);
-        });
-        if (parts.length === 0) return;
-        card.querySelectorAll('.ask-question-option-action').forEach(b => { b.disabled = true; });
-        submitBtn.disabled = true;
-        const sent = await sendChatMessage(parts.join('\n'), []);
-        if (!sent) {
-          card.querySelectorAll('.ask-question-option-action').forEach(b => { b.disabled = false; });
-          submitBtn.disabled = false;
-        }
-        return;
-      }
-
-      // Option click
-      const option = event.target.closest?.('.ask-question-option-action');
-      if (!option) return;
-      event.preventDefault();
-
-      const card = option.closest('.ask-question-card');
-      const block = option.closest('.ask-question-block');
-      const needsSubmit = card?.dataset.needsSubmit === 'true';
-
-      if (!needsSubmit) {
-        // Single, single-select question: send immediately
-        const question = option.dataset.question || 'Question';
-        const answer = option.dataset.answer || option.textContent.trim();
-        option.disabled = true;
-        const sent = await sendChatMessage(`"${question}" = "${answer}"`, []);
-        if (!sent) option.disabled = false;
-        return;
-      }
-
-      // Collect-then-submit: toggle selection, then reveal the submit button
-      if (block) {
-        if (block.dataset.multiSelect === 'true') {
-          option.classList.toggle('selected');
-        } else {
-          block.querySelectorAll('.ask-question-option-action').forEach(b => b.classList.remove('selected'));
-          option.classList.add('selected');
-        }
-      }
-      const actions = card?.querySelector('.ask-question-actions');
-      if (actions) actions.style.display = '';
-    });
+    setupAskQuestionHandlers({ documentImpl: document, sendChatMessage });
 
     setupWorkerStatusPolling({
       windowImpl: window,
