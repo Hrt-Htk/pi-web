@@ -27,6 +27,7 @@
   import { setupWorkerStatusPolling } from './chat/worker-status.js';
   import { setupAskQuestionHandlers } from './chat/ask-question-handler.js';
   import { readComposerConfig } from './chat/composer-config.js';
+  import { getComposerElements } from './chat/composer-elements.js';
   import { setupContextPopover } from './chat/context-popover.js';
   import { setupTextareaControls } from './chat/textarea-controls.js';
   import { setupAttachmentManager } from './chat/attachment-manager.js';
@@ -145,13 +146,16 @@ export function runChatComposer({
     const composerConfig = readComposerConfig({ form, setChatStatus });
     if (!composerConfig.ready) return false;
     const { sessionId } = composerConfig;
-    const textarea = document.getElementById('pi-chat-message');
-    const fileInput = document.getElementById('pi-chat-images');
-    const attachButton = document.getElementById('pi-chat-attach');
-    const attachmentList = document.getElementById('pi-chat-attachments');
-    const status = document.getElementById('pi-chat-status');
-    const sendButton = document.getElementById('pi-chat-send');
-    const cancelButton = document.getElementById('pi-chat-cancel');
+    const {
+      textarea,
+      fileInput,
+      attachButton,
+      attachmentList,
+      sendButton,
+      cancelButton,
+      shell,
+      expandButton,
+    } = getComposerElements({ documentImpl: document, form });
 
     const { update: updateComposerHeightVar } = setupComposerHeightVar({
       documentImpl: document,
@@ -161,7 +165,6 @@ export function runChatComposer({
 
     // Expand/collapse the composer for larger typing area. State persists
     // per-session in localStorage.
-    const shell = form.querySelector('.pi-chat-shell');
     let attachments = { hasAttachments: () => false };
     const sendState = createComposerSendState({
       textarea,
@@ -205,7 +208,7 @@ export function runChatComposer({
     setupComposerExpansion({
       sessionId,
       shell,
-      expandButton: document.getElementById('pi-chat-expand'),
+      expandButton,
       textarea,
       storage: composerStorage,
       onHeightChange: updateComposerHeightVar,
