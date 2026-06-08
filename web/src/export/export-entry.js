@@ -10,13 +10,8 @@
 // <script> tags (see internal/ui/export.go); they are marked external in the
 // export Vite build, so this bundle reads window.marked / window.hljs.
 
-import {
-  loadSessionData,
-  getSessionSearchParams,
-} from '../session/data/session-data.js';
-import {
-  extractContent,
-} from '../session/tree/session-filter.js';
+import { loadSessionData } from '../session/data/session-data.js';
+import { extractContent } from '../session/tree/session-filter.js';
 import {
   escapeHtml,
   formatToolCall,
@@ -56,9 +51,15 @@ function safeLocalStorage(target) {
   const mem = new Map();
   return {
     getItem: (key) => (mem.has(key) ? mem.get(key) : null),
-    setItem: (key, value) => { mem.set(key, String(value)); },
-    removeItem: (key) => { mem.delete(key); },
-    clear: () => { mem.clear(); },
+    setItem: (key, value) => {
+      mem.set(key, String(value));
+    },
+    removeItem: (key) => {
+      mem.delete(key);
+    },
+    clear: () => {
+      mem.clear();
+    },
   };
 }
 
@@ -77,7 +78,6 @@ export function runExportApp({ target = window } = {}) {
   // component the live app uses). The snapshot renders once — no live updates —
   // so this just computes the tree/active-path derivations a single time.
   const treeModel = new SessionDataModel(dataModel);
-  const sessionId = getSessionSearchParams(target.location).get('id') || '';
 
   let filterMode = 'default';
   let searchQuery = '';
@@ -87,11 +87,12 @@ export function runExportApp({ target = window } = {}) {
     formatToolCall,
     escapeHtml: (text) => escapeHtml(text, { documentImpl }),
     truncate,
-    getTreeNodeDisplayHtml: (entry, label) => getTreeNodeDisplayHtmlForState(entry, label, {
-      extractContent,
-      toolCallMap: dataModel.toolCallMap,
-      escapeHtmlImpl: (text) => escapeHtml(text, { documentImpl }),
-    }),
+    getTreeNodeDisplayHtml: (entry, label) =>
+      getTreeNodeDisplayHtmlForState(entry, label, {
+        extractContent,
+        toolCallMap: dataModel.toolCallMap,
+        escapeHtmlImpl: (text) => escapeHtml(text, { documentImpl }),
+      }),
   };
 
   let currentLeafId = dataModel.leafId;
@@ -105,16 +106,21 @@ export function runExportApp({ target = window } = {}) {
     treeModel.currentLeafId = currentLeafId;
     treeModel.currentTargetId = currentTargetId;
   };
-  const renderTree = () => { syncTreeRendererState(); };
-  const forceTreeRerender = () => { syncTreeRendererState(); };
+  const renderTree = () => {
+    syncTreeRendererState();
+  };
+  const forceTreeRerender = () => {
+    syncTreeRendererState();
+  };
 
-  target.downloadSessionJson = () => downloadSessionJson({
-    entries: dataModel.entries,
-    header: dataModel.header,
-    documentImpl,
-    URLImpl: target.URL,
-    BlobImpl: target.Blob,
-  });
+  target.downloadSessionJson = () =>
+    downloadSessionJson({
+      entries: dataModel.entries,
+      header: dataModel.header,
+      documentImpl,
+      URLImpl: target.URL,
+      BlobImpl: target.Blob,
+    });
 
   // hljs is available synchronously (inlined vendor script). <SessionEntry>/
   // <ToolOutput> emit code with `data-highlight-pending`; this colours them in
@@ -125,10 +131,13 @@ export function runExportApp({ target = window } = {}) {
       const lang = el.dataset.lang;
       const text = el.textContent;
       try {
-        el.innerHTML = lang && hljs.getLanguage(lang)
-          ? hljs.highlight(text, { language: lang }).value
-          : hljs.highlightAuto(text).value;
-      } catch { /* keep plain text */ }
+        el.innerHTML =
+          lang && hljs.getLanguage(lang)
+            ? hljs.highlight(text, { language: lang }).value
+            : hljs.highlightAuto(text).value;
+      } catch {
+        /* keep plain text */
+      }
       el.removeAttribute('data-highlight-pending');
       el.removeAttribute('data-lang');
     });
@@ -146,8 +155,12 @@ export function runExportApp({ target = window } = {}) {
     sidebarApi,
     toggleStateApi,
     getLeafId: () => dataModel.leafId,
-    setSearchQuery: (value) => { searchQuery = value; },
-    setFilterMode: (value) => { filterMode = value; },
+    setSearchQuery: (value) => {
+      searchQuery = value;
+    },
+    setFilterMode: (value) => {
+      filterMode = value;
+    },
     forceTreeRerender,
     navigateTo: (...args) => navigateTo(...args),
     projectPath: dataModel.header?.cwd || '',
@@ -230,6 +243,10 @@ export function runExportApp({ target = window } = {}) {
   }
 }
 
-if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.getElementById('session-data')) {
+if (
+  typeof window !== 'undefined' &&
+  typeof document !== 'undefined' &&
+  document.getElementById('session-data')
+) {
   runExportApp();
 }

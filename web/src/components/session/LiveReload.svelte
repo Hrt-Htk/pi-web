@@ -20,10 +20,7 @@
     renderChatPreviewState,
     renderPendingChatState,
   } from '../../session/live/chat-preview.js';
-  import {
-    getSessionIdFromLocation,
-    handleSessionReload,
-  } from '../../session/live/live-events.js';
+  import { getSessionIdFromLocation, handleSessionReload } from '../../session/live/live-events.js';
   import { setupSessionLiveConnection } from '../../session/live/live-connection.js';
   import { createFollowScrollController } from '../../session/live/live-follow.js';
   import { updateStatsDom } from '../../session/live/live-stats.js';
@@ -51,14 +48,19 @@
     // Markdown for the streaming preview — globally-configured (sanitized) marked
     // with an escapeHtml fallback (matches the former live-renderer.renderMarkdown).
     const renderMarkdown = (text) => {
-      try { return safeMarkedParse(text, { marked }); }
-      catch { return escapeHtml(text, { documentImpl }); }
+      try {
+        return safeMarkedParse(text, { marked });
+      } catch {
+        return escapeHtml(text, { documentImpl });
+      }
     };
 
     // New-entry highlight (after Svelte renders the reactive path).
     function highlightNewEntry(node) {
       node.classList.add('new-entry-highlight');
-      setTimeout(() => { node.classList.remove('new-entry-highlight'); }, 1500);
+      setTimeout(() => {
+        node.classList.remove('new-entry-highlight');
+      }, 1500);
     }
     function highlightNewEntries(newIds) {
       requestAnimationFrame(() => {
@@ -85,7 +87,14 @@
       setTimeoutImpl: setTimeout,
     });
     cleanups.push(followScroll.dispose);
-    const { shouldFollow, forceFollowToBottom, scrollAfterLayout, showFollowButton, incrementPending, isFollowing } = followScroll;
+    const {
+      shouldFollow,
+      forceFollowToBottom,
+      scrollAfterLayout,
+      showFollowButton,
+      incrementPending,
+      isFollowing,
+    } = followScroll;
 
     on(windowImpl, 'pi-chat-message-sent', (event) => {
       followScroll.extendPreviewFollow(30000);
@@ -115,7 +124,9 @@
     function clearChatPreview() {
       const statusEl = documentImpl.getElementById('pi-chat-status');
       const isChatRunning = statusEl && statusEl.classList.contains('running');
-      const hasDoneClass = CHAT_PREVIEW_STATE.chatPreviewEl && CHAT_PREVIEW_STATE.chatPreviewEl.classList.contains('done');
+      const hasDoneClass =
+        CHAT_PREVIEW_STATE.chatPreviewEl &&
+        CHAT_PREVIEW_STATE.chatPreviewEl.classList.contains('done');
       const keepAssistant = !!(isChatRunning && !hasDoneClass);
       return clearChatPreviewState(CHAT_PREVIEW_STATE, { keepAssistant });
     }
@@ -124,12 +135,22 @@
     }
     function renderChatPreview(payload) {
       return renderChatPreviewState(payload, CHAT_PREVIEW_STATE, {
-        documentImpl, windowImpl, renderMarkdown, shouldFollow, forceFollowToBottom, scrollAfterLayout,
+        documentImpl,
+        windowImpl,
+        renderMarkdown,
+        shouldFollow,
+        forceFollowToBottom,
+        scrollAfterLayout,
       });
     }
     function renderPendingChat(message) {
       return renderPendingChatState(message, CHAT_PREVIEW_STATE, {
-        documentImpl, windowImpl, renderMarkdown, shouldFollow, forceFollowToBottom, scrollAfterLayout,
+        documentImpl,
+        windowImpl,
+        renderMarkdown,
+        shouldFollow,
+        forceFollowToBottom,
+        scrollAfterLayout,
       });
     }
 
@@ -147,9 +168,13 @@
         scrollAfterLayout,
         incrementPending,
         showFollowButton,
-        onReloaded: (data) => { reconcileEntries(data.entries); },
+        onReloaded: (data) => {
+          reconcileEntries(data.entries);
+        },
         onNewEntries: highlightNewEntries,
-      }).catch((err) => { console.error('Live update failed:', err); });
+      }).catch((err) => {
+        console.error('Live update failed:', err);
+      });
     }
 
     on(windowImpl, 'pi-worker-done', () => {

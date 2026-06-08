@@ -14,7 +14,11 @@
     placeBtwInitial,
     saveBtwGeometry,
   } from './btw-geometry.js';
-  import { closeBtwEventSource, setupBtwParentEvents, setupBtwSessionEvents } from './btw-events.js';
+  import {
+    closeBtwEventSource,
+    setupBtwParentEvents,
+    setupBtwSessionEvents,
+  } from './btw-events.js';
   import { btwContentText, createBtwMarkdownRenderer, renderBtwEntryParts } from './btw-render.js';
 
   let { cwd = '', parentId = '' } = $props();
@@ -43,13 +47,16 @@
   let nearBottom = true;
 
   const parentTopic = () => parentId || GLOBAL_PARENT;
-  const isMobile = () => !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  const isMobile = () =>
+    !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
   const doFetch = (...args) => window.fetch(...args);
   const toHtml = createBtwMarkdownRenderer({ documentImpl: document });
   const renderEntryParts = (entry) => renderBtwEntryParts(entry, { toHtml });
 
   const renderedEntries = $derived(entries.map(renderEntryParts).filter(Boolean));
-  const isEmpty = $derived(renderedEntries.length === 0 && !pendingUser && !(running || streamingText));
+  const isEmpty = $derived(
+    renderedEntries.length === 0 && !pendingUser && !(running || streamingText),
+  );
 
   const loadGeom = () => loadBtwGeometry({ storage: window.localStorage });
   const saveGeom = (patch) => saveBtwGeometry(patch, { storage: window.localStorage });
@@ -64,16 +71,24 @@
 
   // ── data loading + live updates ──
   function loadTranscript() {
-    if (!sessionId) { entries = []; return Promise.resolve(); }
+    if (!sessionId) {
+      entries = [];
+      return Promise.resolve();
+    }
     return doFetch('/api/session?id=' + encodeURIComponent(sessionId))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data) return;
         entries = data.entries || [];
         if (pendingUser) {
-          const arrived = entries.some((e) =>
-            e && e.type === 'message' && e.message && e.message.role === 'user'
-            && btwContentText(e.message.content).trim() === pendingUser);
+          const arrived = entries.some(
+            (e) =>
+              e &&
+              e.type === 'message' &&
+              e.message &&
+              e.message.role === 'user' &&
+              btwContentText(e.message.content).trim() === pendingUser,
+          );
           if (arrived) pendingUser = null;
         }
       })
@@ -127,12 +142,18 @@
     }, spinnerConfig.interval || 100);
   }
   function stopSpinner() {
-    if (spinnerTimer) { window.clearInterval(spinnerTimer); spinnerTimer = null; }
+    if (spinnerTimer) {
+      window.clearInterval(spinnerTimer);
+      spinnerTimer = null;
+    }
   }
   function setRunning(on) {
     running = !!on;
     if (running) startSpinner();
-    else { stopSpinner(); streamingText = ''; }
+    else {
+      stopSpinner();
+      streamingText = '';
+    }
   }
 
   function refreshStatus() {
@@ -142,8 +163,9 @@
       .then((data) => {
         if (!data) return;
         if (data.state === 'running') setRunning(true);
-        else if (data.state === 'idle') { if (Date.now() - lastSentAt > 3000) setRunning(false); }
-        else if (data.state === 'error') setRunning(false);
+        else if (data.state === 'idle') {
+          if (Date.now() - lastSentAt > 3000) setRunning(false);
+        } else if (data.state === 'error') setRunning(false);
       })
       .catch(() => {});
   }
@@ -152,7 +174,10 @@
     statusTimer = window.setInterval(() => refreshStatus(), 1500);
   }
   function stopStatusPolling() {
-    if (statusTimer) { window.clearInterval(statusTimer); statusTimer = null; }
+    if (statusTimer) {
+      window.clearInterval(statusTimer);
+      statusTimer = null;
+    }
   }
 
   function cancel() {
@@ -169,8 +194,13 @@
     pendingUser = null;
     streamingText = '';
     setRunning(false);
-    if (sessionId) { subscribe(); loadTranscript(); refreshStatus(); }
-    else { unsubscribe(); }
+    if (sessionId) {
+      subscribe();
+      loadTranscript();
+      refreshStatus();
+    } else {
+      unsubscribe();
+    }
   }
   function createSession() {
     return doFetch('/api/btw/new', {
@@ -180,7 +210,10 @@
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data && data.id) { setSession(data.id); return data.id; }
+        if (data && data.id) {
+          setSession(data.id);
+          return data.id;
+        }
         throw new Error(data && data.error ? data.error : 'failed to create btw session');
       });
   }
@@ -202,7 +235,10 @@
       setRunning(true);
       const body = new window.FormData();
       body.set('message', message);
-      const resp = await doFetch('/api/chat?id=' + encodeURIComponent(sessionId), { method: 'POST', body });
+      const resp = await doFetch('/api/chat?id=' + encodeURIComponent(sessionId), {
+        method: 'POST',
+        body,
+      });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || 'chat request failed');
     } catch {
@@ -221,7 +257,12 @@
     const geom = loadGeom();
     if (winEl && geom && geom.width) winEl.style.width = `${geom.width}px`;
     if (winEl && geom && geom.height) winEl.style.height = `${geom.height}px`;
-    if (winEl) placeBtwInitial(winEl, { windowImpl: window, loadGeometry: loadGeom, saveGeometry: saveGeom });
+    if (winEl)
+      placeBtwInitial(winEl, {
+        windowImpl: window,
+        loadGeometry: loadGeom,
+        saveGeometry: saveGeom,
+      });
     btnEl?.setAttribute('aria-expanded', 'true');
     saveGeom({ open: true });
     subscribeGlobal();
@@ -231,7 +272,10 @@
       .then((data) => {
         const id = data && data.sessionId ? data.sessionId : '';
         if (id !== sessionId) setSession(id);
-        else if (id) { loadTranscript(); refreshStatus(); }
+        else if (id) {
+          loadTranscript();
+          refreshStatus();
+        }
       })
       .catch(() => {});
     inputEl?.focus();
@@ -250,25 +294,44 @@
     else openWindow();
   }
 
-  function onSubmit(e) { e.preventDefault(); submitMessage(); }
-  function onSend() { if (running) cancel(); else submitMessage(); }
+  function onSubmit(e) {
+    e.preventDefault();
+    submitMessage();
+  }
+  function onSend() {
+    if (running) cancel();
+    else submitMessage();
+  }
 
   // Auto-scroll to bottom when the transcript changes if the user was near it.
   $effect(() => {
-    void renderedEntries; void pendingUser; void streamingText; void running; void open;
+    void renderedEntries;
+    void pendingUser;
+    void streamingText;
+    void running;
+    void open;
     if (open && nearBottom) scrollToBottom();
   });
 
   onMount(() => {
     if (winEl) document.body.appendChild(winEl);
     if (winEl && headerEl) {
-      enableBtwDrag(winEl, headerEl, { documentImpl: document, windowImpl: window, saveGeometry: saveGeom });
+      enableBtwDrag(winEl, headerEl, {
+        documentImpl: document,
+        windowImpl: window,
+        saveGeometry: saveGeom,
+      });
       persistBtwResize(winEl, { windowImpl: window, saveGeometry: saveGeom });
     }
-    bodyEl?.addEventListener('scroll', () => { nearBottom = atBottom(); });
+    bodyEl?.addEventListener('scroll', () => {
+      nearBottom = atBottom();
+    });
 
     btnEl = document.getElementById('pi-btw-button');
-    const onBtnClick = (e) => { e.preventDefault(); toggle(); };
+    const onBtnClick = (e) => {
+      e.preventDefault();
+      toggle();
+    };
     if (btnEl) {
       btnEl.setAttribute('aria-haspopup', 'dialog');
       btnEl.setAttribute('aria-expanded', 'false');
@@ -276,7 +339,9 @@
     }
 
     const composerTextarea = document.getElementById('pi-chat-message');
-    const onComposerFocus = () => { if (isMobile() && open) closeWindow(); };
+    const onComposerFocus = () => {
+      if (isMobile() && open) closeWindow();
+    };
     composerTextarea?.addEventListener('focus', onComposerFocus);
 
     // Auto-reopen if it was open before a reload — but not on mobile.
@@ -290,40 +355,78 @@
       stopSpinner();
       btnEl?.removeEventListener('click', onBtnClick);
       composerTextarea?.removeEventListener('focus', onComposerFocus);
+      // eslint-disable-next-line svelte/no-dom-manipulating -- imperatively-created popup window, not a Svelte-rendered node
       winEl?.remove();
     };
   });
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
+
 <div class="pi-btw-window" role="dialog" aria-label="btw" bind:this={winEl} hidden={!open}>
   <div class="pi-btw-header" bind:this={headerEl}>
     <span class="pi-btw-title">btw</span>
     <div class="pi-btw-actions">
-      <button type="button" class="pi-btw-new" title={t('btw.newChat')} onclick={startNewSession}>{t('btw.new')}</button>
-      <button type="button" class="pi-btw-close" aria-label={t('common.close')} onclick={closeWindow}>×</button>
+      <button type="button" class="pi-btw-new" title={t('btw.newChat')} onclick={startNewSession}
+        >{t('btw.new')}</button
+      >
+      <button
+        type="button"
+        class="pi-btw-close"
+        aria-label={t('common.close')}
+        onclick={closeWindow}>×</button
+      >
     </div>
   </div>
   <div class="pi-btw-body" id="pi-btw-body" bind:this={bodyEl}>
     {#if isEmpty}
-      <div class="pi-btw-empty">{sessionId ? t('btw.emptyHasSession') : t('btw.emptyNoSession')}</div>
+      <div class="pi-btw-empty">
+        {sessionId ? t('btw.emptyHasSession') : t('btw.emptyNoSession')}
+      </div>
     {:else}
-      {#each renderedEntries as r}
+      {#each renderedEntries as r, rIndex (rIndex)}
         <div class="pi-btw-msg {r.role}">
-          {#each r.parts as p}
-            {#if p.kind === 'md'}<div class="pi-btw-md">{@html p.html}</div>{:else}<div class="pi-btw-tool">{p.text}</div>{/if}
+          {#each r.parts as p, pIndex (pIndex)}
+            {#if p.kind === 'md'}<div class="pi-btw-md">{@html p.html}</div>{:else}<div
+                class="pi-btw-tool"
+              >
+                {p.text}
+              </div>{/if}
           {/each}
         </div>
       {/each}
-      {#if pendingUser}<div class="pi-btw-msg user pending"><div class="pi-btw-md">{@html toHtml(pendingUser)}</div></div>{/if}
+      {#if pendingUser}<div class="pi-btw-msg user pending">
+          <div class="pi-btw-md">{@html toHtml(pendingUser)}</div>
+        </div>{/if}
       {#if running || streamingText}
         <div class="pi-btw-msg assistant working">
-          {#if streamingText}<div class="pi-btw-md">{@html toHtml(streamingText)}</div>{:else}<span class="pi-btw-working"><span class="pi-btw-spinner" style={spinnerStyle}>{spinnerChar}</span><span class="pi-btw-working-label">{t('btw.working')}</span></span>{/if}
+          {#if streamingText}<div class="pi-btw-md">{@html toHtml(streamingText)}</div>{:else}<span
+              class="pi-btw-working"
+              ><span class="pi-btw-spinner" style={spinnerStyle}>{spinnerChar}</span><span
+                class="pi-btw-working-label">{t('btw.working')}</span
+              ></span
+            >{/if}
         </div>
       {/if}
     {/if}
   </div>
   <form class="pi-btw-input-row" id="pi-btw-form" onsubmit={onSubmit}>
-    <input type="text" class="pi-btw-input" id="pi-btw-input" placeholder={t('btw.inputPlaceholder')} autocomplete="off" bind:this={inputEl} />
-    <button type="button" class="pi-btw-send" id="pi-btw-send" class:cancel={running} aria-label={running ? t('composer.cancel') : t('composer.send')} title={running ? t('btw.stop') : t('composer.send')} onclick={onSend}>{running ? '◼' : '▷'}</button>
+    <input
+      type="text"
+      class="pi-btw-input"
+      id="pi-btw-input"
+      placeholder={t('btw.inputPlaceholder')}
+      autocomplete="off"
+      bind:this={inputEl}
+    />
+    <button
+      type="button"
+      class="pi-btw-send"
+      id="pi-btw-send"
+      class:cancel={running}
+      aria-label={running ? t('composer.cancel') : t('composer.send')}
+      title={running ? t('btw.stop') : t('composer.send')}
+      onclick={onSend}>{running ? '◼' : '▷'}</button
+    >
   </form>
 </div>

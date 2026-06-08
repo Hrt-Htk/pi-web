@@ -6,7 +6,10 @@ import {
   modelDisplayLabel,
 } from '../../../session/chat/chat-selectors.js';
 
-export function renderModelList(models, { filter = '', selectedModel = null, escapeHtml = String } = {}) {
+export function renderModelList(
+  models,
+  { filter = '', selectedModel = null, escapeHtml = String } = {},
+) {
   const byProvider = groupModelsByProvider(models, filter);
   const providers = Object.keys(byProvider).sort();
   if (providers.length === 0) return '<div class="model-empty">No models match</div>';
@@ -18,7 +21,12 @@ export function renderModelList(models, { filter = '', selectedModel = null, esc
       const id = model.id || model.modelId || '';
       const name = model.name || id;
       const scoped = isScopedModel(model) ? '<span class="model-scope-badge">scoped</span>' : '';
-      const active = selectedModel && selectedModel.provider === provider && (selectedModel.id === id || selectedModel.modelId === id) ? ' selected' : '';
+      const active =
+        selectedModel &&
+        selectedModel.provider === provider &&
+        (selectedModel.id === id || selectedModel.modelId === id)
+          ? ' selected'
+          : '';
       html += `<button type="button" class="model-item${active}" data-provider="${escapeHtml(provider)}" data-model-id="${escapeHtml(id)}">${escapeHtml(name)}${scoped}</button>`;
     });
   });
@@ -149,7 +157,8 @@ export function setupModelSelector({
   // Load the model list asynchronously; the button is already wired.
   // Fire-and-forget: the popup opens immediately (Ctrl+L) and renders
   // available models as they load.
-  chatApi.listModels()
+  chatApi
+    .listModels()
     .then((res) => {
       if (!res.ok) throw new Error('api error');
       return res.json();
@@ -158,7 +167,8 @@ export function setupModelSelector({
       if (!data.models || data.models.length === 0) {
         allModels = [];
         if (popupList) {
-          popupList.innerHTML = '<div class="model-empty">No models configured<br><small>Run <code>pi setup</code> to configure</small></div>';
+          popupList.innerHTML =
+            '<div class="model-empty">No models configured<br><small>Run <code>pi setup</code> to configure</small></div>';
         }
         return;
       }
@@ -188,7 +198,8 @@ export function setupModelSelector({
     .catch(() => {
       // Model list fetch failed; button still works (shows empty list).
       if (popupList) {
-        popupList.innerHTML = '<div class="model-empty">Failed to load models<br><small>Check that <code>pi</code> is on PATH</small></div>';
+        popupList.innerHTML =
+          '<div class="model-empty">Failed to load models<br><small>Check that <code>pi</code> is on PATH</small></div>';
       }
     });
 

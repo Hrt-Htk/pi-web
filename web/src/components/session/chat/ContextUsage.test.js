@@ -10,7 +10,9 @@ describe('ContextUsage', () => {
 
     expect(document.getElementById('pi-chat-context-usage')).toBeTruthy();
     expect(document.querySelector('#pi-chat-context-usage .pi-context-fill')).toBeTruthy();
-    expect(document.querySelector('#pi-chat-context-usage .pi-context-text')?.textContent).toBe('0%');
+    expect(document.querySelector('#pi-chat-context-usage .pi-context-text')?.textContent).toBe(
+      '0%',
+    );
   });
 
   it('renders the popover IDs used by the composer runtime', () => {

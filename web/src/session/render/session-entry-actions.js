@@ -29,12 +29,10 @@ export function downloadSessionJson({
 }
 
 // Build a shareable URL for a message: base?gistId&leafId=<leaf>&targetId=<entry>.
-export function buildShareUrl(entryId, {
-  documentImpl = document,
-  windowImpl = window,
-  getCurrentLeafId = () => '',
-  URLImpl = URL,
-} = {}) {
+export function buildShareUrl(
+  entryId,
+  { documentImpl = document, windowImpl = window, getCurrentLeafId = () => '', URLImpl = URL } = {},
+) {
   const baseUrlMeta = documentImpl.querySelector('meta[name="pi-share-base-url"]');
   const baseUrl = baseUrlMeta ? baseUrlMeta.content : windowImpl.location.href.split('?')[0];
 
@@ -55,17 +53,20 @@ export function buildShareUrl(entryId, {
 
 // Copy text to the clipboard (with an execCommand fallback for HTTP) and flash
 // the button with a check icon.
-export async function copyToClipboard(text, button, {
-  documentImpl = document,
-  navigatorImpl = navigator,
-} = {}) {
+export async function copyToClipboard(
+  text,
+  button,
+  { documentImpl = document, navigatorImpl = navigator } = {},
+) {
   let success = false;
   try {
     if (navigatorImpl.clipboard && navigatorImpl.clipboard.writeText) {
       await navigatorImpl.clipboard.writeText(text);
       success = true;
     }
-  } catch { /* fall through to execCommand */ }
+  } catch {
+    /* fall through to execCommand */
+  }
 
   if (!success) {
     try {
@@ -78,7 +79,6 @@ export async function copyToClipboard(text, button, {
       success = documentImpl.execCommand('copy');
       documentImpl.body.removeChild(textarea);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to copy:', err);
     }
   }

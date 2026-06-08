@@ -12,7 +12,7 @@ export function computeLiveStats(entries = []) {
     toolCalls: 0,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    models: new Set()
+    models: new Set(),
   };
   entries.forEach((entry) => {
     if (entry.type !== 'message' || !entry.message) return;
@@ -20,7 +20,8 @@ export function computeLiveStats(entries = []) {
     if (message.role === 'user') stats.user++;
     if (message.role === 'assistant') {
       stats.assistant++;
-      if (message.model) stats.models.add(message.provider ? message.provider + '/' + message.model : message.model);
+      if (message.model)
+        stats.models.add(message.provider ? message.provider + '/' + message.model : message.model);
       if (message.usage) {
         stats.tokens.input += message.usage.input || 0;
         stats.tokens.output += message.usage.output || 0;
@@ -33,7 +34,9 @@ export function computeLiveStats(entries = []) {
           stats.cost.cacheWrite += message.usage.cost.cacheWrite || 0;
         }
       }
-      stats.toolCalls += (message.content || []).filter((block) => block.type === 'toolCall').length;
+      stats.toolCalls += (message.content || []).filter(
+        (block) => block.type === 'toolCall',
+      ).length;
     }
   });
   return stats;
@@ -41,7 +44,8 @@ export function computeLiveStats(entries = []) {
 
 export function updateStatsDom(entries, { documentImpl = document } = {}) {
   const stats = computeLiveStats(entries);
-  const totalCost = stats.cost.input + stats.cost.output + stats.cost.cacheRead + stats.cost.cacheWrite;
+  const totalCost =
+    stats.cost.input + stats.cost.output + stats.cost.cacheRead + stats.cost.cacheWrite;
   const headerInfo = documentImpl.querySelector('.header-info');
   if (!headerInfo) return false;
 
@@ -56,7 +60,8 @@ export function updateStatsDom(entries, { documentImpl = document } = {}) {
     const text = label.textContent;
     if (text.includes('Messages:')) value.textContent = messageParts.join(', ') || '0';
     if (text.includes('Tool Calls:')) value.textContent = stats.toolCalls;
-    if (text.includes('Models:')) value.textContent = Array.from(stats.models).join(', ') || 'unknown';
+    if (text.includes('Models:'))
+      value.textContent = Array.from(stats.models).join(', ') || 'unknown';
     if (text.includes('Tokens:')) {
       const tokenParts = [];
       if (stats.tokens.input) tokenParts.push('↑' + formatTokens(stats.tokens.input));

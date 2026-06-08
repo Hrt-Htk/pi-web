@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
-import CommandPalette, { filterPaletteSessions, normalizePaletteSession } from './CommandPalette.svelte';
-import { getSessionPaletteApi, openSessionPalette, setSessionPaletteApi } from '../../shared/command-palette-runtime.js';
+import CommandPalette, {
+  filterPaletteSessions,
+  normalizePaletteSession,
+} from './CommandPalette.svelte';
+import {
+  getSessionPaletteApi,
+  openSessionPalette,
+  setSessionPaletteApi,
+} from '../../shared/command-palette-runtime.js';
 
 afterEach(() => {
   cleanup();

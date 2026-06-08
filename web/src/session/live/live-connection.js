@@ -2,9 +2,7 @@ import { createSessionEventSource, wireSessionEvents } from './live-events.js';
 
 const EVENT_SOURCE_CLOSED = 2;
 
-export function reconnectDelay(attempt, {
-  randomImpl = Math.random,
-} = {}) {
+export function reconnectDelay(attempt, { randomImpl = Math.random } = {}) {
   const base = Math.min(30000, 1000 * Math.pow(2, attempt));
   return base + Math.floor(randomImpl() * 500);
 }
@@ -28,7 +26,9 @@ export function setupSessionLiveConnection({
   let reconnectAttempt = 0;
 
   function closeEventSource() {
-    try { if (eventSource) eventSource.close(); } catch (_) {}
+    try {
+      if (eventSource) eventSource.close();
+    } catch (_) {}
   }
 
   function clearReconnectTimer() {
@@ -83,7 +83,9 @@ export function setupSessionLiveConnection({
       onReload();
     }
   };
-  const onOnline = () => { reconnectAndReload(); };
+  const onOnline = () => {
+    reconnectAndReload();
+  };
 
   documentImpl.addEventListener('visibilitychange', onVisibilityChange);
   windowImpl.addEventListener('online', onOnline);

@@ -22,13 +22,11 @@ function normalize(file) {
 function resolveImport(specifier, importer) {
   if (!specifier.startsWith('.')) return null;
   const base = path.resolve(path.dirname(importer), specifier);
-  const candidates = [
-    base,
-    `${base}.js`,
-    `${base}.svelte`,
-    path.join(base, 'index.js'),
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) || null;
+  const candidates = [base, `${base}.js`, `${base}.svelte`, path.join(base, 'index.js')];
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) ||
+    null
+  );
 }
 
 function importsFor(file) {
@@ -66,12 +64,18 @@ function collectGraph(entry) {
 describe('export source boundary', () => {
   it('does not import live-only session modules', () => {
     const graph = collectGraph(exportEntry);
-    const leaks = graph.filter((file) => forbidden.some((prefix) => file.startsWith(prefix) || file === prefix));
+    const leaks = graph.filter((file) =>
+      forbidden.some((prefix) => file.startsWith(prefix) || file === prefix),
+    );
     expect(leaks).toEqual([]);
   });
 
   it('collects re-export edges when walking the source graph', () => {
-    expect(importsFor(path.join(srcRoot, 'export', 'export-entry.js'))).toContain('../session/data/session-data.js');
-    expect(importsForSource("export { setup } from '../session/live/live-events.js';")).toEqual(['../session/live/live-events.js']);
+    expect(importsFor(path.join(srcRoot, 'export', 'export-entry.js'))).toContain(
+      '../session/data/session-data.js',
+    );
+    expect(importsForSource("export { setup } from '../session/live/live-events.js';")).toEqual([
+      '../session/live/live-events.js',
+    ]);
   });
 });

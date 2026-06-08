@@ -15,12 +15,12 @@ export function annotationLineLabel(content, start, end) {
 }
 
 export function quoteAnnotationText(text) {
-  return `"${String(text || '').replace(/\s+/g, ' ').trim()}"`;
+  return `"${String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()}"`;
 }
 
-export function formatAnnotationsForPi(annotations = [], {
-  resolveArtifact = null,
-} = {}) {
+export function formatAnnotationsForPi(annotations = [], { resolveArtifact = null } = {}) {
   const fileGroups = new Map();
   const conversation = [];
   for (const annotation of annotations || []) {
@@ -28,7 +28,9 @@ export function formatAnnotationsForPi(annotations = [], {
     if (anchorId.indexOf('artifact-') === 0) {
       const artifact = resolveArtifact ? resolveArtifact(anchorId.slice('artifact-'.length)) : null;
       const path = (artifact && (artifact.filePath || artifact.title)) || '(artifact)';
-      const label = artifact ? annotationLineLabel(artifact.content, annotation.startOffset, annotation.endOffset) : '';
+      const label = artifact
+        ? annotationLineLabel(artifact.content, annotation.startOffset, annotation.endOffset)
+        : '';
       if (!fileGroups.has(path)) fileGroups.set(path, []);
       fileGroups.get(path).push({ label, original: annotation.original, text: annotation.text });
     } else {
@@ -44,7 +46,11 @@ export function formatAnnotationsForPi(annotations = [], {
     out.push(`In ${path}:`);
     for (const item of items) {
       out.push('');
-      out.push(item.label ? `${item.label} — ${quoteAnnotationText(item.original)}` : quoteAnnotationText(item.original));
+      out.push(
+        item.label
+          ? `${item.label} — ${quoteAnnotationText(item.original)}`
+          : quoteAnnotationText(item.original),
+      );
       if (item.text) out.push(`  ${item.text}`);
     }
     out.push('');

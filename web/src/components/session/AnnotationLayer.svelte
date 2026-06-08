@@ -15,7 +15,9 @@
   let modalOpen = $state(false);
   let modalQuote = $state('');
 
-  const noteNoun = $derived(annotations.length === 1 ? t('annotation.noteOne') : t('annotation.noteMany'));
+  const noteNoun = $derived(
+    annotations.length === 1 ? t('annotation.noteOne') : t('annotation.noteMany'),
+  );
 
   // Runtime deps supplied by <SessionPage> via init() (live-only wiring).
   let api = null;
@@ -81,7 +83,9 @@
       if (seq !== loadSeq) return; // a newer update superseded this load
       annotations = Array.isArray(list) ? list : [];
       render();
-    } catch { /* keep current */ }
+    } catch {
+      /* keep current */
+    }
   }
 
   function sendToPi() {
@@ -95,7 +99,11 @@
   async function deleteNote(id) {
     if (!id) return;
     setAnnotations(annotations.filter((a) => a.id !== id)); // optimistic
-    try { await api?.remove(id); } finally { refresh(); }
+    try {
+      await api?.remove(id);
+    } finally {
+      refresh();
+    }
   }
 
   // ── popover / modal ───────────────────────────────────────────────────────
@@ -112,12 +120,17 @@
   function openNoteInput() {
     if (!pending) return;
     hidePopover();
-    modalQuote = `"${String(pending.text || '').replace(/\s+/g, ' ').trim()}"`;
+    modalQuote = `"${String(pending.text || '')
+      .replace(/\s+/g, ' ')
+      .trim()}"`;
     modalOpen = true;
     // Toggle the attribute synchronously so focus() lands within the tap gesture
     // (mobile keyboard) before Svelte's async flush sets the same value.
     if (modalEl) modalEl.hidden = false;
-    if (noteInputEl) { noteInputEl.value = ''; noteInputEl.focus(); }
+    if (noteInputEl) {
+      noteInputEl.value = '';
+      noteInputEl.focus();
+    }
   }
 
   function closeNote() {
@@ -165,7 +178,11 @@
     window.getSelection?.()?.removeAllRanges?.();
     setAnnotations([...annotations, optimistic]); // optimistic; bumps the load guard
     if (typeof onCreate === 'function') onCreate();
-    try { await api.create(payload); } finally { refresh(); }
+    try {
+      await api.create(payload);
+    } finally {
+      refresh();
+    }
   }
 
   // ── selection detection ───────────────────────────────────────────────────
@@ -180,7 +197,11 @@
     }
     pending = info;
     let rect = { bottom: 0, left: 0 };
-    try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch { /* default */ }
+    try {
+      rect = sel.getRangeAt(0).getBoundingClientRect();
+    } catch {
+      /* default */
+    }
     showCommentButton(rect);
   }
 
@@ -191,7 +212,8 @@
 
   function onSelectionChange() {
     if (window.clearTimeout) window.clearTimeout(selectionTimer);
-    if (window.setTimeout) selectionTimer = window.setTimeout(maybeShowFromSelection, selectionDelayMs);
+    if (window.setTimeout)
+      selectionTimer = window.setTimeout(maybeShowFromSelection, selectionDelayMs);
     else maybeShowFromSelection();
   }
 
@@ -279,7 +301,9 @@
       document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('keydown', onKeyDown);
+      // eslint-disable-next-line svelte/no-dom-manipulating -- imperatively-created popover, not a Svelte-rendered node
       popoverEl?.remove();
+      // eslint-disable-next-line svelte/no-dom-manipulating -- imperatively-created modal, not a Svelte-rendered node
       modalEl?.remove();
       sessionRuntime.annotations = null;
     };
@@ -293,29 +317,63 @@
     <div class="annotation-list">
       {#each annotations as a (a.id)}
         <div class="annotation-item" data-annotation-id={a.id} data-anchor-id={a.anchorId}>
-          <button type="button" class="annotation-delete" data-action="delete" title={t('annotation.deleteNote')}>×</button>
+          <button
+            type="button"
+            class="annotation-delete"
+            data-action="delete"
+            title={t('annotation.deleteNote')}>×</button
+          >
           {#if a.original}<div class="annotation-quote">{a.original}</div>{/if}
           {#if a.text}<div class="annotation-note">{a.text}</div>{/if}
         </div>
       {/each}
     </div>
-    <div class="annotation-footer"><button type="button" class="annotation-send" data-action="send-to-pi">{t('annotation.sendNotesToPi', { count: annotations.length, noun: noteNoun })}</button></div>
+    <div class="annotation-footer">
+      <button type="button" class="annotation-send" data-action="send-to-pi"
+        >{t('annotation.sendNotesToPi', { count: annotations.length, noun: noteNoun })}</button
+      >
+    </div>
   {/if}
 </div>
 
-<div class="annotation-popover" bind:this={popoverEl} hidden={!popoverVisible} style:top={`${popoverTop}px`} style:left={`${popoverLeft}px`} style:position="fixed">
-  <button type="button" class="annotation-pop-btn" data-action="start-comment">{t('annotation.comment')}</button>
+<div
+  class="annotation-popover"
+  bind:this={popoverEl}
+  hidden={!popoverVisible}
+  style:top={`${popoverTop}px`}
+  style:left={`${popoverLeft}px`}
+  style:position="fixed"
+>
+  <button type="button" class="annotation-pop-btn" data-action="start-comment"
+    >{t('annotation.comment')}</button
+  >
 </div>
 
 <div class="annotation-note-modal" bind:this={modalEl} hidden={!modalOpen}>
   <div class="annotation-note-backdrop" data-action="cancel-note"></div>
-  <div class="annotation-note-card" role="dialog" aria-modal="true" aria-label={t('annotation.addNote')}>
+  <div
+    class="annotation-note-card"
+    role="dialog"
+    aria-modal="true"
+    aria-label={t('annotation.addNote')}
+  >
     <div class="annotation-note-quote">{modalQuote}</div>
-    <textarea class="annotation-note-input" bind:this={noteInputEl} placeholder={t('annotation.addNotePlaceholder')} rows="3"></textarea>
+    <textarea
+      class="annotation-note-input"
+      bind:this={noteInputEl}
+      placeholder={t('annotation.addNotePlaceholder')}
+      rows="3"
+    ></textarea>
     <div class="annotation-note-actions">
-      <button type="button" class="annotation-note-cancel" data-action="cancel-note">{t('annotation.cancel')}</button>
-      <button type="button" class="annotation-note-addchat" data-action="add-to-chat">{t('annotation.addToChat')}</button>
-      <button type="button" class="annotation-note-save" data-action="save-note">{t('annotation.saveNote')}</button>
+      <button type="button" class="annotation-note-cancel" data-action="cancel-note"
+        >{t('annotation.cancel')}</button
+      >
+      <button type="button" class="annotation-note-addchat" data-action="add-to-chat"
+        >{t('annotation.addToChat')}</button
+      >
+      <button type="button" class="annotation-note-save" data-action="save-note"
+        >{t('annotation.saveNote')}</button
+      >
     </div>
   </div>
 </div>

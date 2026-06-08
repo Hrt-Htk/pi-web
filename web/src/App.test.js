@@ -61,7 +61,9 @@ describe('App', () => {
 
     mounted = mountApp({ props: { path: '/future-route' } });
 
-    expect(document.querySelector('[aria-label="Svelte app probe"]')?.textContent).toContain('Svelte ready for pi-web');
+    expect(document.querySelector('[aria-label="Svelte app probe"]')?.textContent).toContain(
+      'Svelte ready for pi-web',
+    );
   });
 
   it('swaps views on pushState navigation', () => {
@@ -86,7 +88,9 @@ describe('App', () => {
     flushSync();
     expect(document.querySelector('.settings-page')).toBeTruthy();
 
-    const popped = new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+    const popped = new Promise((resolve) =>
+      window.addEventListener('popstate', resolve, { once: true }),
+    );
     window.history.back();
     await popped;
     flushSync();

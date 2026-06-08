@@ -3,6 +3,7 @@
   import { runChatComposer } from './chat/chat-composer-runtime.js';
   // runChatComposer is the live-only DOM/runtime glue (used by onMount below).
   // Re-exported so existing imports and tests can reach it via this module.
+  // eslint-disable-next-line no-import-assign -- re-export of an imported binding; false positive across module/instance scripts
   export { runChatComposer };
 </script>
 
@@ -54,13 +55,36 @@
   });
 </script>
 
-<form id="pi-chat-composer" class="pi-chat-composer" data-session-id={sessionId} data-chat-available={chatAvailable} data-chat-disabled-reason={chatDisabledReason}>
-  <input id="pi-chat-images" name="images" type="file" accept="image/*" multiple hidden disabled={!chatAvailable}>
+<form
+  id="pi-chat-composer"
+  class="pi-chat-composer"
+  data-session-id={sessionId}
+  data-chat-available={chatAvailable}
+  data-chat-disabled-reason={chatDisabledReason}
+>
+  <input
+    id="pi-chat-images"
+    name="images"
+    type="file"
+    accept="image/*"
+    multiple
+    hidden
+    disabled={!chatAvailable}
+  />
   <div class="pi-chat-shell">
     <ChatExpandButton {chatAvailable} />
-    {#if cwd}<div class="pi-chat-toolbar pi-chat-cwd-bar"><span class="pi-chat-cwd" title={t('composer.copyPath')} data-cwd={cwd}>cwd: {cwd}</span><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span></div>{/if}
+    {#if cwd}<div class="pi-chat-toolbar pi-chat-cwd-bar">
+        <span class="pi-chat-cwd" title={t('composer.copyPath')} data-cwd={cwd}>cwd: {cwd}</span
+        ><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span>
+      </div>{/if}
     {#if !chatAvailable}<div class="pi-chat-disabled-notice">{chatDisabledReason}</div>{/if}
-    <textarea id="pi-chat-message" name="message" rows="1" placeholder={t('composer.placeholder')} disabled={!chatAvailable}></textarea>
+    <textarea
+      id="pi-chat-message"
+      name="message"
+      rows="1"
+      placeholder={t('composer.placeholder')}
+      disabled={!chatAvailable}
+    ></textarea>
     <div id="pi-chat-attachments" class="pi-chat-attachments"></div>
     <ChatSelectorPopups />
     <ChatToolbar {chatAvailable} {modelLabel} />

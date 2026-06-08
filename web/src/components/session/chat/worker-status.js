@@ -32,7 +32,9 @@ export function setupWorkerStatusPolling({
       const response = await chatApi?.getWorkerStatus?.(sessionId);
       if (!response?.ok) return;
       const data = await response.json();
-      const apiModelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
+      const apiModelLabel = data.model
+        ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '')
+        : '';
       if (apiModelLabel) setKnownModelLabel(apiModelLabel);
       if (data.thinkingLevel) setKnownThinkingLevel(data.thinkingLevel);
       if (data.state === 'running') setStatus('running', 'running');

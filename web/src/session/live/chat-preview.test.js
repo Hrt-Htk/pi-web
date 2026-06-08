@@ -14,25 +14,29 @@ describe('chat preview', () => {
     const forceFollowToBottom = vi.fn();
     const scrollAfterLayout = vi.fn();
 
-    expect(renderChatPreview({ content: 'hello', done: false }, state, {
-      documentImpl: dom.window.document,
-      renderMarkdown: (text) => `<p>${text}</p>`,
-      shouldFollow: () => true,
-      forceFollowToBottom,
-      scrollAfterLayout
-    })).toBe(true);
+    expect(
+      renderChatPreview({ content: 'hello', done: false }, state, {
+        documentImpl: dom.window.document,
+        renderMarkdown: (text) => `<p>${text}</p>`,
+        shouldFollow: () => true,
+        forceFollowToBottom,
+        scrollAfterLayout,
+      }),
+    ).toBe(true);
 
     expect(dom.window.document.getElementById('chat-preview-stream')).toBeTruthy();
     expect(state.chatPreviewEl.querySelector('.message-content').innerHTML).toBe('<p>hello</p>');
     // Must include markdown-content so the streaming preview picks up the
     // same heading/hr/list/code styles as the settled assistant message.
-    expect(state.chatPreviewEl.querySelector('.message-content').classList.contains('markdown-content')).toBe(true);
+    expect(
+      state.chatPreviewEl.querySelector('.message-content').classList.contains('markdown-content'),
+    ).toBe(true);
     expect(forceFollowToBottom).toHaveBeenCalledWith(false);
 
     renderChatPreview({ content: 'done', done: true }, state, {
       documentImpl: dom.window.document,
       renderMarkdown: (text) => text,
-      shouldFollow: () => false
+      shouldFollow: () => false,
     });
     expect(state.chatPreviewEl.classList.contains('done')).toBe(true);
     expect(state.chatPreviewEl.textContent.toLowerCase()).not.toContain('working');
@@ -47,17 +51,23 @@ describe('chat preview', () => {
     const state = { chatPreviewEl: null, pendingUserEl: null };
     const forceFollowToBottom = vi.fn();
 
-    expect(renderPendingChat('hello **pi**', state, {
-      documentImpl: dom.window.document,
-      renderMarkdown: (text) => `<p>${text}</p>`,
-      shouldFollow: () => true,
-      forceFollowToBottom
-    })).toBe(true);
+    expect(
+      renderPendingChat('hello **pi**', state, {
+        documentImpl: dom.window.document,
+        renderMarkdown: (text) => `<p>${text}</p>`,
+        shouldFollow: () => true,
+        forceFollowToBottom,
+      }),
+    ).toBe(true);
 
     expect(dom.window.document.getElementById('chat-pending-user')).toBeTruthy();
-    expect(dom.window.document.getElementById('chat-pending-user').textContent).toContain('hello **pi**');
+    expect(dom.window.document.getElementById('chat-pending-user').textContent).toContain(
+      'hello **pi**',
+    );
     expect(dom.window.document.getElementById('chat-preview-stream')).toBeTruthy();
-    expect(dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase()).toContain('working');
+    expect(
+      dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase(),
+    ).toContain('working');
     expect(forceFollowToBottom).toHaveBeenCalledWith(false);
 
     clearChatPreview(state);
@@ -75,8 +85,12 @@ describe('chat preview', () => {
     });
 
     expect(finishChatPreview(state)).toBe(true);
-    expect(dom.window.document.getElementById('chat-preview-stream').textContent).toContain('final answer');
-    expect(dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase()).not.toContain('working');
+    expect(dom.window.document.getElementById('chat-preview-stream').textContent).toContain(
+      'final answer',
+    );
+    expect(
+      dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase(),
+    ).not.toContain('working');
     expect(state.chatPreviewEl.classList.contains('done')).toBe(true);
   });
 

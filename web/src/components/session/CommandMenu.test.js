@@ -28,25 +28,40 @@ afterEach(() => {
 
 describe('CommandMenu', () => {
   it('renames via the API and updates the page title', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ name: 'New Name' }), { status: 200 }))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ name: 'New Name' }), { status: 200 })),
+      ),
+    );
     window.prompt = vi.fn(() => ' New Name ');
     render(CommandMenu, { props: { sessionId: 'session.jsonl' } });
     await tick();
 
     await fireEvent.click(document.querySelector('[data-action="rename"]'));
-    await waitFor(() => expect(document.getElementById('session-header-title').textContent).toBe('New Name'));
-    expect(fetch).toHaveBeenCalledWith('/api/rename-session?id=session.jsonl', expect.objectContaining({ method: 'POST' }));
+    await waitFor(() =>
+      expect(document.getElementById('session-header-title').textContent).toBe('New Name'),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/rename-session?id=session.jsonl',
+      expect.objectContaining({ method: 'POST' }),
+    );
     expect(document.title).toBe('New Name');
   });
 
   it('keeps the old title when the rename API fails', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: 'bad' }), { status: 500 }))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: 'bad' }), { status: 500 }))),
+    );
     window.prompt = vi.fn(() => 'New Name');
     render(CommandMenu, { props: { sessionId: 'session.jsonl' } });
     await tick();
 
     await fireEvent.click(document.querySelector('[data-action="rename"]'));
-    await waitFor(() => expect(document.getElementById('command-menu-toast')?.textContent).toBe('Rename failed'));
+    await waitFor(() =>
+      expect(document.getElementById('command-menu-toast')?.textContent).toBe('Rename failed'),
+    );
     expect(document.getElementById('session-header-title').textContent).toBe('Old');
   });
 

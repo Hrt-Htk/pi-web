@@ -1,6 +1,4 @@
-export function createBtwEventSource(topic, {
-  EventSourceImpl = EventSource,
-} = {}) {
+export function createBtwEventSource(topic, { EventSourceImpl = EventSource } = {}) {
   return new EventSourceImpl('/events?id=' + encodeURIComponent(topic));
 }
 
@@ -46,7 +44,9 @@ export function setupBtwParentEvents({
 }
 
 export function closeBtwEventSource(source) {
-  try { source?.close?.(); } catch {
+  try {
+    source?.close?.();
+  } catch {
     // Already closed or nonstandard EventSource; nothing to do.
   }
 }

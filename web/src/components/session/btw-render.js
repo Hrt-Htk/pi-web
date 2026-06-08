@@ -2,18 +2,13 @@ import { marked } from 'marked';
 import { safeMarkedParse } from '../../session/render/markdown.js';
 import { formatToolCall } from '../../session/render/session-format.js';
 
-export function escapeBtwText(text, {
-  documentImpl = document,
-} = {}) {
+export function escapeBtwText(text, { documentImpl = document } = {}) {
   const node = documentImpl.createElement('div');
   node.textContent = String(text == null ? '' : text);
   return node.innerHTML;
 }
 
-export function createBtwMarkdownRenderer({
-  documentImpl = document,
-  markedImpl = marked,
-} = {}) {
+export function createBtwMarkdownRenderer({ documentImpl = document, markedImpl = marked } = {}) {
   return (text) => {
     try {
       return safeMarkedParse(String(text == null ? '' : text), { marked: markedImpl });
@@ -26,15 +21,18 @@ export function createBtwMarkdownRenderer({
 export function btwContentText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
-    return content.filter((block) => block && block.type === 'text' && block.text).map((block) => block.text).join('');
+    return content
+      .filter((block) => block && block.type === 'text' && block.text)
+      .map((block) => block.text)
+      .join('');
   }
   return '';
 }
 
-export function renderBtwEntryParts(entry, {
-  toHtml = createBtwMarkdownRenderer(),
-  formatToolCallImpl = formatToolCall,
-} = {}) {
+export function renderBtwEntryParts(
+  entry,
+  { toHtml = createBtwMarkdownRenderer(), formatToolCallImpl = formatToolCall } = {},
+) {
   if (!entry || entry.type !== 'message' || !entry.message) return null;
   const msg = entry.message;
   if (msg.role === 'user') {

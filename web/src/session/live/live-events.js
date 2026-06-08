@@ -21,7 +21,7 @@ export async function handleSessionReload({
   incrementPending = () => {},
   showFollowButton = () => {},
   onReloaded = () => {},
-  onNewEntries = null
+  onNewEntries = null,
 } = {}) {
   const response = await fetchImpl('/api/session?id=' + encodeURIComponent(sessionId));
   const data = await response.json();
@@ -98,7 +98,7 @@ export function wireSessionEvents({
   onAnnotations = null,
   onError = () => {},
   windowImpl = typeof window !== 'undefined' ? window : null,
-  CustomEventImpl = typeof CustomEvent !== 'undefined' ? CustomEvent : null
+  CustomEventImpl = typeof CustomEvent !== 'undefined' ? CustomEvent : null,
 } = {}) {
   eventSource.onmessage = (event) => {
     if (event.data !== 'reload') return;
@@ -106,7 +106,9 @@ export function wireSessionEvents({
     // Broadcast so other modules (e.g. chat composer status) can react
     // immediately instead of waiting for their next poll tick.
     if (windowImpl && CustomEventImpl) {
-      try { windowImpl.dispatchEvent(new CustomEventImpl('pi-session-reload')); } catch (_) {}
+      try {
+        windowImpl.dispatchEvent(new CustomEventImpl('pi-session-reload'));
+      } catch (_) {}
     }
   };
   eventSource.addEventListener('chat-preview', (event) => {

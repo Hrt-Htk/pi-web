@@ -5,8 +5,14 @@ import { createFollowScrollController } from './live-follow.js';
 function setup({ scrollHeight = 2000, innerHeight = 1000 } = {}) {
   const dom = new JSDOM('<body><main id="content"></main></body>');
   const documentImpl = dom.window.document;
-  Object.defineProperty(documentImpl.documentElement, 'scrollHeight', { value: scrollHeight, configurable: true });
-  Object.defineProperty(documentImpl.body, 'scrollHeight', { value: scrollHeight, configurable: true });
+  Object.defineProperty(documentImpl.documentElement, 'scrollHeight', {
+    value: scrollHeight,
+    configurable: true,
+  });
+  Object.defineProperty(documentImpl.body, 'scrollHeight', {
+    value: scrollHeight,
+    configurable: true,
+  });
 
   const handlers = {};
   const windowImpl = {
@@ -14,18 +20,34 @@ function setup({ scrollHeight = 2000, innerHeight = 1000 } = {}) {
     pageYOffset: 0,
     innerHeight,
     scrollTo: vi.fn(),
-    setTimeout: (cb) => { cb(); return 0; },
-    requestAnimationFrame: (cb) => { cb(); return 0; },
-    addEventListener: (type, handler) => { (handlers[type] ||= []).push(handler); },
-    removeEventListener: (type, handler) => { handlers[type] = (handlers[type] || []).filter((h) => h !== handler); },
+    setTimeout: (cb) => {
+      cb();
+      return 0;
+    },
+    requestAnimationFrame: (cb) => {
+      cb();
+      return 0;
+    },
+    addEventListener: (type, handler) => {
+      (handlers[type] ||= []).push(handler);
+    },
+    removeEventListener: (type, handler) => {
+      handlers[type] = (handlers[type] || []).filter((h) => h !== handler);
+    },
   };
   const fire = (type, extra = {}) => (handlers[type] || []).forEach((h) => h({ type, ...extra }));
 
   const controller = createFollowScrollController({
     documentImpl,
     windowImpl,
-    requestAnimationFrameImpl: (cb) => { cb(); return 0; },
-    setTimeoutImpl: (cb) => { cb(); return 0; },
+    requestAnimationFrameImpl: (cb) => {
+      cb();
+      return 0;
+    },
+    setTimeoutImpl: (cb) => {
+      cb();
+      return 0;
+    },
   });
   return { dom, documentImpl, windowImpl, handlers, fire, controller };
 }

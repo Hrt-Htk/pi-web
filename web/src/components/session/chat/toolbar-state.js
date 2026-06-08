@@ -1,10 +1,12 @@
 export function isRunningStatus(text, cls) {
-  return cls === 'running'
-    || text === 'running'
-    || text === 'sending'
-    || text === 'queued'
-    || text === 'accepted'
-    || text === 'cancelling';
+  return (
+    cls === 'running' ||
+    text === 'running' ||
+    text === 'sending' ||
+    text === 'queued' ||
+    text === 'accepted' ||
+    text === 'cancelling'
+  );
 }
 
 export function createChatToolbarState({
@@ -51,17 +53,26 @@ export function createChatToolbarState({
     } else {
       btn.style.display = 'none';
     }
-    btn.setAttribute('title', isMobileTextInputMode() ? 'Switch effort' : 'Switch effort (Shift+Tab)');
+    btn.setAttribute(
+      'title',
+      isMobileTextInputMode() ? 'Switch effort' : 'Switch effort (Shift+Tab)',
+    );
   }
 
   function updateInitialTooltips() {
     const modelBtn = documentImpl.getElementById('pi-chat-model-label');
     if (modelBtn) {
-      modelBtn.setAttribute('title', isMobileTextInputMode() ? 'Switch model' : 'Switch model (Ctrl+I)');
+      modelBtn.setAttribute(
+        'title',
+        isMobileTextInputMode() ? 'Switch model' : 'Switch model (Ctrl+I)',
+      );
     }
     const thinkingBtn = documentImpl.getElementById('pi-chat-thinking-label');
     if (thinkingBtn) {
-      thinkingBtn.setAttribute('title', isMobileTextInputMode() ? 'Switch effort' : 'Switch effort (Shift+Tab)');
+      thinkingBtn.setAttribute(
+        'title',
+        isMobileTextInputMode() ? 'Switch effort' : 'Switch effort (Shift+Tab)',
+      );
     }
   }
 

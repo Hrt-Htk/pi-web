@@ -32,7 +32,9 @@ function renderDom() {
 
 describe('context usage helpers', () => {
   it('builds model/provider context-window lookups', () => {
-    const windows = buildContextWindows([{ id: 'DEEPSEEK-V4-PRO', provider: 'DEEPSEEK', contextWindow: 1234567 }]);
+    const windows = buildContextWindows([
+      { id: 'DEEPSEEK-V4-PRO', provider: 'DEEPSEEK', contextWindow: 1234567 },
+    ]);
     expect(windows['deepseek-v4-pro']).toBe(1234567);
     expect(windows['deepseek/deepseek-v4-pro']).toBe(1234567);
     expect(getModelContextLimit('DEEPSEEK-V4-PRO', 'DEEPSEEK', windows)).toBe(1234567);
@@ -47,9 +49,21 @@ describe('context usage helpers', () => {
 
   it('collects cumulative I/O but uses the last assistant for context pressure', () => {
     const usage = collectContextUsage([
-      { type: 'message', message: { role: 'assistant', usage: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 1000 } } },
+      {
+        type: 'message',
+        message: {
+          role: 'assistant',
+          usage: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 1000 },
+        },
+      },
       { type: 'message', message: { role: 'user', content: 'follow-up' } },
-      { type: 'message', message: { role: 'assistant', usage: { input: 500, output: 300, cacheRead: 1000, cacheWrite: 0 } } },
+      {
+        type: 'message',
+        message: {
+          role: 'assistant',
+          usage: { input: 500, output: 300, cacheRead: 1000, cacheWrite: 0 },
+        },
+      },
     ]);
 
     expect(usage.inputTokens).toBe(1500);
@@ -69,8 +83,20 @@ describe('updateContextUsage', () => {
       documentImpl: document,
       knownModelLabel: 'gpt-4o @ openai',
       entries: [
-        { type: 'message', message: { role: 'assistant', usage: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 1000 } } },
-        { type: 'message', message: { role: 'assistant', usage: { input: 500, output: 300, cacheRead: 1000, cacheWrite: 0 } } },
+        {
+          type: 'message',
+          message: {
+            role: 'assistant',
+            usage: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 1000 },
+          },
+        },
+        {
+          type: 'message',
+          message: {
+            role: 'assistant',
+            usage: { input: 500, output: 300, cacheRead: 1000, cacheWrite: 0 },
+          },
+        },
       ],
     });
 
@@ -101,15 +127,19 @@ describe('updateContextUsage', () => {
     renderDom();
     const controller = createContextUsageController({
       documentImpl: document,
-      entries: [{ type: 'message', message: { role: 'assistant', usage: { input: 1000, output: 500 } } }],
+      entries: [
+        { type: 'message', message: { role: 'assistant', usage: { input: 1000, output: 500 } } },
+      ],
       getKnownModelLabel: () => 'DEEPSEEK-V4-PRO @ DEEPSEEK',
       chatApi: {
-        listModels: () => Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            models: [{ id: 'DEEPSEEK-V4-PRO', provider: 'DEEPSEEK', contextWindow: 1234567 }],
+        listModels: () =>
+          Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                models: [{ id: 'DEEPSEEK-V4-PRO', provider: 'DEEPSEEK', contextWindow: 1234567 }],
+              }),
           }),
-        }),
       },
     });
 

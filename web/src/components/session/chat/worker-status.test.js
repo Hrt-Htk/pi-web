@@ -22,21 +22,29 @@ describe('setupWorkerStatusPolling', () => {
       windowImpl: new EventTarget(),
       sessionId: 's',
       chatApi: {
-        getWorkerStatus: vi.fn(() => Promise.resolve(response({
-          state: 'running',
-          model: 'gpt-4o',
-          modelProvider: 'openai',
-          thinkingLevel: 'high',
-        }))),
+        getWorkerStatus: vi.fn(() =>
+          Promise.resolve(
+            response({
+              state: 'running',
+              model: 'gpt-4o',
+              modelProvider: 'openai',
+              thinkingLevel: 'high',
+            }),
+          ),
+        ),
       },
       setStatus,
       setModelLabel,
       setThinkingLabel,
       updateContextUsage,
       getKnownModelLabel: () => knownModelLabel,
-      setKnownModelLabel: (label) => { knownModelLabel = label; },
+      setKnownModelLabel: (label) => {
+        knownModelLabel = label;
+      },
       getKnownThinkingLevel: () => knownThinkingLevel,
-      setKnownThinkingLevel: (level) => { knownThinkingLevel = level; },
+      setKnownThinkingLevel: (level) => {
+        knownThinkingLevel = level;
+      },
       getWorkerModelUpdate: () => onWorkerModelUpdate,
       setIntervalImpl: () => {},
       CustomEventImpl: Event,
@@ -92,7 +100,9 @@ describe('setupWorkerStatusPolling', () => {
 
   it('coalesces refreshes while a request is in flight', async () => {
     let resolveFirst;
-    const first = new Promise((resolve) => { resolveFirst = resolve; });
+    const first = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
     const getWorkerStatus = vi
       .fn()
       .mockImplementationOnce(() => first)

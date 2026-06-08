@@ -18,7 +18,9 @@ describe('setupComposerHeightVar', () => {
   it('sets the composer height CSS variable immediately', () => {
     setupComposerHeightVar({ documentImpl: document, windowImpl: window, form: makeForm(42.2) });
 
-    expect(document.documentElement.style.getPropertyValue('--pi-chat-composer-height')).toBe('43px');
+    expect(document.documentElement.style.getPropertyValue('--pi-chat-composer-height')).toBe(
+      '43px',
+    );
   });
 
   it('updates when the window resize listener fires', () => {
@@ -36,7 +38,9 @@ describe('setupComposerHeightVar', () => {
     form.getBoundingClientRect.mockReturnValue({ height: 55.1 });
     resizeHandler();
 
-    expect(document.documentElement.style.getPropertyValue('--pi-chat-composer-height')).toBe('56px');
+    expect(document.documentElement.style.getPropertyValue('--pi-chat-composer-height')).toBe(
+      '56px',
+    );
   });
 
   it('observes the form when ResizeObserver is available', () => {
@@ -47,7 +51,12 @@ describe('setupComposerHeightVar', () => {
       return { observe };
     });
 
-    setupComposerHeightVar({ documentImpl: document, windowImpl: window, form, ResizeObserverImpl });
+    setupComposerHeightVar({
+      documentImpl: document,
+      windowImpl: window,
+      form,
+      ResizeObserverImpl,
+    });
 
     expect(ResizeObserverImpl).toHaveBeenCalledWith(expect.any(Function));
     expect(observe).toHaveBeenCalledWith(form);

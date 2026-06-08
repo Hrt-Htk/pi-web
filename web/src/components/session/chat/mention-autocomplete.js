@@ -20,10 +20,7 @@ export function parseAtTrigger(text, caret) {
   return { query: text.slice(at + 1, caret), start: at, end: caret };
 }
 
-export function renderFileList(
-  files,
-  { escapeHtml = String, loading = false } = {},
-) {
+export function renderFileList(files, { escapeHtml = String, loading = false } = {}) {
   if (loading) return '<div class="slash-empty">Searching files...</div>';
   const list = Array.isArray(files) ? files : [];
   if (list.length === 0) return '<div class="slash-empty">No files match</div>';
@@ -106,9 +103,7 @@ export function setupMentionAutocomplete({
     const signal = inflight ? inflight.signal : undefined;
     chatApi
       .getFiles(sessionId, query, { signal })
-      .then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error('files error')),
-      )
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('files error'))))
       .then((data) => {
         if (seq !== reqSeq || !isOpen()) return;
         renderFiles(data.files || [], false);
@@ -121,10 +116,7 @@ export function setupMentionAutocomplete({
   }
 
   function refresh() {
-    const next = parseAtTrigger(
-      textarea.value,
-      textarea.selectionStart ?? textarea.value.length,
-    );
+    const next = parseAtTrigger(textarea.value, textarea.selectionStart ?? textarea.value.length);
     if (!next) {
       if (isOpen()) close();
       return;
@@ -145,8 +137,7 @@ export function setupMentionAutocomplete({
     if (!trigger) return;
     const value = textarea.value;
     const replacement = isDir ? `@${path}/` : `${path} `;
-    textarea.value =
-      value.slice(0, trigger.start) + replacement + value.slice(trigger.end);
+    textarea.value = value.slice(0, trigger.start) + replacement + value.slice(trigger.end);
     const caret = trigger.start + replacement.length;
     textarea.selectionStart = textarea.selectionEnd = caret;
     if (!isDir) close();

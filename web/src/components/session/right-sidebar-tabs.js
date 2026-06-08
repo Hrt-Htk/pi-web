@@ -21,7 +21,9 @@ export function createRightSidebarTabs({
       else p.setAttribute('hidden', '');
     }
     if (sidebar) sidebar.dataset.activeTab = pane;
-    try { storage?.setItem(storageKey, pane); } catch {}
+    try {
+      storage?.setItem(storageKey, pane);
+    } catch {}
   }
 
   function bind() {
@@ -38,7 +40,9 @@ export function createRightSidebarTabs({
 
   function restoreInitialTab() {
     let initialTab = '';
-    try { initialTab = storage?.getItem(storageKey) || ''; } catch {}
+    try {
+      initialTab = storage?.getItem(storageKey) || '';
+    } catch {}
     if (initialTab && initialTab !== 'scratchpad') activateTab(initialTab);
     if (sidebar && !sidebar.dataset.activeTab) sidebar.dataset.activeTab = 'scratchpad';
   }

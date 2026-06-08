@@ -41,7 +41,11 @@ describe('setupTextareaControls', () => {
 
     const mobile = createParts();
     setupTextareaControls({ ...mobile, isMobileTextInputMode: () => true });
-    const mobileEnter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    const mobileEnter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    });
     mobile.textarea.dispatchEvent(mobileEnter);
     expect(mobile.form.requestSubmit).not.toHaveBeenCalled();
     expect(mobileEnter.defaultPrevented).toBe(false);
@@ -52,7 +56,9 @@ describe('setupTextareaControls', () => {
     const slash = { handleKeydown: vi.fn(() => true) };
     setupTextareaControls({ ...parts, getSlashSelector: () => slash });
 
-    parts.textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    parts.textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
 
     expect(slash.handleKeydown).toHaveBeenCalled();
     expect(parts.form.requestSubmit).not.toHaveBeenCalled();
@@ -68,12 +74,22 @@ describe('setupTextareaControls', () => {
       getModelSelector: () => model,
     });
 
-    const tab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
     parts.textarea.dispatchEvent(tab);
     expect(thinking.cycle).toHaveBeenCalled();
     expect(tab.defaultPrevented).toBe(true);
 
-    const ctrlL = new KeyboardEvent('keydown', { key: 'l', ctrlKey: true, bubbles: true, cancelable: true });
+    const ctrlL = new KeyboardEvent('keydown', {
+      key: 'l',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
     parts.textarea.dispatchEvent(ctrlL);
     expect(model.open).toHaveBeenCalled();
     expect(ctrlL.defaultPrevented).toBe(true);

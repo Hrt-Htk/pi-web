@@ -38,7 +38,10 @@ export function applyStoredSessionLayout({
   try {
     const width = Number(storage.getItem('pi-web:v1:right-sidebar-width'));
     if (Number.isFinite(width) && width > 0) {
-      documentImpl.documentElement.style.setProperty('--right-sidebar-width', `${Math.round(width)}px`);
+      documentImpl.documentElement.style.setProperty(
+        '--right-sidebar-width',
+        `${Math.round(width)}px`,
+      );
     }
   } catch {}
 }

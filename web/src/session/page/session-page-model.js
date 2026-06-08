@@ -8,10 +8,12 @@ export function hydrateSessionModel({
   locationSearch = '',
   windowImpl = window,
 } = {}) {
-  sessionModel.load(createSessionDataModel(
-    decodeBase64JSON(payloadBase64, { atobImpl: windowImpl.atob?.bind(windowImpl) }),
-    new URLSearchParams(locationSearch),
-  ));
+  sessionModel.load(
+    createSessionDataModel(
+      decodeBase64JSON(payloadBase64, { atobImpl: windowImpl.atob?.bind(windowImpl) }),
+      new URLSearchParams(locationSearch),
+    ),
+  );
   return sessionModel;
 }
 

@@ -22,9 +22,7 @@ describe('live connection', () => {
     const dom = setupDom();
     const first = { close: vi.fn(), readyState: 1 };
     const second = { close: vi.fn(), readyState: 1 };
-    const createEventSource = vi.fn()
-      .mockReturnValueOnce(first)
-      .mockReturnValueOnce(second);
+    const createEventSource = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
     const wireEvents = vi.fn();
 
     const connection = setupSessionLiveConnection({
@@ -38,7 +36,9 @@ describe('live connection', () => {
     expect(connection.connect()).toBe(first);
     expect(connection.connect()).toBe(second);
     expect(first.close).toHaveBeenCalled();
-    expect(createEventSource).toHaveBeenCalledWith('s1', { EventSourceImpl: dom.window.EventSource });
+    expect(createEventSource).toHaveBeenCalledWith('s1', {
+      EventSourceImpl: dom.window.EventSource,
+    });
     expect(wireEvents).toHaveBeenCalledTimes(2);
 
     connection.dispose();
@@ -50,11 +50,14 @@ describe('live connection', () => {
     const timers = [];
     const eventSource = { close: vi.fn(), readyState: 2 };
     const replacement = { close: vi.fn(), readyState: 1 };
-    const createEventSource = vi.fn()
+    const createEventSource = vi
+      .fn()
       .mockReturnValueOnce(eventSource)
       .mockReturnValueOnce(replacement);
     const onReload = vi.fn();
-    const wireEvents = vi.fn(({ onError }) => { eventSource.onError = onError; });
+    const wireEvents = vi.fn(({ onError }) => {
+      eventSource.onError = onError;
+    });
 
     const connection = setupSessionLiveConnection({
       documentImpl: dom.window.document,
@@ -87,7 +90,8 @@ describe('live connection', () => {
     const active = { close: vi.fn(), readyState: 1 };
     const closed = { close: vi.fn(), readyState: 2 };
     const replacement = { close: vi.fn(), readyState: 1 };
-    const createEventSource = vi.fn()
+    const createEventSource = vi
+      .fn()
       .mockReturnValueOnce(active)
       .mockReturnValueOnce(closed)
       .mockReturnValueOnce(replacement);
@@ -119,9 +123,7 @@ describe('live connection', () => {
     const dom = setupDom();
     const first = { close: vi.fn(), readyState: 1 };
     const second = { close: vi.fn(), readyState: 1 };
-    const createEventSource = vi.fn()
-      .mockReturnValueOnce(first)
-      .mockReturnValueOnce(second);
+    const createEventSource = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
     const onReload = vi.fn();
 
     const connection = setupSessionLiveConnection({

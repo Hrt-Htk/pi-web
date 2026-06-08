@@ -36,7 +36,7 @@
   // Keep the active node visible when the target changes. Depend on
   // currentTargetId so it re-runs on navigation.
   $effect(() => {
-    const targetId = model.currentTargetId;
+    void model.currentTargetId;
     if (!containerEl) return;
     const active = containerEl.querySelector('.tree-node.active');
     active?.scrollIntoView?.({ block: 'nearest' });
@@ -55,4 +55,6 @@
     />
   {/each}
 </div>
-<div class="tree-status" id="tree-status">{model.filteredNodes.length} / {model.flatNodes.length} entries</div>
+<div class="tree-status" id="tree-status">
+  {model.filteredNodes.length} / {model.flatNodes.length} entries
+</div>

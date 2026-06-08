@@ -50,8 +50,10 @@
   }
 
   function isMobile() {
-    return typeof window.matchMedia === 'function'
-      && window.matchMedia(`(max-width: ${SHEET_BREAKPOINT}px)`).matches;
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(`(max-width: ${SHEET_BREAKPOINT}px)`).matches
+    );
   }
 
   let scrollLocked = false;
@@ -80,9 +82,11 @@
 
   function getFocusable() {
     if (!panelEl) return [];
-    return Array.from(panelEl.querySelectorAll(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ));
+    return Array.from(
+      panelEl.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
   }
 
   function onKey(e) {
@@ -94,7 +98,10 @@
     }
     if (e.key !== 'Tab') return;
     const focusables = getFocusable();
-    if (focusables.length === 0) { e.preventDefault(); return; }
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (e.shiftKey) {
@@ -118,9 +125,19 @@
 
     if (mobile && window.history && typeof window.history.pushState === 'function') {
       historyMarker = `pi-sheet:${Math.random().toString(36).slice(2, 8)}`;
-      const cur = window.history.state && typeof window.history.state === 'object' ? window.history.state : {};
-      try { window.history.pushState({ ...cur, __piSheet: historyMarker }, '', window.location?.href); } catch { /* ignore */ }
-      popHandler = () => { skipHistoryOnce = true; open = false; };
+      const cur =
+        window.history.state && typeof window.history.state === 'object'
+          ? window.history.state
+          : {};
+      try {
+        window.history.pushState({ ...cur, __piSheet: historyMarker }, '', window.location?.href);
+      } catch {
+        /* ignore */
+      }
+      popHandler = () => {
+        skipHistoryOnce = true;
+        open = false;
+      };
       window.addEventListener('popstate', popHandler);
     }
 
@@ -139,7 +156,11 @@
     if (popHandler) {
       window.removeEventListener('popstate', popHandler);
       if (!skipHistoryOnce && window.history?.state?.__piSheet === historyMarker) {
-        try { window.history.back(); } catch { /* ignore */ }
+        try {
+          window.history.back();
+        } catch {
+          /* ignore */
+        }
       }
       popHandler = null;
     }
@@ -171,6 +192,8 @@
   });
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
+
 {#if mounted}
   <div
     class="pi-sheet-backdrop {backdropClass}"
@@ -191,14 +214,20 @@
       <h2 class="sr-only">{title}</h2>
       <div class="pi-sheet-header">
         {#if showBack}
-          <button class="pi-sheet-back" aria-label={`Close ${title}`} onclick={() => (open = false)}>
+          <button
+            class="pi-sheet-back"
+            aria-label={`Close ${title}`}
+            onclick={() => (open = false)}
+          >
             <span aria-hidden="true">←</span><span>{title}</span>
           </button>
         {:else}
           <div></div>
         {/if}
         {#if showClose}
-          <button class="pi-sheet-close-x" aria-label="Close" onclick={() => (open = false)}>{@html icon(X, { size: 16 })}</button>
+          <button class="pi-sheet-close-x" aria-label="Close" onclick={() => (open = false)}
+            >{@html icon(X, { size: 16 })}</button
+          >
         {/if}
       </div>
       <div class="pi-sheet-body {bodyClass}">{@render children?.()}</div>

@@ -14,7 +14,9 @@ export function createRightSidebarVisibility({
 
   function setCollapsed(collapsed) {
     documentImpl.body.classList.toggle('right-sidebar-collapsed', collapsed);
-    try { storage?.setItem(collapsedStorageKey, String(collapsed)); } catch {}
+    try {
+      storage?.setItem(collapsedStorageKey, String(collapsed));
+    } catch {}
   }
 
   function setExpanded(expanded) {

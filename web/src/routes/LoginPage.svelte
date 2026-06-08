@@ -24,7 +24,7 @@
         <span class="hint">Enter the PI_WEB_TOKEN for this pi-web instance.</span>
       </div>
       <div class="settings-control">
-        <input id="token" name="token" type="password" autocomplete="current-password">
+        <input id="token" name="token" type="password" autocomplete="current-password" />
         <button class="settings-link" type="submit">Continue</button>
       </div>
     </form>

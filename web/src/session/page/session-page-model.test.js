@@ -14,7 +14,9 @@ describe('session page model helpers', () => {
       leafId: 'leaf',
     });
     const sessionModel = {
-      load: vi.fn(function load(data) { Object.assign(this, data); }),
+      load: vi.fn(function load(data) {
+        Object.assign(this, data);
+      }),
       reconcile: vi.fn((entries) => entries),
     };
 

@@ -3,26 +3,33 @@ import { JSDOM } from 'jsdom';
 import { chatSessionId, createChatSelectorLoaders } from './selector-loaders.js';
 
 function setupDom(url = 'http://localhost/session?id=url-session') {
-  return new JSDOM('<body><form id="pi-chat-composer" data-session-id="form-session"></form></body>', { url });
+  return new JSDOM(
+    '<body><form id="pi-chat-composer" data-session-id="form-session"></form></body>',
+    { url },
+  );
 }
 
 describe('chat selector loaders', () => {
   it('resolves session id from URL before form data', () => {
     const dom = setupDom('http://localhost/session?id=url-session');
-    expect(chatSessionId({
-      documentImpl: dom.window.document,
-      locationImpl: dom.window.location,
-      URLSearchParamsImpl: dom.window.URLSearchParams,
-    })).toBe('url-session');
+    expect(
+      chatSessionId({
+        documentImpl: dom.window.document,
+        locationImpl: dom.window.location,
+        URLSearchParamsImpl: dom.window.URLSearchParams,
+      }),
+    ).toBe('url-session');
   });
 
   it('falls back to composer dataset for session id', () => {
     const dom = setupDom('http://localhost/session');
-    expect(chatSessionId({
-      documentImpl: dom.window.document,
-      locationImpl: dom.window.location,
-      URLSearchParamsImpl: dom.window.URLSearchParams,
-    })).toBe('form-session');
+    expect(
+      chatSessionId({
+        documentImpl: dom.window.document,
+        locationImpl: dom.window.location,
+        URLSearchParamsImpl: dom.window.URLSearchParams,
+      }),
+    ).toBe('form-session');
   });
 
   it('passes explicit dependencies to selector setup functions', () => {

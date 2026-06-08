@@ -1,7 +1,4 @@
-export function readComposerConfig({
-  form = null,
-  setChatStatus = () => {},
-} = {}) {
+export function readComposerConfig({ form = null, setChatStatus = () => {} } = {}) {
   if (!form) return { ready: false, sessionId: '', chatAvailable: false };
 
   const sessionId = form.dataset.sessionId;

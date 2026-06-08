@@ -26,6 +26,8 @@
   }
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
+
 <div
   class="tree-node"
   class:in-path={onPath}
@@ -36,4 +38,7 @@
   tabindex="-1"
   onclick={activate}
   onkeydown={onKeydown}
-><span class="tree-prefix">{prefix}</span><span class="tree-marker">{onPath ? '•' : ' '}</span><span class="tree-content">{@html displayHtml}</span></div>
+>
+  <span class="tree-prefix">{prefix}</span><span class="tree-marker">{onPath ? '•' : ' '}</span
+  ><span class="tree-content">{@html displayHtml}</span>
+</div>

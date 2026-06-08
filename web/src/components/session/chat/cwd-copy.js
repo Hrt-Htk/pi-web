@@ -1,17 +1,18 @@
 import { t } from '../../../shared/i18n.js';
 
-export function showCwdToast({
-  documentImpl = document,
-  setTimeoutImpl = setTimeout,
-  clearTimeoutImpl = clearTimeout,
-} = {}, message, isError = false) {
+export function showCwdToast(
+  { documentImpl = document, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {},
+  message,
+  isError = false,
+) {
   const composer = documentImpl.getElementById('pi-chat-composer');
   if (!composer) return;
   let notice = documentImpl.getElementById('pi-chat-cwd-toast');
   if (!notice) {
     notice = documentImpl.createElement('div');
     notice.id = 'pi-chat-cwd-toast';
-    notice.style.cssText = 'position:fixed;top:60px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;pointer-events:none;';
+    notice.style.cssText =
+      'position:fixed;top:60px;right:8px;z-index:200;padding:2px 8px;font-size:10px;font-family:inherit;background:var(--accent);color:var(--body-bg);border-radius:3px;opacity:0;transition:opacity 0.3s;pointer-events:none;';
     documentImpl.body.appendChild(notice);
   }
   notice.textContent = message;
@@ -61,9 +62,16 @@ export function setupCwdCopy({
       }
     }
     if (ok) {
-      showCwdToast({ documentImpl, setTimeoutImpl, clearTimeoutImpl }, tImpl('composer.pathCopied'));
+      showCwdToast(
+        { documentImpl, setTimeoutImpl, clearTimeoutImpl },
+        tImpl('composer.pathCopied'),
+      );
     } else {
-      showCwdToast({ documentImpl, setTimeoutImpl, clearTimeoutImpl }, tImpl('common.copyFailed'), true);
+      showCwdToast(
+        { documentImpl, setTimeoutImpl, clearTimeoutImpl },
+        tImpl('common.copyFailed'),
+        true,
+      );
     }
   });
 }

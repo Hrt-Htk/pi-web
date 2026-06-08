@@ -35,13 +35,34 @@ describe('annotation format', () => {
 
   it('groups artifact notes with path and line labels', () => {
     const content = 'line one\nline two\nline three\nline four\n';
-    const text = formatAnnotationsForPi([
-      { anchorId: 'artifact-art-1', startOffset: 0, endOffset: 4, original: 'line', text: 'add locale' },
-      { anchorId: 'artifact-art-1', startOffset: 9, endOffset: 28, original: 'two..three', text: 'spans lines' },
-      { anchorId: 'artifact-missing', startOffset: 0, endOffset: 2, original: 'missing', text: 'fallback' },
-    ], {
-      resolveArtifact: (id) => (id === 'art-1' ? { filePath: '/tmp/file.md', content } : null),
-    });
+    const text = formatAnnotationsForPi(
+      [
+        {
+          anchorId: 'artifact-art-1',
+          startOffset: 0,
+          endOffset: 4,
+          original: 'line',
+          text: 'add locale',
+        },
+        {
+          anchorId: 'artifact-art-1',
+          startOffset: 9,
+          endOffset: 28,
+          original: 'two..three',
+          text: 'spans lines',
+        },
+        {
+          anchorId: 'artifact-missing',
+          startOffset: 0,
+          endOffset: 2,
+          original: 'missing',
+          text: 'fallback',
+        },
+      ],
+      {
+        resolveArtifact: (id) => (id === 'art-1' ? { filePath: '/tmp/file.md', content } : null),
+      },
+    );
 
     expect(text).toContain('In /tmp/file.md:');
     expect(text).toContain('Line 1 — "line"');

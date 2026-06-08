@@ -53,8 +53,12 @@ describe('isComposerPopupOpen', () => {
   });
 
   it('is false when popups are hidden or absent', () => {
-    expect(isComposerPopupOpen({ querySelectorAll: () => [{ style: { display: 'none' } }] })).toBe(false);
-    expect(isComposerPopupOpen({ querySelectorAll: () => [{ style: { display: '' } }] })).toBe(false);
+    expect(isComposerPopupOpen({ querySelectorAll: () => [{ style: { display: 'none' } }] })).toBe(
+      false,
+    );
+    expect(isComposerPopupOpen({ querySelectorAll: () => [{ style: { display: '' } }] })).toBe(
+      false,
+    );
     expect(isComposerPopupOpen({ querySelectorAll: () => [] })).toBe(false);
     expect(isComposerPopupOpen({})).toBe(false);
   });
@@ -105,9 +109,20 @@ describe('setupKeyboardNav', () => {
   function createFakeTimers() {
     let pending = null;
     return {
-      setTimeout: (fn, ms) => { pending = fn; return 1; },
-      clearTimeout: () => { pending = null; },
-      firePending() { if (pending) { const fn = pending; pending = null; fn(); } },
+      setTimeout: (fn) => {
+        pending = fn;
+        return 1;
+      },
+      clearTimeout: () => {
+        pending = null;
+      },
+      firePending() {
+        if (pending) {
+          const fn = pending;
+          pending = null;
+          fn();
+        }
+      },
     };
   }
 
@@ -160,7 +175,7 @@ describe('setupKeyboardNav', () => {
     const win = createMockWindow();
 
     setupKeyboardNav({ windowImpl: win, documentImpl: doc });
-    const e = doc._dispatch('keydown', { key: 'Escape' });
+    doc._dispatch('keydown', { key: 'Escape' });
 
     expect(blur).not.toHaveBeenCalled();
   });
@@ -175,7 +190,7 @@ describe('setupKeyboardNav', () => {
     };
 
     setupKeyboardNav({ windowImpl: createMockWindow(), documentImpl: doc });
-    const escapeCall = calls.find(c => c.type === 'keydown' && c.options?.capture);
+    const escapeCall = calls.find((c) => c.type === 'keydown' && c.options?.capture);
     expect(escapeCall).toBeTruthy();
   });
 
@@ -240,7 +255,12 @@ describe('setupKeyboardNav', () => {
     const win = createMockWindow();
     const timers = createFakeTimers();
 
-    setupKeyboardNav({ windowImpl: win, documentImpl: doc, setTimeoutImpl: timers.setTimeout, clearTimeoutImpl: timers.clearTimeout });
+    setupKeyboardNav({
+      windowImpl: win,
+      documentImpl: doc,
+      setTimeoutImpl: timers.setTimeout,
+      clearTimeoutImpl: timers.clearTimeout,
+    });
     doc._dispatch('keydown', { key: 'g' });
 
     expect(win.scrollTo).not.toHaveBeenCalled();
@@ -251,7 +271,12 @@ describe('setupKeyboardNav', () => {
     const win = createMockWindow();
     const timers = createFakeTimers();
 
-    setupKeyboardNav({ windowImpl: win, documentImpl: doc, setTimeoutImpl: timers.setTimeout, clearTimeoutImpl: timers.clearTimeout });
+    setupKeyboardNav({
+      windowImpl: win,
+      documentImpl: doc,
+      setTimeoutImpl: timers.setTimeout,
+      clearTimeoutImpl: timers.clearTimeout,
+    });
 
     // First g press
     doc._dispatch('keydown', { key: 'g' });

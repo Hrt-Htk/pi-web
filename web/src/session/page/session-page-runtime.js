@@ -21,7 +21,9 @@ export function startSessionPageRuntime({
   const model = runtime.model;
   const navigateTo = runtime.navigateTo;
 
-  configureSettingsSync({ fetchImpl: windowImpl.fetch ? windowImpl.fetch.bind(windowImpl) : undefined });
+  configureSettingsSync({
+    fetchImpl: windowImpl.fetch ? windowImpl.fetch.bind(windowImpl) : undefined,
+  });
   hydrateSettings({ storage: windowImpl.localStorage });
   windowImpl.marked = windowImpl.marked || marked;
 
@@ -47,24 +49,26 @@ export function startSessionPageRuntime({
     sidebarApi,
     toggleStateApi,
     getLeafId: () => model.leafId,
-    setSearchQuery: (value) => { model.searchQuery = value; },
-    setFilterMode: (value) => { model.filterMode = value; },
+    setSearchQuery: (value) => {
+      model.searchQuery = value;
+    },
+    setFilterMode: (value) => {
+      model.filterMode = value;
+    },
     forceTreeRerender: () => {},
     navigateTo,
   });
 
   sessionRuntime.layout = { isMobileLayout: ui.isMobileLayout, closeSidebar: ui.closeSidebar };
   ui.attachHeaderHandlers();
-  navigateTo(model.currentLeafId, model.urlTargetId ? 'target' : 'bottom', model.urlTargetId || null);
+  navigateTo(
+    model.currentLeafId,
+    model.urlTargetId ? 'target' : 'bottom',
+    model.urlTargetId || null,
+  );
 
   const disposeAnnotations = setupSessionAnnotations({ sessionId, ui, windowImpl, documentImpl });
-  const disposeGlobals = setupSessionGlobals({
-    windowImpl,
-    documentImpl,
-    model,
-    sessionId,
-    navigateTo,
-  });
+  const disposeGlobals = setupSessionGlobals({ windowImpl, documentImpl });
 
   return () => {
     disposeGlobals?.();

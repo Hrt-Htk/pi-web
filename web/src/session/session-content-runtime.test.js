@@ -12,7 +12,8 @@ describe('wireSessionContentRuntime', () => {
   });
 
   it('removes delegated listeners and restores downloadSessionJson on dispose', () => {
-    document.body.innerHTML = '<div id="messages"><button class="label-btn" data-entry-id="e1"></button></div>';
+    document.body.innerHTML =
+      '<div id="messages"><button class="label-btn" data-entry-id="e1"></button></div>';
     const previousDownload = vi.fn();
     const add = vi.spyOn(document.getElementById('messages'), 'addEventListener');
     const remove = vi.spyOn(document.getElementById('messages'), 'removeEventListener');

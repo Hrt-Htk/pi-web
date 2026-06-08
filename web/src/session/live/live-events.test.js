@@ -16,9 +16,16 @@ describe('live events', () => {
 
   it('handles reload entries, title, and follow behavior', async () => {
     const entries = [{ id: 'a' }, { id: 'r', message: { role: 'toolResult' } }];
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ name: 'New Title', entries }), { status: 200 })));
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ name: 'New Title', entries }), { status: 200 }),
+      ),
+    );
     const entryState = { seen: new Set(), liveRendered: new Set() };
-    const appendEntry = vi.fn((entry) => { entryState.seen.add(entry.id); return true; });
+    const appendEntry = vi.fn((entry) => {
+      entryState.seen.add(entry.id);
+      return true;
+    });
     const refresh = vi.fn();
     const updateStats = vi.fn();
     const updateTitle = vi.fn();
@@ -37,7 +44,7 @@ describe('live events', () => {
       updateTitle,
       isFollowing: () => true,
       scrollAfterLayout,
-      onReloaded
+      onReloaded,
     });
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/session?id=s');
@@ -53,7 +60,9 @@ describe('live events', () => {
     // No appendEntry/upsertEntry → the Svelte <SessionContent> owns #messages.
     // handleSessionReload only tracks new ids and flags them via onNewEntries.
     const entries = [{ id: 'a' }, { id: 'b' }];
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })));
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
     const entryState = { seen: new Set(['a']), liveRendered: new Set() };
     const onReloaded = vi.fn();
     const onNewEntries = vi.fn();
@@ -98,14 +107,23 @@ describe('live events', () => {
   it('dispatches pi-session-reload window event on reload', () => {
     const eventSource = { addEventListener: vi.fn() };
     const dispatched = [];
-    const windowImpl = { dispatchEvent: (e) => { dispatched.push(e); return true; } };
-    class FakeCustomEvent { constructor(type) { this.type = type; } }
+    const windowImpl = {
+      dispatchEvent: (e) => {
+        dispatched.push(e);
+        return true;
+      },
+    };
+    class FakeCustomEvent {
+      constructor(type) {
+        this.type = type;
+      }
+    }
     wireSessionEvents({
       eventSource,
       onReload: vi.fn(),
       onChatPreview: vi.fn(),
       windowImpl,
-      CustomEventImpl: FakeCustomEvent
+      CustomEventImpl: FakeCustomEvent,
     });
     eventSource.onmessage({ data: 'reload' });
     expect(dispatched.length).toBe(1);

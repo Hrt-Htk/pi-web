@@ -43,7 +43,7 @@ export function runChatComposer({
   FormDataImpl = FormData,
   URLSearchParamsImpl = URLSearchParams,
   CustomEventImpl = CustomEvent,
-  setIntervalImpl = setInterval
+  setIntervalImpl = setInterval,
 } = {}) {
   const document = documentImpl;
   const window = windowImpl;
@@ -74,10 +74,11 @@ export function runChatComposer({
   const updateContextUsage = () => contextUsage.update();
 
   function isMobileTextInputMode() {
-    return !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+    return !!(
+      window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+    );
   }
 
-  const THINKING_LEVELS = __piChatSelectors.THINKING_LEVELS;
   const toolbarState = createChatToolbarState({
     documentImpl: document,
     isMobileTextInputMode,
@@ -101,13 +102,21 @@ export function runChatComposer({
     setModelLabel,
     setChatStatus,
     setThinkingLabel,
-    setKnownModelLabel: (label) => { knownModelLabel = label; },
+    setKnownModelLabel: (label) => {
+      knownModelLabel = label;
+    },
     getKnownModelLabel: () => knownModelLabel,
-    setCurrentModelForThinking: (model) => { currentModelForThinking = model; },
-    setWorkerModelUpdate: (handler) => { onWorkerModelUpdate = handler; },
+    setCurrentModelForThinking: (model) => {
+      currentModelForThinking = model;
+    },
+    setWorkerModelUpdate: (handler) => {
+      onWorkerModelUpdate = handler;
+    },
     getCurrentModelForThinking: () => currentModelForThinking,
     getKnownThinkingLevel: () => knownThinkingLevel,
-    setKnownThinkingLevel: (level) => { knownThinkingLevel = level; },
+    setKnownThinkingLevel: (level) => {
+      knownThinkingLevel = level;
+    },
   });
 
   function setupPiChatComposer() {
@@ -167,7 +176,6 @@ export function runChatComposer({
     });
     const autoResizeTextarea = textareaControls.autoResize;
 
-
     setupComposerExpansion({
       sessionId,
       shell,
@@ -197,7 +205,10 @@ export function runChatComposer({
       CustomEventImpl: CustomEvent,
     });
 
-    setupAskQuestionHandlers({ documentImpl: document, sendChatMessage: submission.sendChatMessage });
+    setupAskQuestionHandlers({
+      documentImpl: document,
+      sendChatMessage: submission.sendChatMessage,
+    });
 
     const workerStatus = setupWorkerStatusPolling({
       windowImpl: window,
@@ -208,9 +219,13 @@ export function runChatComposer({
       setThinkingLabel,
       updateContextUsage,
       getKnownModelLabel: () => knownModelLabel,
-      setKnownModelLabel: (label) => { knownModelLabel = label; },
+      setKnownModelLabel: (label) => {
+        knownModelLabel = label;
+      },
       getKnownThinkingLevel: () => knownThinkingLevel,
-      setKnownThinkingLevel: (level) => { knownThinkingLevel = level; },
+      setKnownThinkingLevel: (level) => {
+        knownThinkingLevel = level;
+      },
       getWorkerModelUpdate: () => onWorkerModelUpdate,
       setIntervalImpl: setInterval,
       CustomEventImpl: CustomEvent,
@@ -222,7 +237,11 @@ export function runChatComposer({
       textarea.focus();
     }
 
-    const contextPopover = setupContextPopover({ documentImpl: document, windowImpl: window, updateContextUsage });
+    const contextPopover = setupContextPopover({
+      documentImpl: document,
+      windowImpl: window,
+      updateContextUsage,
+    });
     positionPopover = contextPopover.position;
 
     return true;

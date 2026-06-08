@@ -122,10 +122,20 @@ describe('setupSlashCommands controller', () => {
   function setup() {
     const el = createDom();
     const getCommands = vi.fn(() =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve({ commands: SAMPLE }) })
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ commands: SAMPLE }) }),
     );
-    const api = setupSlashCommands({ documentImpl: document, sessionId: 's', chatApi: { getCommands } });
-    return { el, api, getCommands, textarea: document.getElementById('pi-chat-message'), popup: document.getElementById('pi-chat-slash-popup') };
+    const api = setupSlashCommands({
+      documentImpl: document,
+      sessionId: 's',
+      chatApi: { getCommands },
+    });
+    return {
+      el,
+      api,
+      getCommands,
+      textarea: document.getElementById('pi-chat-message'),
+      popup: document.getElementById('pi-chat-slash-popup'),
+    };
   }
 
   it('opens the palette and loads commands when a slash is typed', async () => {

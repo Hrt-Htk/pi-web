@@ -3,9 +3,11 @@ export function chatSessionId({
   locationImpl = location,
   URLSearchParamsImpl = URLSearchParams,
 } = {}) {
-  return new URLSearchParamsImpl(locationImpl.search).get('id')
-    || (documentImpl.getElementById('pi-chat-composer') || {}).dataset?.sessionId
-    || '';
+  return (
+    new URLSearchParamsImpl(locationImpl.search).get('id') ||
+    (documentImpl.getElementById('pi-chat-composer') || {}).dataset?.sessionId ||
+    ''
+  );
 }
 
 const noopKeydownSelector = { handleKeydown: () => false };

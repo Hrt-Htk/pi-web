@@ -24,7 +24,9 @@ describe('setupTextAttachmentViewer', () => {
 
     const modal = document.getElementById('pi-chat-attachment-modal');
     expect(modal.hidden).toBe(false);
-    expect(document.querySelector('.pi-chat-attachment-card-quote').textContent).toBe('hello world');
+    expect(document.querySelector('.pi-chat-attachment-card-quote').textContent).toBe(
+      'hello world',
+    );
     expect(document.querySelector('.pi-chat-attachment-card-note').textContent).toBe('rename this');
     expect(document.querySelector('.pi-chat-attachment-card-note').hidden).toBe(false);
   });

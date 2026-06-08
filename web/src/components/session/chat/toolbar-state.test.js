@@ -3,7 +3,9 @@ import { JSDOM } from 'jsdom';
 import { createChatToolbarState, isRunningStatus } from './toolbar-state.js';
 
 function setupDom() {
-  return new JSDOM('<body><span id="pi-chat-status"></span><button id="pi-chat-cancel" style="display:none"></button><button id="pi-chat-model-label"></button><button id="pi-chat-thinking-label"></button></body>');
+  return new JSDOM(
+    '<body><span id="pi-chat-status"></span><button id="pi-chat-cancel" style="display:none"></button><button id="pi-chat-model-label"></button><button id="pi-chat-thinking-label"></button></body>',
+  );
 }
 
 describe('chat toolbar state', () => {
@@ -19,7 +21,9 @@ describe('chat toolbar state', () => {
 
     toolbar.setStatus('sending', 'running');
     expect(dom.window.document.getElementById('pi-chat-status').textContent).toBe('sending');
-    expect(dom.window.document.getElementById('pi-chat-status').className).toBe('pi-chat-status running');
+    expect(dom.window.document.getElementById('pi-chat-status').className).toBe(
+      'pi-chat-status running',
+    );
     expect(dom.window.document.getElementById('pi-chat-cancel').style.display).toBe('');
 
     toolbar.setStatus('cancelling', 'running');
@@ -59,8 +63,12 @@ describe('chat toolbar state', () => {
     });
 
     toolbar.updateInitialTooltips();
-    expect(dom.window.document.getElementById('pi-chat-model-label').getAttribute('title')).toBe('Switch model');
-    expect(dom.window.document.getElementById('pi-chat-thinking-label').getAttribute('title')).toBe('Switch effort');
+    expect(dom.window.document.getElementById('pi-chat-model-label').getAttribute('title')).toBe(
+      'Switch model',
+    );
+    expect(dom.window.document.getElementById('pi-chat-thinking-label').getAttribute('title')).toBe(
+      'Switch effort',
+    );
 
     toolbar.setThinkingLabel('high');
     const thinkingBtn = dom.window.document.getElementById('pi-chat-thinking-label');

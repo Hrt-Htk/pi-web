@@ -3,7 +3,9 @@ import { JSDOM } from 'jsdom';
 import { setupCwdCopy } from './cwd-copy.js';
 
 function setupDom() {
-  const dom = new JSDOM('<body><form id="pi-chat-composer"></form><span class="pi-chat-cwd" data-cwd="/tmp/project">cwd: /tmp/project</span></body>');
+  const dom = new JSDOM(
+    '<body><form id="pi-chat-composer"></form><span class="pi-chat-cwd" data-cwd="/tmp/project">cwd: /tmp/project</span></body>',
+  );
   return dom;
 }
 
@@ -27,7 +29,9 @@ describe('cwd copy', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(writeText).toHaveBeenCalledWith('/tmp/project');
-    expect(dom.window.document.getElementById('pi-chat-cwd-toast').textContent).toBe('composer.pathCopied');
+    expect(dom.window.document.getElementById('pi-chat-cwd-toast').textContent).toBe(
+      'composer.pathCopied',
+    );
   });
 
   it('falls back to execCommand when the Clipboard API fails', async () => {
@@ -49,7 +53,9 @@ describe('cwd copy', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(dom.window.document.execCommand).toHaveBeenCalledWith('copy');
-    expect(dom.window.document.getElementById('pi-chat-cwd-toast').textContent).toBe('composer.pathCopied');
+    expect(dom.window.document.getElementById('pi-chat-cwd-toast').textContent).toBe(
+      'composer.pathCopied',
+    );
   });
 
   it('shows an error toast when copy fails', async () => {

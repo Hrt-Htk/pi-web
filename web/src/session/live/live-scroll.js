@@ -30,7 +30,7 @@ export function isAtBottom({ documentImpl = document, windowImpl = window, thres
   const docHeight = Math.max(de.scrollHeight, body.scrollHeight);
   const scrolled = windowImpl.scrollY || windowImpl.pageYOffset || de.scrollTop || body.scrollTop;
   const viewport = windowImpl.innerHeight;
-  return (docHeight - scrolled - viewport) < threshold;
+  return docHeight - scrolled - viewport < threshold;
 }
 
 export function scrollToBottom(smooth, { documentImpl = document, windowImpl = window } = {}) {
@@ -38,10 +38,17 @@ export function scrollToBottom(smooth, { documentImpl = document, windowImpl = w
   if (content && content.scrollHeight > content.clientHeight) {
     content.scrollTo({ top: content.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
   }
-  windowImpl.scrollTo({ top: Math.max(documentImpl.documentElement.scrollHeight, documentImpl.body.scrollHeight), behavior: smooth ? 'smooth' : 'auto' });
+  windowImpl.scrollTo({
+    top: Math.max(documentImpl.documentElement.scrollHeight, documentImpl.body.scrollHeight),
+    behavior: smooth ? 'smooth' : 'auto',
+  });
 }
 
-export function scrollElementAboveComposer(el, smooth, { documentImpl = document, windowImpl = window } = {}) {
+export function scrollElementAboveComposer(
+  el,
+  smooth,
+  { documentImpl = document, windowImpl = window } = {},
+) {
   if (!el) {
     scrollToBottom(smooth, { documentImpl, windowImpl });
     return;
@@ -59,22 +66,31 @@ export function scrollElementAboveComposer(el, smooth, { documentImpl = document
   const rect = el.getBoundingClientRect();
   const viewportDelta = rect.bottom - (windowImpl.innerHeight - gap);
   if (viewportDelta > 0) {
-    windowImpl.scrollTo({ top: (windowImpl.scrollY || windowImpl.pageYOffset) + viewportDelta, behavior: smooth ? 'smooth' : 'auto' });
+    windowImpl.scrollTo({
+      top: (windowImpl.scrollY || windowImpl.pageYOffset) + viewportDelta,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
   }
 }
 
-export function createFollowButton({ documentImpl = document, requestAnimationFrameImpl = requestAnimationFrame, onClick } = {}) {
+export function createFollowButton({
+  documentImpl = document,
+  requestAnimationFrameImpl = requestAnimationFrame,
+  onClick,
+} = {}) {
   const button = documentImpl.createElement('button');
   button.className = 'follow-button';
   button.setAttribute('aria-label', 'Scroll to bottom');
   button.innerHTML = icon(ArrowDown, { size: 18 });
   documentImpl.body.appendChild(button);
-  requestAnimationFrameImpl(() => { button.classList.add('visible'); });
+  requestAnimationFrameImpl(() => {
+    button.classList.add('visible');
+  });
   if (onClick) button.addEventListener('click', onClick);
   return button;
 }
 
-export function setFollowButtonText(button, pendingCount) {
+export function setFollowButtonText(button, _pendingCount) {
   if (button) button.innerHTML = icon(ArrowDown, { size: 18 });
 }
 

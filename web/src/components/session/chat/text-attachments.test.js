@@ -9,9 +9,11 @@ describe('text attachments', () => {
   });
 
   it('folds text attachments before the typed message', () => {
-    expect(composeMessageWithTextAttachments('please fix', [
-      { original: 'hello\nworld', note: 'rename this' },
-    ])).toBe('> hello\n> world\n\nrename this\n\nplease fix');
+    expect(
+      composeMessageWithTextAttachments('please fix', [
+        { original: 'hello\nworld', note: 'rename this' },
+      ]),
+    ).toBe('> hello\n> world\n\nrename this\n\nplease fix');
   });
 
   it('returns the typed message when there are no attachments', () => {

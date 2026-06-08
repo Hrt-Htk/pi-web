@@ -14,13 +14,7 @@ import { openShortcuts } from './session-modals.svelte.js';
 import { sessionRuntime } from './session-runtime.js';
 import { toggleTheme, syncThemeIcons } from '../shared/theme.js';
 
-export function setupSessionGlobals({
-  windowImpl,
-  documentImpl,
-  model,
-  sessionId = '',
-  navigateTo,
-}) {
+export function setupSessionGlobals({ windowImpl, documentImpl }) {
   const target = windowImpl;
 
   // Track the listeners we add directly so the SPA can tear them down on
@@ -82,14 +76,19 @@ export function setupSessionGlobals({
 
   // Cmd+Shift+L — system theme toggle. Capture phase so the browser doesn't
   // swallow it before we see it.
-  on(target, 'keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTheme(target, documentImpl);
-      syncThemeIcons(documentImpl);
-    }
-  }, { capture: true });
+  on(
+    target,
+    'keydown',
+    (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTheme(target, documentImpl);
+        syncThemeIcons(documentImpl);
+      }
+    },
+    { capture: true },
+  );
 
   // Cmd+Shift+N — toggle scratchpad (right sidebar)
   on(target, 'keydown', (e) => {
@@ -145,7 +144,10 @@ export function setupSessionGlobals({
     if (target.scrollY !== 0 || target.scrollX !== 0) target.scrollTo(0, 0);
   });
   on(documentImpl, 'scroll', () => {
-    if (documentImpl.documentElement.scrollTop !== 0 || documentImpl.documentElement.scrollLeft !== 0) {
+    if (
+      documentImpl.documentElement.scrollTop !== 0 ||
+      documentImpl.documentElement.scrollLeft !== 0
+    ) {
       documentImpl.documentElement.scrollTop = 0;
       documentImpl.documentElement.scrollLeft = 0;
     }

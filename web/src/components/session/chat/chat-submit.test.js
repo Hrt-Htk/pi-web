@@ -3,7 +3,10 @@ import { JSDOM } from 'jsdom';
 import { setupChatSubmission } from './chat-submit.js';
 
 function setupDom() {
-  const dom = new JSDOM('<body><form id="form"><textarea id="message"></textarea><button id="send" type="submit"></button><button id="cancel" type="button"></button></form></body>', { url: 'http://localhost/session?id=s1' });
+  const dom = new JSDOM(
+    '<body><form id="form"><textarea id="message"></textarea><button id="send" type="submit"></button><button id="cancel" type="button"></button></form></body>',
+    { url: 'http://localhost/session?id=s1' },
+  );
   return {
     dom,
     form: dom.window.document.getElementById('form'),
@@ -13,11 +16,7 @@ function setupDom() {
   };
 }
 
-function createAttachments({
-  files = [],
-  textAttachments = [],
-  message = '',
-} = {}) {
+function createAttachments({ files = [], textAttachments = [], message = '' } = {}) {
   return {
     files: vi.fn(() => files),
     textAttachments: vi.fn(() => textAttachments),
@@ -32,11 +31,15 @@ describe('chat submit', () => {
     const { dom, form, textarea, sendButton, cancelButton } = setupDom();
     textarea.value = ' hello ';
     const attachments = createAttachments({ message: 'hello' });
-    const sendChat = vi.fn(() => Promise.resolve(new Response('{"status":"queued"}', { status: 200 })));
+    const sendChat = vi.fn(() =>
+      Promise.resolve(new Response('{"status":"queued"}', { status: 200 })),
+    );
     const setStatus = vi.fn();
     const updateSendEnabled = vi.fn();
     const dispatched = [];
-    dom.window.addEventListener('pi-chat-message-sent', (event) => dispatched.push(event.detail.message));
+    dom.window.addEventListener('pi-chat-message-sent', (event) =>
+      dispatched.push(event.detail.message),
+    );
 
     setupChatSubmission({
       windowImpl: dom.window,
@@ -102,7 +105,10 @@ describe('chat submit', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(textarea.value).toBe('retry');
-    expect(attachments.restore).toHaveBeenCalledWith({ files: [file], textAttachments: [textAttachment] });
+    expect(attachments.restore).toHaveBeenCalledWith({
+      files: [file],
+      textAttachments: [textAttachment],
+    });
     expect(autoResizeTextarea).toHaveBeenCalled();
   });
 

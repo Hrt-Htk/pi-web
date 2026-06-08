@@ -13,12 +13,13 @@ Read the relevant doc in `@docs/` before structural changes, and update the matc
 
 ```bash
 make test   # vitest + go test ./...
-make check  # test + build + vet (run before pushing)
+make check  # lint + format-check + test + build + vet (run before pushing)
 make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 ```
 
 - **Go:** table-driven tests in `*_test.go` alongside source.
 - **Frontend:** tests next to source (`foo.js` → `foo.test.js`); DOM helpers take `{ documentImpl, windowImpl }` for DI.
+- **Lint/format (frontend):** ESLint (`eslint-plugin-svelte`) + Prettier, config in `web/`. `make check` runs `frontend-lint` + `frontend-format-check`. Fix locally with `cd web && npm run format` (auto-format) and `npm run lint`. Style is 2-space indent, single quotes (enforced by Prettier).
 - **E2E:** lives in `e2e/` (Playwright, built binary across desktop/mobile/iPad, stub `pi`). See `docs/dev/e2e-testing.md`.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
 

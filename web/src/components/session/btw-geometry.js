@@ -1,9 +1,6 @@
 export const BTW_GEOM_KEY = 'pi-btw:window';
 
-export function loadBtwGeometry({
-  storage = window.localStorage,
-  key = BTW_GEOM_KEY,
-} = {}) {
+export function loadBtwGeometry({ storage = window.localStorage, key = BTW_GEOM_KEY } = {}) {
   try {
     const raw = storage?.getItem(key);
     return raw ? JSON.parse(raw) : null;
@@ -12,10 +9,7 @@ export function loadBtwGeometry({
   }
 }
 
-export function saveBtwGeometry(patch, {
-  storage = window.localStorage,
-  key = BTW_GEOM_KEY,
-} = {}) {
+export function saveBtwGeometry(patch, { storage = window.localStorage, key = BTW_GEOM_KEY } = {}) {
   try {
     const cur = loadBtwGeometry({ storage, key }) || {};
     storage?.setItem(key, JSON.stringify({ ...cur, ...patch }));
@@ -24,11 +18,10 @@ export function saveBtwGeometry(patch, {
   }
 }
 
-export function placeBtwInitial(root, {
-  windowImpl = window,
-  loadGeometry = loadBtwGeometry,
-  saveGeometry = saveBtwGeometry,
-} = {}) {
+export function placeBtwInitial(
+  root,
+  { windowImpl = window, loadGeometry = loadBtwGeometry, saveGeometry = saveBtwGeometry } = {},
+) {
   const geom = loadGeometry();
   if (geom && typeof geom.left === 'number' && typeof geom.top === 'number') {
     root.style.left = `${geom.left}px`;
@@ -45,11 +38,11 @@ export function placeBtwInitial(root, {
   saveGeometry({ left, top });
 }
 
-export function enableBtwDrag(root, handle, {
-  documentImpl = document,
-  windowImpl = window,
-  saveGeometry = saveBtwGeometry,
-} = {}) {
+export function enableBtwDrag(
+  root,
+  handle,
+  { documentImpl = document, windowImpl = window, saveGeometry = saveBtwGeometry } = {},
+) {
   let dragging = false;
   let startX = 0;
   let startY = 0;
@@ -87,16 +80,18 @@ export function enableBtwDrag(root, handle, {
   });
 }
 
-export function persistBtwResize(root, {
-  windowImpl = window,
-  saveGeometry = saveBtwGeometry,
-} = {}) {
+export function persistBtwResize(
+  root,
+  { windowImpl = window, saveGeometry = saveBtwGeometry } = {},
+) {
   if (!windowImpl.ResizeObserver) return null;
   let raf = 0;
   const observer = new windowImpl.ResizeObserver(() => {
     if (raf) windowImpl.cancelAnimationFrame?.(raf);
     raf = windowImpl.requestAnimationFrame
-      ? windowImpl.requestAnimationFrame(() => saveGeometry({ width: root.offsetWidth, height: root.offsetHeight }))
+      ? windowImpl.requestAnimationFrame(() =>
+          saveGeometry({ width: root.offsetWidth, height: root.offsetHeight }),
+        )
       : 0;
   });
   observer.observe(root);

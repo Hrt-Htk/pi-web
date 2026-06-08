@@ -4,12 +4,17 @@ import {
   supportedThinkingLevels,
 } from '../../../session/chat/chat-selectors.js';
 
-export function renderThinkingLevelList({ levels = THINKING_LEVELS, selectedLevel = '', currentModel = null } = {}) {
+export function renderThinkingLevelList({
+  levels = THINKING_LEVELS,
+  selectedLevel = '',
+  currentModel = null,
+} = {}) {
   const supported = supportedThinkingLevels(currentModel, levels);
   let html = '';
   levels.forEach((level) => {
     const active = level === selectedLevel ? ' selected' : '';
-    const disabled = supported.indexOf(level) < 0 ? ' disabled title="Not supported by current model"' : '';
+    const disabled =
+      supported.indexOf(level) < 0 ? ' disabled title="Not supported by current model"' : '';
     const label = supported.indexOf(level) < 0 ? level + ' (unsupported)' : level;
     html += `<button type="button" class="thinking-level-item thinking-${level}${active}" data-level="${level}"${disabled}>${label}</button>`;
   });
@@ -39,7 +44,10 @@ export function setupThinkingLevelSelector({
   let confirmedThinkingLevel = getKnownThinkingLevel() || '';
 
   function renderThinkingList(selectedLevel) {
-    thinkingList.innerHTML = renderThinkingLevelList({ selectedLevel, currentModel: getCurrentModel() });
+    thinkingList.innerHTML = renderThinkingLevelList({
+      selectedLevel,
+      currentModel: getCurrentModel(),
+    });
   }
 
   function openThinkingPopup() {
@@ -50,7 +58,7 @@ export function setupThinkingLevelSelector({
     let left = rect.right - minW;
     if (left < 4) left = 4;
     if (left + minW > windowImpl.innerWidth - 4) left = windowImpl.innerWidth - minW - 4;
-    thinkingPopup.style.bottom = (windowImpl.innerHeight - rect.top + 4) + 'px';
+    thinkingPopup.style.bottom = windowImpl.innerHeight - rect.top + 4 + 'px';
     thinkingPopup.style.left = left + 'px';
     thinkingPopup.style.right = '';
   }
@@ -95,7 +103,11 @@ export function setupThinkingLevelSelector({
   });
 
   documentImpl.addEventListener('click', (e) => {
-    if (thinkingPopup.style.display !== 'none' && !thinkingPopup.contains(e.target) && e.target !== thinkingLabelBtn) {
+    if (
+      thinkingPopup.style.display !== 'none' &&
+      !thinkingPopup.contains(e.target) &&
+      e.target !== thinkingLabelBtn
+    ) {
       closeThinkingPopup();
     }
   });

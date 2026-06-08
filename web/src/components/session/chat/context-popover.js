@@ -13,7 +13,7 @@ export function setupContextPopover({
     if (!shell) return;
     const shellRect = shell.getBoundingClientRect();
 
-    const capsuleCenter = capsuleRect.left + (capsuleRect.width / 2);
+    const capsuleCenter = capsuleRect.left + capsuleRect.width / 2;
     let popoverLeft = capsuleCenter - shellRect.left - 100;
     if (popoverLeft < 8) popoverLeft = 8;
     const maxLeft = shellRect.width - 208;
@@ -65,7 +65,10 @@ export function setupContextPopover({
 
   const onDocumentClick = (event) => {
     if (popover.style.display === 'none') return;
-    if (!event.target.closest('#pi-chat-context-usage') && !event.target.closest('#pi-chat-context-popover')) {
+    if (
+      !event.target.closest('#pi-chat-context-usage') &&
+      !event.target.closest('#pi-chat-context-popover')
+    ) {
       hide();
     }
   };

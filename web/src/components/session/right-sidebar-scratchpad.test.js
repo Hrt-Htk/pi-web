@@ -24,7 +24,12 @@ describe('createScratchpadController', () => {
       ok: true,
       json: async () => ({ content: 'server notes' }),
     });
-    const scratchpad = createScratchpadController({ projectPath: '/proj a', textarea, statusEl, fetchImpl });
+    const scratchpad = createScratchpadController({
+      projectPath: '/proj a',
+      textarea,
+      statusEl,
+      fetchImpl,
+    });
 
     await scratchpad.load();
     await scratchpad.save();
@@ -39,7 +44,12 @@ describe('createScratchpadController', () => {
   it('posts changed content and updates the saved baseline', async () => {
     const { textarea, statusEl } = renderScratchpad('initial');
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-    const scratchpad = createScratchpadController({ projectPath: '/proj', textarea, statusEl, fetchImpl });
+    const scratchpad = createScratchpadController({
+      projectPath: '/proj',
+      textarea,
+      statusEl,
+      fetchImpl,
+    });
 
     scratchpad.adoptCurrentValue();
     textarea.value = 'changed';
@@ -101,7 +111,12 @@ describe('createScratchpadController', () => {
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 500 })
       .mockResolvedValueOnce({ ok: false, status: 500 });
-    const scratchpad = createScratchpadController({ projectPath: '/proj', textarea, statusEl, fetchImpl });
+    const scratchpad = createScratchpadController({
+      projectPath: '/proj',
+      textarea,
+      statusEl,
+      fetchImpl,
+    });
 
     await scratchpad.load();
     expect(statusEl.textContent).toBe('Load failed');

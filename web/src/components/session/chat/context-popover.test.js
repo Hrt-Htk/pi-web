@@ -17,8 +17,22 @@ function renderDom() {
   `;
   const shell = document.querySelector('.pi-chat-shell');
   const usage = document.getElementById('pi-chat-context-usage');
-  shell.getBoundingClientRect = () => ({ left: 10, right: 310, top: 0, bottom: 400, width: 300, height: 400 });
-  usage.getBoundingClientRect = () => ({ left: 150, right: 170, top: 300, bottom: 320, width: 20, height: 20 });
+  shell.getBoundingClientRect = () => ({
+    left: 10,
+    right: 310,
+    top: 0,
+    bottom: 400,
+    width: 300,
+    height: 400,
+  });
+  usage.getBoundingClientRect = () => ({
+    left: 150,
+    right: 170,
+    top: 300,
+    bottom: 320,
+    width: 20,
+    height: 20,
+  });
 }
 
 describe('setupContextPopover', () => {

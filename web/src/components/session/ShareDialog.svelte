@@ -43,13 +43,18 @@
       if (ok) showShareCopiedNotice(label, text);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => showShareCopiedNotice(label, text)).catch(fallbackCopy);
+      navigator.clipboard
+        .writeText(text)
+        .then(() => showShareCopiedNotice(label, text))
+        .catch(fallbackCopy);
     } else {
       fallbackCopy();
     }
   }
 
-  function close() { open = false; }
+  function close() {
+    open = false;
+  }
 
   onMount(() => {
     const shareBtn = document.getElementById('share-btn');
@@ -82,8 +87,12 @@
           open = true;
         });
     };
-    const onKey = (e) => { if (e.key === 'Escape' && open) close(); };
-    const onBackdrop = (e) => { if (e.target === overlayEl) close(); };
+    const onKey = (e) => {
+      if (e.key === 'Escape' && open) close();
+    };
+    const onBackdrop = (e) => {
+      if (e.target === overlayEl) close();
+    };
 
     shareBtn?.addEventListener('click', onShare);
     document.addEventListener('keydown', onKey);
@@ -97,17 +106,48 @@
   });
 </script>
 
-<div id="share-overlay" class="share-overlay-backdrop" style:display={open ? '' : 'none'} bind:this={overlayEl}>
+<div
+  id="share-overlay"
+  class="share-overlay-backdrop"
+  style:display={open ? '' : 'none'}
+  bind:this={overlayEl}
+>
   <div id="share-dialog" class="share-dialog" class:error={isError}>
     <h3 id="share-title">{title}</h3>
     <div id="share-fields" style:display={isError ? 'none' : ''}>
-      <div class="share-field"><label for="share-gist-url">Gist URL</label><input id="share-gist-url" readonly class="share-url-input" value={gistUrl}></div>
-      <div class="share-field"><label for="share-preview-url">Preview URL</label><input id="share-preview-url" readonly class="share-url-input" value={previewUrl}></div>
+      <div class="share-field">
+        <label for="share-gist-url">Gist URL</label><input
+          id="share-gist-url"
+          readonly
+          class="share-url-input"
+          value={gistUrl}
+        />
+      </div>
+      <div class="share-field">
+        <label for="share-preview-url">Preview URL</label><input
+          id="share-preview-url"
+          readonly
+          class="share-url-input"
+          value={previewUrl}
+        />
+      </div>
     </div>
-    <p id="share-error-message" class="share-error-message" style:display={isError ? '' : 'none'}>{errorMsg}</p>
+    <p id="share-error-message" class="share-error-message" style:display={isError ? '' : 'none'}>
+      {errorMsg}
+    </p>
     <div class="share-actions">
-      <button id="share-copy-gist" class="share-btn-primary" style:display={isError ? 'none' : ''} onclick={() => copyShareUrl(gistUrl, 'Gist')}>Copy Gist</button>
-      <button id="share-copy-preview" class="share-btn-secondary" style:display={isError ? 'none' : ''} onclick={() => copyShareUrl(previewUrl, 'Preview')}>Copy Preview</button>
+      <button
+        id="share-copy-gist"
+        class="share-btn-primary"
+        style:display={isError ? 'none' : ''}
+        onclick={() => copyShareUrl(gistUrl, 'Gist')}>Copy Gist</button
+      >
+      <button
+        id="share-copy-preview"
+        class="share-btn-secondary"
+        style:display={isError ? 'none' : ''}
+        onclick={() => copyShareUrl(previewUrl, 'Preview')}>Copy Preview</button
+      >
       <button id="share-close" class="share-btn-secondary" onclick={close}>Close</button>
     </div>
   </div>

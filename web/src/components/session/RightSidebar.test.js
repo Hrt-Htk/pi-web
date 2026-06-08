@@ -23,9 +23,15 @@ describe('RightSidebar tabs', () => {
     document.querySelector('[data-pane="artifacts"]').click();
     await tick();
 
-    expect(document.querySelector('[data-pane="artifacts"]').classList.contains('active')).toBe(true);
-    expect(document.querySelector('[data-pane="artifacts"]').getAttribute('aria-selected')).toBe('true');
-    expect(document.querySelector('[data-pane="scratchpad"]').getAttribute('aria-selected')).toBe('false');
+    expect(document.querySelector('[data-pane="artifacts"]').classList.contains('active')).toBe(
+      true,
+    );
+    expect(document.querySelector('[data-pane="artifacts"]').getAttribute('aria-selected')).toBe(
+      'true',
+    );
+    expect(document.querySelector('[data-pane="scratchpad"]').getAttribute('aria-selected')).toBe(
+      'false',
+    );
     expect(document.getElementById('right-pane-artifacts').hasAttribute('hidden')).toBe(false);
     expect(document.getElementById('right-pane-scratchpad').hasAttribute('hidden')).toBe(true);
   });
@@ -40,7 +46,9 @@ describe('RightSidebar tabs', () => {
     render(RightSidebar);
     await tick();
     expect(document.getElementById('right-pane-artifacts').hasAttribute('hidden')).toBe(false);
-    expect(document.querySelector('[data-pane="artifacts"]').classList.contains('active')).toBe(true);
+    expect(document.querySelector('[data-pane="artifacts"]').classList.contains('active')).toBe(
+      true,
+    );
   });
 
   it('marks the active tab on the sidebar for tab-scoped chrome', async () => {
@@ -54,7 +62,9 @@ describe('RightSidebar tabs', () => {
   it('ignores activation for an unknown pane name via the window bridge', () => {
     render(RightSidebar);
     sessionRuntime.rightSidebar.activateTab('nonexistent');
-    expect(document.querySelector('[data-pane="scratchpad"]').classList.contains('active')).toBe(true);
+    expect(document.querySelector('[data-pane="scratchpad"]').classList.contains('active')).toBe(
+      true,
+    );
   });
 });
 
@@ -97,7 +107,10 @@ describe('RightSidebar scratchpad', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/scratchpad', expect.objectContaining({ method: 'POST' }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/scratchpad',
+      expect.objectContaining({ method: 'POST' }),
+    );
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).toEqual({ project: '/proj', content: 'hello notes' });
 

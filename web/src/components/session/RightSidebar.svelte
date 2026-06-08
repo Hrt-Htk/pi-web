@@ -87,10 +87,14 @@
         if (raw == null) return null;
         const w = Number(raw);
         return Number.isFinite(w) ? w : null;
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     }
     function saveWidth(width) {
-      try { storage?.setItem(RIGHT_SIDEBAR_WIDTH_KEY, String(Math.round(clampWidth(width)))); } catch {}
+      try {
+        storage?.setItem(RIGHT_SIDEBAR_WIDTH_KEY, String(Math.round(clampWidth(width))));
+      } catch {}
     }
 
     const visibilityController = createRightSidebarVisibility({
@@ -110,16 +114,17 @@
       if (savedWidth0 !== null) applyWidth(savedWidth0);
 
       let cleanupDrag = null;
-      let dragStartX = 0;
 
       const stopDrag = (pointerId) => {
-        if (cleanupDrag) { cleanupDrag(pointerId); cleanupDrag = null; }
+        if (cleanupDrag) {
+          cleanupDrag(pointerId);
+          cleanupDrag = null;
+        }
       };
 
       const onPointerDown = (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
-        dragStartX = e.clientX;
         const startX = e.clientX;
         const startWidth = sidebar.getBoundingClientRect().width;
         documentImpl.body.classList.add('right-sidebar-resizing');
@@ -147,11 +152,16 @@
       resizer.addEventListener('pointerdown', onPointerDown);
       cleanups.push(() => resizer.removeEventListener('pointerdown', onPointerDown));
 
-      const onDblClick = () => { applyWidth(320); saveWidth(320); };
+      const onDblClick = () => {
+        applyWidth(320);
+        saveWidth(320);
+      };
       resizer.addEventListener('dblclick', onDblClick);
       cleanups.push(() => resizer.removeEventListener('dblclick', onDblClick));
 
-      const onWindowResize = () => { applyWidth(sidebar.getBoundingClientRect().width); };
+      const onWindowResize = () => {
+        applyWidth(sidebar.getBoundingClientRect().width);
+      };
       windowImpl.addEventListener('resize', onWindowResize);
       cleanups.push(() => windowImpl.removeEventListener('resize', onWindowResize));
     }
@@ -167,8 +177,12 @@
     const helpBtn = documentImpl.getElementById('artifact-help-btn');
     const helpModal = documentImpl.getElementById('artifact-help-modal');
     if (helpBtn && helpModal) {
-      const hideHelp = () => { helpModal.hidden = true; };
-      const onHelpBtn = () => { helpModal.hidden = false; };
+      const hideHelp = () => {
+        helpModal.hidden = true;
+      };
+      const onHelpBtn = () => {
+        helpModal.hidden = false;
+      };
       const onHelpModal = (e) => {
         if (e.target.closest('[data-action="close-artifact-help"]')) hideHelp();
       };
@@ -199,38 +213,123 @@
   });
 </script>
 
-<div id="right-sidebar-resizer" class="right-sidebar-resizer" role="separator" aria-orientation="vertical" aria-label={t('sidebar.resizeScratchpad')}></div>
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
+
+<div
+  id="right-sidebar-resizer"
+  class="right-sidebar-resizer"
+  role="separator"
+  aria-orientation="vertical"
+  aria-label={t('sidebar.resizeScratchpad')}
+></div>
 <aside id="right-sidebar" class="right-sidebar">
   <div class="right-sidebar-header">
     <div class="right-sidebar-tabs" role="tablist">
-      <button type="button" id="right-tab-scratchpad" class="right-sidebar-tab active" role="tab" data-pane="scratchpad" aria-selected="true">{t('sidebar.scratchpad')}</button>
-      <button type="button" id="right-tab-notes" class="right-sidebar-tab" role="tab" data-pane="notes" aria-selected="false">{t('sidebar.annotations')}<span id="annotation-tab-count" class="right-sidebar-tab-count" hidden>0</span></button>
-      <button type="button" id="right-tab-artifacts" class="right-sidebar-tab" role="tab" data-pane="artifacts" aria-selected="false">{t('sidebar.artifacts')}<span id="artifact-tab-count" class="right-sidebar-tab-count" hidden>0</span></button>
+      <button
+        type="button"
+        id="right-tab-scratchpad"
+        class="right-sidebar-tab active"
+        role="tab"
+        data-pane="scratchpad"
+        aria-selected="true">{t('sidebar.scratchpad')}</button
+      >
+      <button
+        type="button"
+        id="right-tab-notes"
+        class="right-sidebar-tab"
+        role="tab"
+        data-pane="notes"
+        aria-selected="false"
+        >{t('sidebar.annotations')}<span
+          id="annotation-tab-count"
+          class="right-sidebar-tab-count"
+          hidden>0</span
+        ></button
+      >
+      <button
+        type="button"
+        id="right-tab-artifacts"
+        class="right-sidebar-tab"
+        role="tab"
+        data-pane="artifacts"
+        aria-selected="false"
+        >{t('sidebar.artifacts')}<span
+          id="artifact-tab-count"
+          class="right-sidebar-tab-count"
+          hidden>0</span
+        ></button
+      >
     </div>
     <div class="right-sidebar-actions">
-      <button id="expand-right-sidebar" class="right-sidebar-btn" title={t('sidebar.expandPanel')}>{@html icon(Maximize2, { size: 14 })}</button>
-      <button id="close-right-sidebar" class="right-sidebar-btn" title={`${t('sidebar.hidePanel')} (⌘⇧N)`}>{@html icon(X, { size: 15 })}</button>
+      <button id="expand-right-sidebar" class="right-sidebar-btn" title={t('sidebar.expandPanel')}
+        >{@html icon(Maximize2, { size: 14 })}</button
+      >
+      <button
+        id="close-right-sidebar"
+        class="right-sidebar-btn"
+        title={`${t('sidebar.hidePanel')} (⌘⇧N)`}>{@html icon(X, { size: 15 })}</button
+      >
     </div>
   </div>
   <div class="right-sidebar-content">
-    <div id="right-pane-scratchpad" class="right-sidebar-pane active" role="tabpanel" aria-labelledby="right-tab-scratchpad">
-      <textarea id="scratchpad-textarea" class="scratchpad-textarea" placeholder={t('sidebar.scratchpadPlaceholder')}>{scratchpad}</textarea>
+    <div
+      id="right-pane-scratchpad"
+      class="right-sidebar-pane active"
+      role="tabpanel"
+      aria-labelledby="right-tab-scratchpad"
+    >
+      <textarea
+        id="scratchpad-textarea"
+        class="scratchpad-textarea"
+        placeholder={t('sidebar.scratchpadPlaceholder')}>{scratchpad}</textarea
+      >
     </div>
-    <div id="right-pane-artifacts" class="right-sidebar-pane" role="tabpanel" aria-labelledby="right-tab-artifacts" hidden>
-      <button id="artifact-help-btn" class="right-sidebar-btn artifact-help-btn" title={t('sidebar.howArtifactsWork')} aria-label={t('sidebar.howArtifactsWork')}>{@html icon(CircleHelp, { size: 15 })}</button>
+    <div
+      id="right-pane-artifacts"
+      class="right-sidebar-pane"
+      role="tabpanel"
+      aria-labelledby="right-tab-artifacts"
+      hidden
+    >
+      <button
+        id="artifact-help-btn"
+        class="right-sidebar-btn artifact-help-btn"
+        title={t('sidebar.howArtifactsWork')}
+        aria-label={t('sidebar.howArtifactsWork')}>{@html icon(CircleHelp, { size: 15 })}</button
+      >
       <ArtifactPanel />
     </div>
-    <div id="right-pane-notes" class="right-sidebar-pane" role="tabpanel" aria-labelledby="right-tab-notes" hidden>
+    <div
+      id="right-pane-notes"
+      class="right-sidebar-pane"
+      role="tabpanel"
+      aria-labelledby="right-tab-notes"
+      hidden
+    >
       <AnnotationLayer />
     </div>
   </div>
-  <div class="right-sidebar-footer"><span id="scratchpad-status" class="scratchpad-status">{t('common.saved')}</span></div>
+  <div class="right-sidebar-footer">
+    <span id="scratchpad-status" class="scratchpad-status">{t('common.saved')}</span>
+  </div>
 </aside>
 <div id="right-sidebar-backdrop" class="right-sidebar-backdrop"></div>
 <div id="artifact-help-modal" class="artifact-help-modal" hidden>
   <div class="artifact-help-backdrop" data-action="close-artifact-help"></div>
-  <div class="artifact-help-card" role="dialog" aria-modal="true" aria-labelledby="artifact-help-title">
-    <div class="artifact-help-header"><h3 id="artifact-help-title">{t('sidebar.howArtifactsWork')}</h3><button class="artifact-help-close" data-action="close-artifact-help" aria-label={t('common.close')}>{@html icon(X, { size: 16 })}</button></div>
+  <div
+    class="artifact-help-card"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="artifact-help-title"
+  >
+    <div class="artifact-help-header">
+      <h3 id="artifact-help-title">{t('sidebar.howArtifactsWork')}</h3>
+      <button
+        class="artifact-help-close"
+        data-action="close-artifact-help"
+        aria-label={t('common.close')}>{@html icon(X, { size: 16 })}</button
+      >
+    </div>
     <div class="artifact-help-body">
       <p>{@html t('artifactHelp.intro')}</p>
       <p>{@html t('artifactHelp.viewing')}</p>

@@ -1,7 +1,4 @@
-export function getComposerElements({
-  documentImpl = document,
-  form,
-} = {}) {
+export function getComposerElements({ documentImpl = document, form } = {}) {
   return {
     form,
     textarea: documentImpl.getElementById('pi-chat-message'),

@@ -1,9 +1,11 @@
-export function setupTextAttachmentViewer({
-  documentImpl = document,
-} = {}) {
+export function setupTextAttachmentViewer({ documentImpl = document } = {}) {
   const attachmentModal = documentImpl.getElementById('pi-chat-attachment-modal');
-  const attachmentQuote = attachmentModal ? attachmentModal.querySelector('.pi-chat-attachment-card-quote') : null;
-  const attachmentNote = attachmentModal ? attachmentModal.querySelector('.pi-chat-attachment-card-note') : null;
+  const attachmentQuote = attachmentModal
+    ? attachmentModal.querySelector('.pi-chat-attachment-card-quote')
+    : null;
+  const attachmentNote = attachmentModal
+    ? attachmentModal.querySelector('.pi-chat-attachment-card-note')
+    : null;
 
   function open(att = {}) {
     if (!attachmentModal) return;

@@ -29,7 +29,9 @@ export function setupSessionAnnotations({
       if (ui.isMobileLayout()) ui.collapseRightSidebar();
     },
     onAddToChat: (attachment) => {
-      windowImpl.dispatchEvent(new windowImpl.CustomEvent('pi-chat-attach-text', { detail: attachment }));
+      windowImpl.dispatchEvent(
+        new windowImpl.CustomEvent('pi-chat-attach-text', { detail: attachment }),
+      );
       if (ui.isMobileLayout()) ui.collapseRightSidebar();
     },
     resolveArtifact: (artifactId) => sessionRuntime.artifacts?.getArtifact(artifactId) || null,

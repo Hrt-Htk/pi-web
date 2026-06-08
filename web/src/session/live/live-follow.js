@@ -53,7 +53,11 @@ export function createFollowScrollController({
   }
 
   function getScrollPosition() {
-    let scrolled = windowImpl.scrollY || windowImpl.pageYOffset || documentImpl.documentElement.scrollTop || documentImpl.body.scrollTop;
+    let scrolled =
+      windowImpl.scrollY ||
+      windowImpl.pageYOffset ||
+      documentImpl.documentElement.scrollTop ||
+      documentImpl.body.scrollTop;
     if (contentEl && contentEl.scrollHeight > contentEl.clientHeight) {
       scrolled = Math.max(scrolled, contentEl.scrollTop);
     }
@@ -98,7 +102,9 @@ export function createFollowScrollController({
   function scrollAfterLayout(smooth, target) {
     requestAnimationFrameImpl(() => {
       scrollElementAboveComposer(target, !!smooth, scrollImpls);
-      setTimeoutImpl(() => { scrollElementAboveComposer(target, !!smooth, scrollImpls); }, 40);
+      setTimeoutImpl(() => {
+        scrollElementAboveComposer(target, !!smooth, scrollImpls);
+      }, 40);
     });
   }
   function forceFollowToBottom(smooth) {
@@ -119,11 +125,17 @@ export function createFollowScrollController({
   return {
     isFollowing: () => following,
     shouldFollow: () => following || Date.now() < forcePreviewFollowUntil,
-    extendPreviewFollow: (ms = 30000) => { forcePreviewFollowUntil = Date.now() + ms; },
-    incrementPending: (count) => { pendingCount += count; },
+    extendPreviewFollow: (ms = 30000) => {
+      forcePreviewFollowUntil = Date.now() + ms;
+    },
+    incrementPending: (count) => {
+      pendingCount += count;
+    },
     showFollowButton,
     forceFollowToBottom,
     scrollAfterLayout,
-    dispose: () => { for (const fn of cleanups) fn(); },
+    dispose: () => {
+      for (const fn of cleanups) fn();
+    },
   };
 }

@@ -37,8 +37,22 @@ export function getModelContextLimit(modelId, provider = '', contextWindows = {}
   if (id.includes('gemini-')) return 1000000;
   if (id.includes('claude-') || id.includes('sonnet') || id.includes('opus')) return 200000;
   if (id.includes('gpt-5')) return 272000;
-  if (id.includes('gpt-4') || id.includes('gpt4') || id.includes('gpt-3.5') || id.includes('o1') || id.includes('o3')) return 128000;
-  if (id.includes('llama-3') || id.includes('llama3') || id.includes('qwen') || id.includes('glm') || id.includes('mimo')) return 128000;
+  if (
+    id.includes('gpt-4') ||
+    id.includes('gpt4') ||
+    id.includes('gpt-3.5') ||
+    id.includes('o1') ||
+    id.includes('o3')
+  )
+    return 128000;
+  if (
+    id.includes('llama-3') ||
+    id.includes('llama3') ||
+    id.includes('qwen') ||
+    id.includes('glm') ||
+    id.includes('mimo')
+  )
+    return 128000;
   if (id.includes('llama-2') || id.includes('llama2')) return 4096;
   return 128000;
 }
@@ -66,7 +80,12 @@ export function collectContextUsage(entries = []) {
     if (entry?.type !== 'message' || !entry.message) continue;
     const msg = entry.message;
     if (msg.role === 'assistant' && msg.usage) {
-      contextTokens = msg.usage.totalTokens || (msg.usage.input || 0) + (msg.usage.output || 0) + (msg.usage.cacheRead || 0) + (msg.usage.cacheWrite || 0);
+      contextTokens =
+        msg.usage.totalTokens ||
+        (msg.usage.input || 0) +
+          (msg.usage.output || 0) +
+          (msg.usage.cacheRead || 0) +
+          (msg.usage.cacheWrite || 0);
       break;
     }
   }
@@ -126,7 +145,10 @@ export function updateContextUsage({
   if (textSpan) textSpan.textContent = `${percent}%`;
 
   const formatNumber = (num) => num.toLocaleString();
-  el.setAttribute('title', `Click for details (${formatNumber(usage.contextTokens)} / ${formatNumber(limit)} tokens used in context)`);
+  el.setAttribute(
+    'title',
+    `Click for details (${formatNumber(usage.contextTokens)} / ${formatNumber(limit)} tokens used in context)`,
+  );
 
   el.classList.remove('warning', 'danger');
   if (percent >= 90) el.classList.add('danger');
@@ -175,16 +197,18 @@ export function createContextUsageController({
 } = {}) {
   let contextWindows = {};
 
-  const update = () => updateContextUsage({
-    documentImpl,
-    entries,
-    knownModelLabel: getKnownModelLabel(),
-    contextWindows,
-    positionPopover,
-  });
+  const update = () =>
+    updateContextUsage({
+      documentImpl,
+      entries,
+      knownModelLabel: getKnownModelLabel(),
+      contextWindows,
+      positionPopover,
+    });
 
   if (chatApi && typeof chatApi.listModels === 'function') {
-    chatApi.listModels()
+    chatApi
+      .listModels()
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error();

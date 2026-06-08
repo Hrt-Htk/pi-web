@@ -5,11 +5,25 @@
   let { popover = false } = $props();
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
+
 {#if !popover}
-  <div id="pi-chat-context-usage" class="pi-chat-context-usage" style="display: none" title={t('composer.contextDetails')}>
+  <div
+    id="pi-chat-context-usage"
+    class="pi-chat-context-usage"
+    style="display: none"
+    title={t('composer.contextDetails')}
+  >
     <svg class="pi-context-circle" viewBox="0 0 36 36">
-      <path class="pi-context-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-      <path class="pi-context-fill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+      <path
+        class="pi-context-bg"
+        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+      />
+      <path
+        class="pi-context-fill"
+        stroke-dasharray="0, 100"
+        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+      />
     </svg>
     <span class="pi-context-text">0%</span>
   </div>

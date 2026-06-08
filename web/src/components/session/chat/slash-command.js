@@ -76,9 +76,7 @@ export function renderCommandList(
     group.items.forEach((cmd) => {
       const name = cmd.name || '';
       const desc = cmd.description || '';
-      const descHtml = desc
-        ? `<span class="slash-item-desc">${escapeHtml(desc)}</span>`
-        : '';
+      const descHtml = desc ? `<span class="slash-item-desc">${escapeHtml(desc)}</span>` : '';
       html +=
         `<button type="button" class="slash-item" data-insert="${escapeHtml(name)}">` +
         `<span class="slash-item-name">/${escapeHtml(name)}</span>${descHtml}</button>`;
@@ -136,9 +134,7 @@ export function setupSlashCommands({
       render();
       chatApi
         .getCommands(sessionId, { load: true })
-        .then((res) =>
-          res.ok ? res.json() : Promise.reject(new Error('commands error')),
-        )
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('commands error'))))
         .then((data) => {
           allCommands = (data.commands || []).filter(isPaletteCommand);
         })
@@ -177,8 +173,7 @@ export function setupSlashCommands({
     if (!trigger) return;
     const value = textarea.value;
     const replacement = `/${name} `;
-    textarea.value =
-      value.slice(0, trigger.start) + replacement + value.slice(trigger.end);
+    textarea.value = value.slice(0, trigger.start) + replacement + value.slice(trigger.end);
     const caret = trigger.start + replacement.length;
     textarea.selectionStart = textarea.selectionEnd = caret;
     close();

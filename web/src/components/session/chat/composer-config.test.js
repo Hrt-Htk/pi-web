@@ -35,7 +35,9 @@ describe('readComposerConfig', () => {
   });
 
   it('marks unavailable forms and copies the disabled reason to the title', () => {
-    const form = renderForm('data-session-id="s1" data-chat-available="false" data-chat-disabled-reason="no cwd"');
+    const form = renderForm(
+      'data-session-id="s1" data-chat-available="false" data-chat-disabled-reason="no cwd"',
+    );
     const setChatStatus = vi.fn();
 
     expect(readComposerConfig({ form, setChatStatus })).toEqual({

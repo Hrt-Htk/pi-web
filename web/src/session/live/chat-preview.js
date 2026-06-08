@@ -11,18 +11,18 @@ export function getSpinnerConfig(windowImpl = typeof window !== 'undefined' ? wi
 
   if (style === 'braille') {
     return {
-      frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
       fontFamily: 'monospace',
       interval: 80,
-      width: '12px'
+      width: '12px',
     };
   } else {
     // runcat frames mapping to unicode private use area characters in runcat.ttf font
     return {
-      frames: ["", "", "", "", ""],
+      frames: ['', '', '', '', ''],
       fontFamily: "'runcat', monospace",
       interval: 100,
-      width: '18px'
+      width: '18px',
     };
   }
 }
@@ -53,17 +53,23 @@ export function finishChatPreviewState(state) {
 // Test placeholder for TestSessionViteSourceShowsAnimatedWorkingPreviewLabel: working<span class="working-dots"
 
 const CREATIVE_MESSAGES = [
-  "Working...",
-  "Thinking...",
-  "Analyzing codebase...",
-  "Synthesizing answer...",
-  "Consulting model...",
-  "Formulating solution...",
-  "Checking files...",
-  "Drafting response..."
+  'Working...',
+  'Thinking...',
+  'Analyzing codebase...',
+  'Synthesizing answer...',
+  'Consulting model...',
+  'Formulating solution...',
+  'Checking files...',
+  'Drafting response...',
 ];
 
-export function startWorkingAnimation(state, { setIntervalImpl = setInterval, windowImpl = typeof window !== 'undefined' ? window : null } = {}) {
+export function startWorkingAnimation(
+  state,
+  {
+    setIntervalImpl = setInterval,
+    windowImpl = typeof window !== 'undefined' ? window : null,
+  } = {},
+) {
   stopWorkingAnimation(state);
 
   const config = getSpinnerConfig(windowImpl);
@@ -126,16 +132,16 @@ function getActiveMessage(content) {
   const openThoughtIdx = content.lastIndexOf('<thought>');
   const closeThoughtIdx = content.lastIndexOf('</thought>');
   if (openThoughtIdx !== -1 && openThoughtIdx > closeThoughtIdx) {
-    return "Thinking...";
+    return 'Thinking...';
   }
 
   // Check if there is an active/open code block
   const codeBlockCount = (content.match(/```/g) || []).length;
   if (codeBlockCount % 2 === 1) {
-    return "Writing code...";
+    return 'Writing code...';
   }
 
-  return "Generating response...";
+  return 'Generating response...';
 }
 
 function setMarkdownContent(el, html) {
@@ -183,18 +189,25 @@ function createAssistantPreview(documentImpl, { waiting = false, windowImpl = nu
   return el;
 }
 
-export function renderPendingChatState(message, state, {
-  documentImpl = document,
-  windowImpl = typeof window !== 'undefined' ? window : null,
-  renderMarkdown,
-  shouldFollow = () => false,
-  forceFollowToBottom = () => {},
-  scrollAfterLayout = () => {},
-  setIntervalImpl = setInterval
-} = {}) {
+export function renderPendingChatState(
+  message,
+  state,
+  {
+    documentImpl = document,
+    windowImpl = typeof window !== 'undefined' ? window : null,
+    renderMarkdown,
+    shouldFollow = () => false,
+    forceFollowToBottom = () => {},
+    scrollAfterLayout = () => {},
+    setIntervalImpl = setInterval,
+  } = {},
+) {
   const text = String(message || '').trim();
   if (!text) return false;
-  const container = documentImpl.getElementById('messages') || documentImpl.getElementById('content') || documentImpl.body;
+  const container =
+    documentImpl.getElementById('messages') ||
+    documentImpl.getElementById('content') ||
+    documentImpl.body;
   clearChatPreviewState(state);
 
   state.pendingUserEl = documentImpl.createElement('div');
@@ -217,17 +230,24 @@ export function renderPendingChatState(message, state, {
   return true;
 }
 
-export function renderChatPreviewState(payload, state, {
-  documentImpl = document,
-  windowImpl = typeof window !== 'undefined' ? window : null,
-  renderMarkdown,
-  shouldFollow = () => false,
-  forceFollowToBottom = () => {},
-  scrollAfterLayout = () => {},
-  setIntervalImpl = setInterval
-} = {}) {
+export function renderChatPreviewState(
+  payload,
+  state,
+  {
+    documentImpl = document,
+    windowImpl = typeof window !== 'undefined' ? window : null,
+    renderMarkdown,
+    shouldFollow = () => false,
+    forceFollowToBottom = () => {},
+    scrollAfterLayout = () => {},
+    setIntervalImpl = setInterval,
+  } = {},
+) {
   if (!payload || typeof payload.content !== 'string') return false;
-  const container = documentImpl.getElementById('messages') || documentImpl.getElementById('content') || documentImpl.body;
+  const container =
+    documentImpl.getElementById('messages') ||
+    documentImpl.getElementById('content') ||
+    documentImpl.body;
   if (!state.chatPreviewEl) {
     state.chatPreviewEl = createAssistantPreview(documentImpl, { windowImpl });
     container.appendChild(state.chatPreviewEl);

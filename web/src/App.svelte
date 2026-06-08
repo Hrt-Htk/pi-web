@@ -31,7 +31,10 @@
   // changes neither (e.g. FullScreenSheet's mobile back-button trap, which
   // pushes the same URL) is a no-op.
   onMount(() => {
-    const syncPath = () => { path = window.location.pathname; search = window.location.search; };
+    const syncPath = () => {
+      path = window.location.pathname;
+      search = window.location.search;
+    };
     const { history } = window;
     const wrap = (name) => {
       const original = history[name];
@@ -54,7 +57,8 @@
       window.removeEventListener('popstate', syncPath);
       window.removeEventListener('pi:locationchange', syncPath);
       if (history.pushState?.__piOriginal === originalPush) history.pushState = originalPush;
-      if (history.replaceState?.__piOriginal === originalReplace) history.replaceState = originalReplace;
+      if (history.replaceState?.__piOriginal === originalReplace)
+        history.replaceState = originalReplace;
     };
   });
 </script>
@@ -70,9 +74,7 @@
 {:else if path === '/login'}
   <LoginPage />
 {:else}
-  <section class="svelte-spa-probe" aria-label="Svelte app probe">
-    Svelte ready for pi-web
-  </section>
+  <section class="svelte-spa-probe" aria-label="Svelte app probe">Svelte ready for pi-web</section>
 {/if}
 
 <VersionController />

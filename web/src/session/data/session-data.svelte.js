@@ -88,6 +88,7 @@ export class SessionDataModel {
   }
 
   // Build a reactive model straight from an embedded payload + URL params.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read-only default param for URL parsing, not reactive state
   static fromPayload(payload, params = new URLSearchParams()) {
     // Lazy import avoidance: createSessionDataModel lives in session-data.js and
     // would create a cycle if imported at top level alongside buildSessionLookups
@@ -177,9 +178,10 @@ export class SessionDataModel {
     refillMap(this.labelMap, lk.labelMap);
 
     const nodeMap = buildTreeNodeMap(buildTree(this.entries, this.labelMap));
-    let nextLeafId = this.currentLeafId && nodeMap.has(this.currentLeafId)
-      ? findNewestLeaf(this.currentLeafId, nodeMap)
-      : '';
+    let nextLeafId =
+      this.currentLeafId && nodeMap.has(this.currentLeafId)
+        ? findNewestLeaf(this.currentLeafId, nodeMap)
+        : '';
     if (!nextLeafId) {
       for (let i = this.entries.length - 1; i >= 0; i -= 1) {
         if (this.entries[i]?.id && this.entries[i]?.type !== 'label') {

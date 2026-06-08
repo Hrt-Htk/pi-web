@@ -36,13 +36,22 @@
     let inputBlockers = null;
     function blockInput() {
       if (inputBlockers) return;
-      const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
-      const swallowWheel = (e) => { e.preventDefault(); };
+      const swallow = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      const swallowWheel = (e) => {
+        e.preventDefault();
+      };
       doc.addEventListener('keydown', swallow, true);
       doc.addEventListener('wheel', swallowWheel, { capture: true, passive: false });
       doc.addEventListener('touchmove', swallowWheel, { capture: true, passive: false });
       inputBlockers = { swallow, swallowWheel };
-      try { doc.activeElement?.blur?.(); } catch { /* ignore */ }
+      try {
+        doc.activeElement?.blur?.();
+      } catch {
+        /* ignore */
+      }
     }
     function unblockInput() {
       if (!inputBlockers) return;
@@ -59,7 +68,9 @@
         videoEl.playbackRate = 0.6; // calmer, slower cat
         const p = videoEl.play();
         if (p && p.catch) p.catch(() => {});
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const view = {
@@ -74,7 +85,9 @@
         blockInput();
         win.requestAnimationFrame?.(playVideo);
       },
-      setBreakTimer(text) { timerText = text; },
+      setBreakTimer(text) {
+        timerText = text;
+      },
       showSleep({ locked, showSnooze: snooze, message }) {
         variant = locked ? 'locked' : 'sleep';
         everShown = true;
@@ -95,7 +108,11 @@
     const isActive = () => {
       const hidden = doc.hidden === true || doc.visibilityState === 'hidden';
       let focused = true;
-      try { if (typeof doc.hasFocus === 'function') focused = doc.hasFocus(); } catch { /* assume focused */ }
+      try {
+        if (typeof doc.hasFocus === 'function') focused = doc.hasFocus();
+      } catch {
+        /* assume focused */
+      }
       return !hidden && focused;
     };
 
@@ -111,6 +128,7 @@
     return () => {
       controller.destroy();
       unblockInput();
+      // eslint-disable-next-line svelte/no-dom-manipulating -- imperatively-created overlay, not a Svelte-rendered node
       overlayEl?.remove();
       if (win.__piCatGatekeeper === controller) win.__piCatGatekeeper = null;
       controller = null;
@@ -131,10 +149,27 @@
 >
   <div class="cat-overlay-inner">
     <div class="cat-art" data-cat-art>
-      {#if everShown}<video class="cat-video" bind:this={videoEl} src="/cat.webm" autoplay loop muted playsinline aria-label="cat"></video>{/if}
+      {#if everShown}<video
+          class="cat-video"
+          bind:this={videoEl}
+          src="/cat.webm"
+          autoplay
+          loop
+          muted
+          playsinline
+          aria-label="cat"
+        ></video>{/if}
     </div>
     <div class="cat-timer" data-cat-timer style:display={showTimer ? '' : 'none'}>{timerText}</div>
-    <div class="cat-message" data-cat-message style:display={showMessage ? '' : 'none'}>{messageText}</div>
-    <button type="button" class="cat-snooze" data-cat-snooze style:display={showSnooze ? '' : 'none'} onclick={onSnooze}>Snooze 5 min</button>
+    <div class="cat-message" data-cat-message style:display={showMessage ? '' : 'none'}>
+      {messageText}
+    </div>
+    <button
+      type="button"
+      class="cat-snooze"
+      data-cat-snooze
+      style:display={showSnooze ? '' : 'none'}
+      onclick={onSnooze}>Snooze 5 min</button
+    >
   </div>
 </div>

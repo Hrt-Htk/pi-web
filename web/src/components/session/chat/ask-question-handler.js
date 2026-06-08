@@ -14,14 +14,19 @@ export function setupAskQuestionHandlers({
         const answers = Array.from(block.querySelectorAll('.ask-question-option-action.selected'))
           .map((el) => el.dataset.answer || '')
           .filter(Boolean);
-        if (answers.length && questionText) parts.push(`"${questionText}" = "${answers.join(', ')}"`);
+        if (answers.length && questionText)
+          parts.push(`"${questionText}" = "${answers.join(', ')}"`);
       });
       if (parts.length === 0) return;
-      card.querySelectorAll('.ask-question-option-action').forEach((button) => { button.disabled = true; });
+      card.querySelectorAll('.ask-question-option-action').forEach((button) => {
+        button.disabled = true;
+      });
       submitBtn.disabled = true;
       const sent = await sendChatMessage(parts.join('\n'), []);
       if (!sent) {
-        card.querySelectorAll('.ask-question-option-action').forEach((button) => { button.disabled = false; });
+        card.querySelectorAll('.ask-question-option-action').forEach((button) => {
+          button.disabled = false;
+        });
         submitBtn.disabled = false;
       }
       return;
@@ -48,7 +53,9 @@ export function setupAskQuestionHandlers({
       if (block.dataset.multiSelect === 'true') {
         option.classList.toggle('selected');
       } else {
-        block.querySelectorAll('.ask-question-option-action').forEach((button) => button.classList.remove('selected'));
+        block
+          .querySelectorAll('.ask-question-option-action')
+          .forEach((button) => button.classList.remove('selected'));
         option.classList.add('selected');
       }
     }

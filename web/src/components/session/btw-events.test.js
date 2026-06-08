@@ -79,7 +79,9 @@ describe('btw events', () => {
   });
 
   it('closes EventSource defensively', () => {
-    const close = vi.fn(() => { throw new Error('already closed'); });
+    const close = vi.fn(() => {
+      throw new Error('already closed');
+    });
     expect(() => closeBtwEventSource({ close })).not.toThrow();
     expect(close).toHaveBeenCalled();
     expect(() => closeBtwEventSource(null)).not.toThrow();

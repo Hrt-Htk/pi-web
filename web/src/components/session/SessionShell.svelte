@@ -51,7 +51,9 @@
     <main id="content">
       <div id="header-container"><SessionInfoHeader model={sessionModel} /></div>
       <LoadEarlier model={sessionModel} {sessionId} navigateTo={runtime.navigateTo} />
-      <div id="messages"><SessionContent model={sessionModel} afterRender={contentRuntime.afterRender} live /></div>
+      <div id="messages">
+        <SessionContent model={sessionModel} afterRender={contentRuntime.afterRender} live />
+      </div>
     </main>
     <ChatComposer {sessionId} {chatAvailable} {chatDisabledReason} {cwd} {modelLabel} />
   </div>
@@ -61,11 +63,25 @@
 
 <ShortcutsModal bind:open={sessionModals.shortcuts} />
 <ModelUsageModal bind:open={sessionModals.modelUsage} />
-<ForkModal bind:open={sessionModals.fork.open} entries={sessionModals.fork.entries} onSelect={sessionModals.fork.onSelect} />
-<CatGatekeeperSettings bind:open={sessionModals.catSettings.open} controller={sessionModals.catSettings.controller} onChange={sessionModals.catSettings.onChange} />
-<LabelModal bind:open={sessionModals.label.open} entryId={sessionModals.label.entryId} currentLabel={sessionModals.label.currentLabel} onSave={sessionModals.label.onSave} />
+<ForkModal
+  bind:open={sessionModals.fork.open}
+  entries={sessionModals.fork.entries}
+  onSelect={sessionModals.fork.onSelect}
+/>
+<CatGatekeeperSettings
+  bind:open={sessionModals.catSettings.open}
+  controller={sessionModals.catSettings.controller}
+  onChange={sessionModals.catSettings.onChange}
+/>
+<LabelModal
+  bind:open={sessionModals.label.open}
+  entryId={sessionModals.label.entryId}
+  currentLabel={sessionModals.label.currentLabel}
+  onSave={sessionModals.label.onSave}
+/>
 
 <ShareDialog {sessionId} />
 <CatGatekeeper />
 <BtwPopup {cwd} parentId={sessionId} />
-<svelte:element this={'script'} id="session-data" type="application/json" bind:this={dataEl}></svelte:element>
+<svelte:element this={"script"} id="session-data" type="application/json" bind:this={dataEl}
+></svelte:element>

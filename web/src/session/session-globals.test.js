@@ -10,17 +10,18 @@ import { setSessionPaletteApi } from '../shared/command-palette-runtime.js';
 // setupSessionGlobals registers them without throwing in jsdom.
 
 function dispatchKey(key, { meta = false, shift = false } = {}) {
-  window.dispatchEvent(new KeyboardEvent('keydown', {
-    key,
-    metaKey: meta,
-    shiftKey: shift,
-    bubbles: true,
-    cancelable: true,
-  }));
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key,
+      metaKey: meta,
+      shiftKey: shift,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
 }
 
 describe('setupSessionGlobals — keyboard shortcuts', () => {
-  let model;
   let dispose;
 
   beforeEach(() => {
@@ -31,16 +32,16 @@ describe('setupSessionGlobals — keyboard shortcuts', () => {
       <button id="new-session-header-btn"></button>
     `;
     document.body.classList.remove('sidebar-collapsed');
-    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    window.matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
     window.fetch = vi.fn(async () => new Response('{}', { status: 200 }));
     window.scrollTo = vi.fn();
-    model = { truncated: false, reconcile: vi.fn(), leafId: 'leaf' };
     dispose = setupSessionGlobals({
       windowImpl: window,
       documentImpl: document,
-      model,
-      sessionId: 'sess1',
-      navigateTo: vi.fn(),
     });
   });
 

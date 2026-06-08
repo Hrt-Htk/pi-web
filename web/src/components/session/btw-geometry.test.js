@@ -64,7 +64,9 @@ describe('btw geometry', () => {
   });
 
   it('drags within viewport bounds and ignores action buttons', () => {
-    const dom = new JSDOM('<body><div id="root"><div id="handle"><div class="pi-btw-actions"><button id="action"></button></div></div></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="root"><div id="handle"><div class="pi-btw-actions"><button id="action"></button></div></div></div></body>',
+    );
     const root = dom.window.document.getElementById('root');
     const handle = dom.window.document.getElementById('handle');
     const action = dom.window.document.getElementById('action');
@@ -77,12 +79,20 @@ describe('btw geometry', () => {
       saveGeometry,
     });
 
-    action.dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
-    dom.window.document.dispatchEvent(new dom.window.MouseEvent('pointermove', { clientX: 200, clientY: 200 }));
+    action.dispatchEvent(
+      new dom.window.MouseEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }),
+    );
+    dom.window.document.dispatchEvent(
+      new dom.window.MouseEvent('pointermove', { clientX: 200, clientY: 200 }),
+    );
     expect(saveGeometry).not.toHaveBeenCalled();
 
-    handle.dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 80 }));
-    dom.window.document.dispatchEvent(new dom.window.MouseEvent('pointermove', { clientX: 300, clientY: 300 }));
+    handle.dispatchEvent(
+      new dom.window.MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 80 }),
+    );
+    dom.window.document.dispatchEvent(
+      new dom.window.MouseEvent('pointermove', { clientX: 300, clientY: 300 }),
+    );
     expect(root.style.left).toBe('50px');
     expect(root.style.top).toBe('30px');
     expect(saveGeometry).toHaveBeenCalledWith({ left: 50, top: 30 });
@@ -96,14 +106,19 @@ describe('btw geometry', () => {
     const saveGeometry = vi.fn();
     let resizeCallback = null;
     class ResizeObserver {
-      constructor(cb) { resizeCallback = cb; }
+      constructor(cb) {
+        resizeCallback = cb;
+      }
       observe = vi.fn();
     }
 
     persistBtwResize(root, {
       windowImpl: {
         ResizeObserver,
-        requestAnimationFrame: (cb) => { cb(); return 1; },
+        requestAnimationFrame: (cb) => {
+          cb();
+          return 1;
+        },
         cancelAnimationFrame: vi.fn(),
       },
       saveGeometry,
