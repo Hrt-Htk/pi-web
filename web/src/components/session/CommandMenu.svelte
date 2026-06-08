@@ -27,26 +27,14 @@
   import { navigate } from '../../shared/navigation.js';
   import { openSessionPalette } from '../../shared/command-palette-runtime.js';
   import { openModelUsage, openFork } from '../../session/session-modals.svelte.js';
+  import { showToast } from '../../shared/toast.js';
 
   let { sessionId = '' } = $props();
 
   const userDocsUrl = 'https://github.com/ygncode/pi-web/tree/main/user-docs';
   const chatUrl = (path, id) => `${path}?id=${encodeURIComponent(id)}`;
 
-  let toastTimer = null;
-  function showToast(message) {
-    let notice = document.getElementById('command-menu-toast');
-    if (!notice) {
-      notice = document.createElement('div');
-      notice.id = 'command-menu-toast';
-      notice.className = 'toast-notice';
-      document.body.appendChild(notice);
-    }
-    notice.textContent = message;
-    notice.classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => notice.classList.remove('visible'), 1500);
-  }
+  const toast = (message) => showToast(message, { id: 'command-menu-toast' });
 
   const clickHidden = (id) => document.getElementById(id)?.click();
   const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
@@ -156,9 +144,9 @@
               const savedName = (data && data.name) || trimmed;
               if (titleEl) titleEl.textContent = savedName;
               document.title = savedName;
-              showToast('Renamed');
+              toast('Renamed');
             })
-            .catch(() => showToast('Rename failed'));
+            .catch(() => toast('Rename failed'));
           break;
         }
         case 'fork': {
@@ -177,14 +165,14 @@
                   .then((res) => res.json())
                   .then((data) => {
                     if (data.id) navigate('/session?id=' + encodeURIComponent(data.id));
-                    else showToast(data.error || 'Fork failed');
+                    else toast(data.error || 'Fork failed');
                   })
-                  .catch(() => showToast('Fork failed'));
+                  .catch(() => toast('Fork failed'));
               };
               const opened = openFork({ entries, onSelect });
-              if (opened === false) showToast('No user messages to fork from');
+              if (opened === false) toast('No user messages to fork from');
             })
-            .catch(() => showToast('Failed to load messages'));
+            .catch(() => toast('Failed to load messages'));
           break;
         }
         case 'clone': {
@@ -197,9 +185,9 @@
             .then((res) => res.json())
             .then((data) => {
               if (data.id) navigate('/session?id=' + encodeURIComponent(data.id));
-              else showToast(data.error || 'Clone failed');
+              else toast(data.error || 'Clone failed');
             })
-            .catch(() => showToast('Clone failed'));
+            .catch(() => toast('Clone failed'));
           break;
         }
         case 'version':
@@ -211,7 +199,7 @@
           window.open(userDocsUrl, '_blank', 'noreferrer');
           break;
         case 'diff':
-          showToast('Not yet implemented');
+          toast('Not yet implemented');
           closeMenu();
           break;
         default:
@@ -256,7 +244,6 @@
       document.removeEventListener('click', onDocClick);
       document.removeEventListener('keydown', onKey);
       containers.forEach((c) => c.removeEventListener('click', onContainerClick));
-      clearTimeout(toastTimer);
     };
   });
 </script>

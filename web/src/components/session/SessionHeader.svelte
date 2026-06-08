@@ -3,26 +3,13 @@
   import { icon, PanelLeft, Plus, SquarePen, MoreHorizontal } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { navigate } from '../../shared/navigation.js';
+  import { showToast } from '../../shared/toast.js';
   let { title = 'Session', cwd = '', sessionId = '' } = $props();
 
   // Resume ("Terminal") + New Session behavior, absorbed from the former
   // live/resume-button.js and live/new-session-button.js (Svelte migration
   // Phase 3). These are hidden command-relay buttons that the command menu and
   // header buttons .click() by id; live-only (export omits this header).
-  function showToast(id, text, holder, duration) {
-    let notice = document.getElementById(id);
-    if (!notice) {
-      notice = document.createElement('div');
-      notice.id = id;
-      notice.className = 'toast-notice';
-      document.body.appendChild(notice);
-    }
-    notice.textContent = text;
-    clearTimeout(holder.timer);
-    notice.classList.add('visible');
-    holder.timer = setTimeout(() => notice.classList.remove('visible'), duration);
-    return notice;
-  }
 
   // Copy with a clipboard guard + execCommand fallback for insecure contexts.
   function copyText(text, onCopied) {
@@ -45,31 +32,25 @@
   }
 
   // Passive "Copied" toast — does NOT mutate the resume button's own text.
-  function showResumeCopiedNotice(command, holder) {
-    const notice = showToast('resume-copy-notice', t('common.copied'), holder, 1200);
-    notice.title = command;
+  function showResumeCopiedNotice(command) {
+    showToast(t('common.copied'), { id: 'resume-copy-notice', duration: 1200, title: command });
   }
+
+  const newSessionToast = (text) => showToast(text, { id: 'new-session-toast', duration: 2500 });
 
   onMount(() => {
     const resumeBtn = document.getElementById('resume-btn');
     const newBtn = document.getElementById('new-btn');
-    const resumeHolder = {};
-    const newHolder = {};
 
     const onResume = () => {
       const resumeSessionArg = document.body.dataset.sessionUuid;
       const command = 'pi --session ' + resumeSessionArg;
-      copyText(command, () => showResumeCopiedNotice(command, resumeHolder));
+      copyText(command, () => showResumeCopiedNotice(command));
     };
 
     const onNew = async () => {
       if (!cwd) {
-        showToast(
-          'new-session-toast',
-          'No working directory available for this session',
-          newHolder,
-          2500,
-        );
+        newSessionToast('No working directory available for this session');
         return;
       }
       const originalHTML = newBtn.innerHTML;
@@ -83,15 +64,15 @@
         });
         const data = await response.json();
         if (data.error) {
-          showToast('new-session-toast', data.error || 'Failed to create session', newHolder, 2500);
+          newSessionToast(data.error || 'Failed to create session');
         } else if (data.id) {
           navigate('/session?id=' + encodeURIComponent(data.id));
           return;
         } else {
-          showToast('new-session-toast', 'Failed to create session', newHolder, 2500);
+          newSessionToast('Failed to create session');
         }
       } catch (err) {
-        showToast('new-session-toast', err.message || 'Network error', newHolder, 2500);
+        newSessionToast(err.message || 'Network error');
       }
       newBtn.innerHTML = originalHTML;
       newBtn.disabled = false;

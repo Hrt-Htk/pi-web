@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { icon, Share2 } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
+  import { showToast } from '../../shared/toast.js';
 
   let { sessionId = '' } = $props();
 
@@ -17,16 +18,12 @@
   let errorMsg = $state('');
   let overlayEl = $state(null);
 
-  let copyNoticeTimer = null;
-
   function showShareCopiedNotice(label, text) {
-    const notice = document.getElementById('share-copy-notice');
-    if (!notice) return;
-    notice.textContent = t('share.copiedSuffix', { label });
-    notice.title = text;
-    clearTimeout(copyNoticeTimer);
-    notice.classList.add('visible');
-    copyNoticeTimer = setTimeout(() => notice.classList.remove('visible'), 1200);
+    showToast(t('share.copiedSuffix', { label }), {
+      id: 'share-copy-notice',
+      duration: 1200,
+      title: text,
+    });
   }
 
   // Copy with a clipboard guard + execCommand fallback for insecure contexts.
@@ -101,7 +98,6 @@
       shareBtn?.removeEventListener('click', onShare);
       document.removeEventListener('keydown', onKey);
       overlayEl?.removeEventListener('click', onBackdrop);
-      clearTimeout(copyNoticeTimer);
     };
   });
 </script>
