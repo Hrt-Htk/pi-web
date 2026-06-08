@@ -15,12 +15,15 @@ func TestSessionViteSourceIncludesChatPreviewSSEHandling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read web/src/session/live/chat-preview.js: %v", err)
 	}
-	// The live-reload runner + SSE primitives were absorbed into <LiveReload>.
+	events, err := os.ReadFile(repoPath("web/src/session/live/live-events.js"))
+	if err != nil {
+		t.Fatalf("read web/src/session/live/live-events.js: %v", err)
+	}
 	runner, err := os.ReadFile(repoPath("web/src/components/session/LiveReload.svelte"))
 	if err != nil {
 		t.Fatalf("read web/src/components/session/LiveReload.svelte: %v", err)
 	}
-	combined := string(preview) + string(runner)
+	combined := string(preview) + string(events) + string(runner)
 	for _, want := range []string{
 		"chat-preview",
 		"renderChatPreview",

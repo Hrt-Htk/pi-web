@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSessionEventSource, getSessionIdFromLocation, handleSessionReload, wireSessionEvents } from './LiveReload.svelte';
+import {
+  createSessionEventSource,
+  getSessionIdFromLocation,
+  handleSessionReload,
+  wireSessionEvents,
+} from './live-events.js';
 
 describe('live events', () => {
   it('gets session id and creates event source', () => {
