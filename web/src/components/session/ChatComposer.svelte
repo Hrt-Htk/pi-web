@@ -25,6 +25,7 @@
   } from './chat/mention-autocomplete.js';
   import { createContextUsageController } from './chat/context-usage.js';
   import { setupComposerExpansion } from './chat/composer-expand.js';
+  import { setupWorkerStatusPolling } from './chat/worker-status.js';
 
   export {
     setupModelSelector,
@@ -691,65 +692,21 @@ export function runChatComposer({
       if (actions) actions.style.display = '';
     });
 
-    let workerStatusInflight = false;
-    let workerStatusPending = false;
-    let lastWorkerState = null;
-    async function refreshWorkerStatus() {
-      if (workerStatusInflight) {
-        // Mark a follow-up so the in-flight response doesn't swallow a
-        // newer state change (e.g. assistant just finished while we were
-        // polling stale "running" state).
-        workerStatusPending = true;
-        return;
-      }
-      workerStatusInflight = true;
-      try {
-        const response = await __piChatApi.getWorkerStatus(sessionId);
-        if (!response.ok) return;
-        const data = await response.json();
-        const apiModelLabel = data.model ? data.model + (data.modelProvider ? ' @ ' + data.modelProvider : '') : '';
-        if (apiModelLabel) knownModelLabel = apiModelLabel;
-        if (data.thinkingLevel) knownThinkingLevel = data.thinkingLevel;
-        if (data.state === 'running') setStatus('running', 'running');
-        if (data.state === 'idle') setStatus('idle', '');
-        if (data.state === 'error') setStatus(data.error || 'worker error', 'error');
-        if (lastWorkerState === 'running' && data.state === 'idle') {
-          try {
-            window.dispatchEvent(new CustomEvent('pi-worker-done'));
-          } catch (_) {}
-        }
-        if (data.state) lastWorkerState = data.state;
-        setModelLabel(knownModelLabel);
-        setThinkingLabel(knownThinkingLevel);
-        updateContextUsage();
-        if (data.modelProvider && data.model && onWorkerModelUpdate) {
-          onWorkerModelUpdate(data.modelProvider, data.model);
-        }
-      } catch {
-        setStatus('status unavailable', 'error');
-      } finally {
-        workerStatusInflight = false;
-        if (workerStatusPending) {
-          workerStatusPending = false;
-          // Drain follow-up immediately so a state change that arrived
-          // during the previous request gets reflected without waiting
-          // for the next poll tick.
-          refreshWorkerStatus();
-        }
-      }
-    }
-
-    setInterval(refreshWorkerStatus, 1500);
-    refreshWorkerStatus();
-    updateContextUsage();
-
-    // Trigger an immediate status refresh whenever the session reloads (the
-    // file watcher fires this when the assistant's final message lands).
-    // Without this, the Cancel button + "running" status linger until the
-    // next poll tick, which feels broken right after a response completes.
-    window.addEventListener('pi-session-reload', () => {
-      refreshWorkerStatus();
-      updateContextUsage();
+    setupWorkerStatusPolling({
+      windowImpl: window,
+      chatApi: __piChatApi,
+      sessionId,
+      setStatus,
+      setModelLabel,
+      setThinkingLabel,
+      updateContextUsage,
+      getKnownModelLabel: () => knownModelLabel,
+      setKnownModelLabel: (label) => { knownModelLabel = label; },
+      getKnownThinkingLevel: () => knownThinkingLevel,
+      setKnownThinkingLevel: (level) => { knownThinkingLevel = level; },
+      getWorkerModelUpdate: () => onWorkerModelUpdate,
+      setIntervalImpl: setInterval,
+      CustomEventImpl: CustomEvent,
     });
 
     // Focus the message textarea on page load so the user can start typing immediately.
