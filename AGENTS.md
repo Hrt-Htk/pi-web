@@ -7,7 +7,7 @@
 
 ## Docs
 
-Read the relevant doc in `@docs/` before structural changes.
+Read the relevant doc in `@docs/` before structural changes, and update the matching doc whenever your change makes it out of date.
 
 ## Testing
 
