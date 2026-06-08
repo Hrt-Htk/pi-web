@@ -24,6 +24,7 @@
     setupMentionAutocomplete,
   } from './chat/mention-autocomplete.js';
   import { createContextUsageController } from './chat/context-usage.js';
+  import { setupComposerExpansion } from './chat/composer-expand.js';
 
   export {
     setupModelSelector,
@@ -289,34 +290,20 @@ export function runChatComposer({
     updateSendEnabled();
 
 
-    const expandButton = document.getElementById('pi-chat-expand');
-    const EXPAND_STORAGE_KEY = 'pi-chat:composer-expanded:' + (sessionId || 'default');
-    function applyComposerExpanded(expanded) {
-      if (!shell) return;
-      shell.classList.toggle('expanded', !!expanded);
-      if (expandButton) {
-        const label = expanded ? 'Collapse composer' : 'Expand composer';
-        expandButton.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-        expandButton.setAttribute('aria-label', label);
-        expandButton.title = label;
-      }
-      updateComposerHeightVar();
-    }
-    let initialExpanded = false;
+    let composerStorage = null;
     try {
-      initialExpanded = window.localStorage && window.localStorage.getItem(EXPAND_STORAGE_KEY) === '1';
-    } catch (_) { /* localStorage unavailable */ }
-    applyComposerExpanded(initialExpanded);
-    if (expandButton) {
-      expandButton.addEventListener('click', () => {
-        const willExpand = !shell.classList.contains('expanded');
-        applyComposerExpanded(willExpand);
-        try {
-          if (window.localStorage) window.localStorage.setItem(EXPAND_STORAGE_KEY, willExpand ? '1' : '0');
-        } catch (_) { /* localStorage unavailable */ }
-        if (willExpand && textarea && typeof textarea.focus === 'function') textarea.focus();
-      });
+      composerStorage = window.localStorage;
+    } catch (_) {
+      composerStorage = null;
     }
+    setupComposerExpansion({
+      sessionId,
+      shell,
+      expandButton: document.getElementById('pi-chat-expand'),
+      textarea,
+      storage: composerStorage,
+      onHeightChange: updateComposerHeightVar,
+    });
 
     function setStatus(text, cls) {
       setChatStatus(text, cls);
