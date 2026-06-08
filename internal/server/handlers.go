@@ -115,7 +115,10 @@ func (s *Server) handleApiCloneSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		LeafID string `json:"leafId"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
 
 	resolved, err := s.cache.Resolve(s.sessionsDir, r.URL.Query().Get("id"))
 	if resolveOrWriteError(w, err) {
