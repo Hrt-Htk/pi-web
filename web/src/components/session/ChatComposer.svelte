@@ -32,6 +32,7 @@
   import { setupAttachmentManager } from './chat/attachment-manager.js';
   import { setupCwdCopy } from './chat/cwd-copy.js';
   import { setupComposerHeightVar } from './chat/composer-height.js';
+  import { createComposerSendState } from './chat/composer-send-state.js';
   import { createChatToolbarState } from './chat/toolbar-state.js';
   import { setupChatSubmission } from './chat/chat-submit.js';
   import { createChatSelectorLoaders } from './chat/selector-loaders.js';
@@ -167,18 +168,12 @@ export function runChatComposer({
     // per-session in localStorage.
     const shell = form.querySelector('.pi-chat-shell');
     let attachments = { hasAttachments: () => false };
-
-    // Enable Send only when there is text or an attachment.
-    function hasComposerContent() {
-      const v = textarea ? textarea.value : '';
-      return (v && v.trim().length > 0) || attachments.hasAttachments();
-    }
-    function updateSendEnabled() {
-      if (!sendButton) return;
-      // Don't fight transient sending/disabled state set by sendChatMessage.
-      if (sendButton.dataset.sending === '1') return;
-      sendButton.disabled = !hasComposerContent();
-    }
+    const sendState = createComposerSendState({
+      textarea,
+      sendButton,
+      getAttachments: () => attachments,
+    });
+    const updateSendEnabled = sendState.updateSendEnabled;
 
     attachments = setupAttachmentManager({
       documentImpl: document,
