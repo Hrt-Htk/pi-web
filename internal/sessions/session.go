@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+// Session JSONL is read line-by-line; a single line (e.g. a large assistant
+// message or pasted blob) can be big, so the scanner starts with a 64KB buffer
+// and grows up to maxScanLineBytes. The cap bounds memory against an
+// attacker-controlled file with a pathologically long line.
+const (
+	scanInitialBufferBytes = 64 * 1024
+	maxScanLineBytes       = 256 * 1024 * 1024
+)
+
 // Typed structs for ParseSummary — avoid map[string]any per line.
 type summaryLine struct {
 	Type      string      `json:"type"`
@@ -169,7 +178,7 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 
 	var headerName, sessionInfoName, firstUserText, headerCwd string
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), 256*1024*1024)
+	scanner.Buffer(make([]byte, scanInitialBufferBytes), maxScanLineBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if len(line) == 0 {
@@ -467,7 +476,7 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 	seenSessionHeaders := make(map[string]bool)
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), 256*1024*1024)
+	scanner.Buffer(make([]byte, scanInitialBufferBytes), maxScanLineBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -722,7 +731,7 @@ func readSessionCWD(dir string) string {
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), 256*1024*1024)
+	scanner.Buffer(make([]byte, scanInitialBufferBytes), maxScanLineBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if len(line) == 0 {
@@ -880,7 +889,7 @@ func createBranchSessionFile(sessionsDir, sourcePath, targetEntryID string, now 
 	seenSessionHeaders := make(map[string]bool)
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), 256*1024*1024)
+	scanner.Buffer(make([]byte, scanInitialBufferBytes), maxScanLineBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
