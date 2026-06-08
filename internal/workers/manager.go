@@ -89,10 +89,8 @@ type createCall struct {
 // The metrics dashboard uses it as the threshold for flagging "zombie" workers.
 const DefaultIdleTTL = 10 * time.Minute
 
-const defaultIdleTTL = DefaultIdleTTL
-
 func NewManager(factory Factory) *Manager {
-	return NewManagerWithTTL(factory, defaultIdleTTL)
+	return NewManagerWithTTL(factory, DefaultIdleTTL)
 }
 
 // NewManagerWithTTL is the same as NewManager but lets callers override the
