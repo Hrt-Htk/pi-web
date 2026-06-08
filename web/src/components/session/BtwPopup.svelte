@@ -7,11 +7,17 @@
   import { onMount } from 'svelte';
   import { getSpinnerConfig } from '../../session/live/chat-preview.js';
   import { t } from '../../shared/i18n.js';
+  import {
+    enableBtwDrag,
+    loadBtwGeometry,
+    persistBtwResize,
+    placeBtwInitial,
+    saveBtwGeometry,
+  } from './btw-geometry.js';
   import { btwContentText, createBtwMarkdownRenderer, renderBtwEntryParts } from './btw-render.js';
 
   let { cwd = '', parentId = '' } = $props();
 
-  const POS_KEY = 'pi-btw:window';
   const GLOBAL_PARENT = '__global__';
 
   let open = $state(false);
@@ -44,19 +50,8 @@
   const renderedEntries = $derived(entries.map(renderEntryParts).filter(Boolean));
   const isEmpty = $derived(renderedEntries.length === 0 && !pendingUser && !(running || streamingText));
 
-  // ── geometry persistence ──
-  function loadGeom() {
-    try {
-      const raw = window.localStorage?.getItem(POS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  }
-  function saveGeom(patch) {
-    try {
-      const cur = loadGeom() || {};
-      window.localStorage?.setItem(POS_KEY, JSON.stringify({ ...cur, ...patch }));
-    } catch { /* unavailable */ }
-  }
+  const loadGeom = () => loadBtwGeometry({ storage: window.localStorage });
+  const saveGeom = (patch) => saveBtwGeometry(patch, { storage: window.localStorage });
 
   function atBottom() {
     if (!bodyEl) return true;
@@ -222,13 +217,12 @@
   function openWindow() {
     open = true;
     // Clear `hidden` synchronously (Svelte's flush from `open` is async) so the
-    // window has real dimensions when placeInitial measures it — otherwise it's
-    // still display:none and lands off-screen.
+    // window has real dimensions when initial placement measures it.
     if (winEl) winEl.hidden = false;
     const geom = loadGeom();
     if (winEl && geom && geom.width) winEl.style.width = `${geom.width}px`;
     if (winEl && geom && geom.height) winEl.style.height = `${geom.height}px`;
-    if (winEl) placeInitial(winEl);
+    if (winEl) placeBtwInitial(winEl, { windowImpl: window, loadGeometry: loadGeom, saveGeometry: saveGeom });
     btnEl?.setAttribute('aria-expanded', 'true');
     saveGeom({ open: true });
     subscribeGlobal();
@@ -257,63 +251,6 @@
     else openWindow();
   }
 
-  // ── drag (move) + resize persistence ──
-  function enableDrag(root, handle) {
-    let dragging = false, startX = 0, startY = 0, originLeft = 0, originTop = 0;
-    function onMove(e) {
-      if (!dragging) return;
-      const vw = window.innerWidth || 0;
-      const vh = window.innerHeight || 0;
-      const rect = root.getBoundingClientRect();
-      const left = Math.max(0, Math.min(originLeft + (e.clientX - startX), vw - rect.width));
-      const top = Math.max(0, Math.min(originTop + (e.clientY - startY), vh - rect.height));
-      root.style.left = `${left}px`;
-      root.style.top = `${top}px`;
-      saveGeom({ left, top });
-    }
-    function onUp() {
-      dragging = false;
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-    }
-    handle.addEventListener('pointerdown', (e) => {
-      if (e.target && e.target.closest && e.target.closest('.pi-btw-actions')) return;
-      dragging = true;
-      const rect = root.getBoundingClientRect();
-      originLeft = rect.left; originTop = rect.top;
-      startX = e.clientX; startY = e.clientY;
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-    });
-  }
-  function persistResize(root) {
-    if (!window.ResizeObserver) return;
-    let raf = 0;
-    const ro = new window.ResizeObserver(() => {
-      if (raf) window.cancelAnimationFrame?.(raf);
-      raf = window.requestAnimationFrame
-        ? window.requestAnimationFrame(() => saveGeom({ width: root.offsetWidth, height: root.offsetHeight }))
-        : 0;
-    });
-    ro.observe(root);
-  }
-  function placeInitial(root) {
-    const geom = loadGeom();
-    if (geom && typeof geom.left === 'number' && typeof geom.top === 'number') {
-      root.style.left = `${geom.left}px`;
-      root.style.top = `${geom.top}px`;
-      return;
-    }
-    const vw = window.innerWidth || 0;
-    const vh = window.innerHeight || 0;
-    const rect = root.getBoundingClientRect();
-    const left = Math.max(0, (vw - rect.width) / 2);
-    const top = Math.max(0, vh - rect.height - 90);
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-    saveGeom({ left, top });
-  }
-
   function onSubmit(e) { e.preventDefault(); submitMessage(); }
   function onSend() { if (running) cancel(); else submitMessage(); }
 
@@ -325,7 +262,10 @@
 
   onMount(() => {
     if (winEl) document.body.appendChild(winEl);
-    if (winEl && headerEl) { enableDrag(winEl, headerEl); persistResize(winEl); }
+    if (winEl && headerEl) {
+      enableBtwDrag(winEl, headerEl, { documentImpl: document, windowImpl: window, saveGeometry: saveGeom });
+      persistBtwResize(winEl, { windowImpl: window, saveGeometry: saveGeom });
+    }
     bodyEl?.addEventListener('scroll', () => { nearBottom = atBottom(); });
 
     btnEl = document.getElementById('pi-btw-button');
