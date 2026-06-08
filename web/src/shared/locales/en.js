@@ -4,6 +4,7 @@ export default {
   // ── Common ──
   'common.cancel': 'Cancel',
   'common.close': 'Close',
+  'common.closeNamed': 'Close {name}',
   'common.create': 'Create',
   'common.add': 'Add',
   'common.done': 'Done',

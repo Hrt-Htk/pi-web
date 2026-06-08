@@ -10,6 +10,7 @@
   // the open/close side effects. Body content is provided as the default snippet.
   import { onMount, tick } from 'svelte';
   import { icon, X } from '../../shared/icons.js';
+  import { t } from '../../shared/i18n.js';
 
   let {
     open = $bindable(false),
@@ -216,7 +217,7 @@
         {#if showBack}
           <button
             class="pi-sheet-back"
-            aria-label={`Close ${title}`}
+            aria-label={t('common.closeNamed', { name: title })}
             onclick={() => (open = false)}
           >
             <span aria-hidden="true">←</span><span>{title}</span>
@@ -225,8 +226,10 @@
           <div></div>
         {/if}
         {#if showClose}
-          <button class="pi-sheet-close-x" aria-label="Close" onclick={() => (open = false)}
-            >{@html icon(X, { size: 16 })}</button
+          <button
+            class="pi-sheet-close-x"
+            aria-label={t('common.close')}
+            onclick={() => (open = false)}>{@html icon(X, { size: 16 })}</button
           >
         {/if}
       </div>
