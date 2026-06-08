@@ -893,3 +893,51 @@ func TestForkSessionFileEntryNotFound(t *testing.T) {
 		t.Fatal("expected error for nonexistent entry")
 	}
 }
+
+func TestEncodeProjectNameWindows(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`H:\Software`, `--H_co__bs_Software--`},
+		{`C:\Users\HTK\project`, `--C_co__bs_Users_bs_HTK_bs_project--`},
+		{`D:\My Project\sub_dir`, `--D_co__bs_My Project_bs_sub__dir--`},
+		{`H:\test\file.txt`, `--H_co__bs_test_bs_file.txt--`},
+		{`C:\path\with|pipe`, `--C_co__bs_path_bs_with_pi_pipe--`},
+		{`C:\path\with?question`, `--C_co__bs_path_bs_with_qu_question--`},
+		{`C:\path\with*star`, `--C_co__bs_path_bs_with_as_star--`},
+	}
+	for _, tt := range tests {
+		got := EncodeProjectName(tt.input)
+		if got != tt.expected {
+			t.Errorf("EncodeProjectName(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+		// Verify no invalid Windows filename characters in encoded name
+		for _, ch := range []string{`:\`, `:`, `<`, `>`, `"`, `|`, `?`, `*`} {
+			if strings.Contains(got, ch) {
+				t.Errorf("EncodeProjectName(%q) = %q contains invalid Windows char %q", tt.input, got, ch)
+			}
+		}
+	}
+}
+
+func TestEncodeDecodeRoundTripWindows(t *testing.T) {
+	paths := []string{
+		`H:\Software`,
+		`C:\Users\HTK\project`,
+		`D:\My Project\sub_dir`,
+		`H:\test\file.txt`,
+		`C:\path\with|pipe`,
+		`C:\path\with?question`,
+		`C:\path\with*star`,
+		`C:\path\with"quote`,
+		`C:\path\with<angle>`,
+	}
+	for _, p := range paths {
+		encoded := EncodeProjectName(p)
+		decoded := DecodeProjectName(encoded)
+		if decoded != p {
+			t.Errorf("round-trip failed: %q -> %q -> %q", p, encoded, decoded)
+		}
+	}
+}

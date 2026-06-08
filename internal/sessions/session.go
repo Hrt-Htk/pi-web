@@ -600,18 +600,28 @@ func cleanProjectName(dirName string) string {
 }
 
 // EncodeProjectName converts an absolute filesystem path into a safe
-// directory name by escaping / and _. The result is wrapped with "--"
-// so callers can recognise encoded project directories.
+// directory name by escaping /, _, and all Windows-invalid filename
+// characters. The result is wrapped with "--" so callers can recognise
+// encoded project directories.
 //
 //	/home/user/my-project → --home_-user_-my-project--
 //	/home/user/_cache    → --home_-user_-__cache--
+//	H:\Software          → --H_co__bs_Software--
 func EncodeProjectName(path string) string {
 	s := strings.TrimSpace(path)
 	s = strings.Trim(s, "/")
-	// Escape _ first, then /.  Order matters: we must double _ before we
-	// introduce any new _ in the / escape sequence.
+	// Escape _ first, then the rest.  Order matters: we must double _ before
+	// we introduce any new _ in the escape sequences.
 	s = strings.ReplaceAll(s, "_", "__")
 	s = strings.ReplaceAll(s, "/", "_-")
+	s = strings.ReplaceAll(s, "\\", "_bs_")
+	s = strings.ReplaceAll(s, ":", "_co_")
+	s = strings.ReplaceAll(s, "<", "_lt_")
+	s = strings.ReplaceAll(s, ">", "_gt_")
+	s = strings.ReplaceAll(s, "\"", "_dq_")
+	s = strings.ReplaceAll(s, "|", "_pi_")
+	s = strings.ReplaceAll(s, "?", "_qu_")
+	s = strings.ReplaceAll(s, "*", "_as_")
 	return "--" + s + "--"
 }
 
@@ -623,17 +633,35 @@ func DecodeProjectName(dirName string) string {
 	s = strings.TrimSuffix(s, "--")
 	s = decodeProjectBody(s)
 	if s != "" && !strings.HasPrefix(s, "/") {
-		s = "/" + s
+		// Don't add / prefix for Windows drive-letter paths.
+		if !isWindowsDrivePath(s) {
+			s = "/" + s
+		}
 	}
 	return s
 }
 
+
+// isWindowsDrivePath checks if the path looks like a Windows drive-letter path.
+func isWindowsDrivePath(s string) bool {
+	return len(s) >= 2 && s[1] == ':' && (s[0] >= 'A' && s[0] <= 'Z' || s[0] >= 'a' && s[0] <= 'z')
+}
 // decodeProjectBody decodes the content between the "--" wrappers.
-// New format (contains _):  __ → _,  _- → /
+// New format (contains _):  _as_ → *, _qu_ → ?, _pi_ → |, _dq_ → ",
+//   _gt_ → >, _lt_ → <, _co_ → :, _bs_ → \, _- → /, __ → _
 // Legacy format (no _):     -  → /
 func decodeProjectBody(s string) string {
 	if strings.Contains(s, "_") {
-		// New escape-based encoding.  Order: unescape / first, then _.
+		// New escape-based encoding.  Decode in reverse order of encoding
+		// (longest/most specific sequences first to avoid partial matches).
+		s = strings.ReplaceAll(s, "_as_", "*")
+		s = strings.ReplaceAll(s, "_qu_", "?")
+		s = strings.ReplaceAll(s, "_pi_", "|")
+		s = strings.ReplaceAll(s, "_dq_", "\"")
+		s = strings.ReplaceAll(s, "_gt_", ">")
+		s = strings.ReplaceAll(s, "_lt_", "<")
+		s = strings.ReplaceAll(s, "_co_", ":")
+		s = strings.ReplaceAll(s, "_bs_", "\\")
 		s = strings.ReplaceAll(s, "_-", "/")
 		s = strings.ReplaceAll(s, "__", "_")
 	} else {
