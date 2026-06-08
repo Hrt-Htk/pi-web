@@ -7,10 +7,9 @@
   // follow/scroll/highlight decisions. Live-only: never imported by the static
   // export bundle.
   //
-  // Absorbed from live-reload-runner.js + live-events/live-scroll/live-stats
-  // during the Svelte migration teardown (docs/dev/svelte-migration-plan.md §11).
-  // SSE, follow-scroll, stats, and chat-preview helpers live in session/live/
-  // modules with focused unit tests.
+  // The old live-reload runner has been split between this component and focused
+  // live-only helpers in session/live/: connection/reconnect lifecycle, reload
+  // events, follow-scroll, stats, and chat-preview all have focused unit tests.
   import { onMount } from 'svelte';
   import { marked } from 'marked';
   import { escapeHtml } from '../../session/render/session-format.js';
