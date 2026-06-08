@@ -781,15 +781,16 @@ func CreateSessionFileWithSettings(sessionsDir, path string, settings InitialSet
 	if err != nil {
 		return "", err
 	}
-	timestamp := time.Now().UTC().Format("2006-01-02T15-04-05.000Z")
-	filename := timestamp + "_" + id + ".jsonl"
+	now := time.Now().UTC()
+	rfc3339 := now.Format(time.RFC3339Nano)
+	filename := now.Format("2006-01-02T15-04-05.000Z") + "_" + id + ".jsonl"
 	filePath := filepath.Join(projectDir, filename)
 
 	header := map[string]any{
 		"type":      "session",
 		"version":   3,
 		"id":        id,
-		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"timestamp": rfc3339,
 		"cwd":       path,
 	}
 	data, err := json.Marshal(header)
@@ -809,7 +810,7 @@ func CreateSessionFileWithSettings(sessionsDir, path string, settings InitialSet
 			"type":      "model_change",
 			"id":        entryID,
 			"parentId":  parentID,
-			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+			"timestamp": rfc3339,
 			"provider":  settings.ModelProvider,
 			"modelId":   settings.ModelID,
 			"implicit":  true,
@@ -830,7 +831,7 @@ func CreateSessionFileWithSettings(sessionsDir, path string, settings InitialSet
 			"type":          "thinking_level_change",
 			"id":            entryID,
 			"parentId":      parentID,
-			"timestamp":     time.Now().UTC().Format(time.RFC3339Nano),
+			"timestamp":     rfc3339,
 			"thinkingLevel": settings.ThinkingLevel,
 			"implicit":      true,
 		})
