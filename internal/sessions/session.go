@@ -358,14 +358,17 @@ func AutoTitleSession(path, name string, now func() time.Time) error {
 }
 
 func loadEntriesFromFile(path string) ([]map[string]any, error) {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	lines := strings.Split(string(data), "\n")
-	entries := make([]map[string]any, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
+	defer f.Close()
+
+	entries := make([]map[string]any, 0)
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, scanInitialBufferBytes), maxScanLineBytes)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
@@ -374,6 +377,9 @@ func loadEntriesFromFile(path string) ([]map[string]any, error) {
 			continue
 		}
 		entries = append(entries, entry)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return entries, nil
 }
