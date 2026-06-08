@@ -14,7 +14,7 @@
   // drawer on mobile.
   function onNavigate(id) {
     const leaf = model?.newestLeaf(id) || id;
-    const navigateTo = getSessionRuntime().navigateTo || window.navigateTo;
+    const navigateTo = getSessionRuntime().navigateTo;
     navigateTo?.(leaf, 'target', id);
     if (sessionRuntime.layout?.isMobileLayout?.()) sessionRuntime.layout?.closeSidebar?.();
   }

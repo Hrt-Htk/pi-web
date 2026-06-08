@@ -746,7 +746,7 @@ export function runChatComposer({
   onMount(() => {
     const target = window;
     const runtime = getSessionRuntime();
-    const model = runtime.model || target.__piSessionDataModel;
+    const model = runtime.model;
     globalThis.__PI_TEST_CHAT_COMPOSER_HOOK__?.();
     runChatComposer({
       documentImpl: document,
@@ -756,7 +756,7 @@ export function runChatComposer({
       leafId: model?.leafId || '',
       urlTargetId: model?.urlTargetId || '',
       byId: model?.byId || new Map(),
-      navigateTo: runtime.navigateTo || target.navigateTo,
+      navigateTo: runtime.navigateTo,
       escapeHtml: (text) => escapeHtml(text, { documentImpl: document }),
       chatApi,
       FormDataImpl: target.FormData,

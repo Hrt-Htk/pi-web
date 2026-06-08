@@ -64,7 +64,7 @@
 
   export function defaultSessionPaletteCwd(windowImpl = window) {
     try {
-      const preload = getSessionRuntime().model || windowImpl.__piSessionDataModel;
+      const preload = getSessionRuntime().model;
       const data = preload && typeof preload.header === 'object' ? preload.header : {};
       return data.cwd || '';
     } catch {
