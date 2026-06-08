@@ -3,7 +3,7 @@
   // and reconciles the shared reactive model when the session JSONL changes. The
   // Svelte <SessionContent> owns #messages and re-renders from the model, so this
   // never patches the message DOM (reactive-only): on reload it reconciles the
-  // model (session runtime context, with window shim fallback) and only tracks brand-new ids for the
+  // model through the session runtime context and only tracks brand-new ids for the
   // follow/scroll/highlight decisions. Live-only: never imported by the static
   // export bundle.
   //
@@ -43,7 +43,8 @@
     const documentImpl = document;
     const windowImpl = window;
     const runtime = getSessionRuntime();
-    const model = runtime.model || windowImpl.__piSessionDataModel;
+    const model = runtime.model;
+    const reconcileEntries = runtime.reconcileEntries || (() => {});
     globalThis.__PI_TEST_LIVE_RELOAD_HOOK__?.();
 
     const fetchImpl = windowImpl.fetch.bind(windowImpl);
@@ -243,7 +244,7 @@
         scrollAfterLayout,
         incrementPending: (count) => { pendingCount += count; },
         showFollowButton,
-        onReloaded: (data) => { (runtime.reconcileEntries || windowImpl.__piReconcileEntries)?.(data.entries); },
+        onReloaded: (data) => { reconcileEntries(data.entries); },
         onNewEntries: highlightNewEntries,
       }).catch((err) => { console.error('Live update failed:', err); });
     }
