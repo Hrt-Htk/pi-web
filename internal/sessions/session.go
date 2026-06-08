@@ -159,6 +159,49 @@ func SortSummariesByProjectActivity(s []SessionSummary) {
 	}
 }
 
+const chatDisabledMissingCwd = "This session can be viewed, but chat is disabled because its working directory no longer exists."
+
+func newSessionSummary(dirName, fileName string) SessionSummary {
+	return SessionSummary{
+		ID:            fileName,
+		Filename:      fileName,
+		Project:       cleanProjectName(dirName),
+		ChatAvailable: true,
+	}
+}
+
+// applySummaryContext finalizes the fields shared by ParseSummary and ParseFile
+// after the scan: a LastActivity fallback to the file mtime, the session name
+// precedence (session_info > header > first user message > filename), and the
+// cwd-derived project / chat-availability. Kept in one place so the two parsers
+// (typed vs map) can't drift on name resolution or the disabled-chat reason.
+func applySummaryContext(s *SessionSummary, path, fileName, sessionInfoName, headerName, firstUserText, headerCwd string) {
+	if s.LastActivity == "" {
+		if info, err := os.Stat(path); err == nil {
+			s.LastActivity = info.ModTime().Format(time.RFC3339)
+		}
+	}
+
+	switch {
+	case sessionInfoName != "":
+		s.Name = sessionInfoName
+	case headerName != "":
+		s.Name = headerName
+	case firstUserText != "":
+		s.Name = truncate(firstUserText, 80)
+	default:
+		s.Name = fileName
+	}
+
+	if headerCwd != "" {
+		s.Project = headerCwd
+		if _, err := os.Stat(headerCwd); err != nil {
+			s.ChatAvailable = false
+			s.ChatDisabledReason = chatDisabledMissingCwd
+		}
+	}
+}
+
 // ParseSummary streams path line-by-line, accumulating only the fields the
 // index page needs. Lines are discarded after parsing — unlike ParseFile,
 // the full conversation is not retained in memory.
@@ -169,12 +212,7 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 	}
 	defer f.Close()
 
-	s := SessionSummary{
-		ID:            fileName,
-		Filename:      fileName,
-		Project:       cleanProjectName(dirName),
-		ChatAvailable: true,
-	}
+	s := newSessionSummary(dirName, fileName)
 
 	var headerName, sessionInfoName, firstUserText, headerCwd string
 	scanner := bufio.NewScanner(f)
@@ -239,30 +277,7 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 		return SessionSummary{}, err
 	}
 
-	if s.LastActivity == "" {
-		if info, err := os.Stat(path); err == nil {
-			s.LastActivity = info.ModTime().Format(time.RFC3339)
-		}
-	}
-
-	switch {
-	case sessionInfoName != "":
-		s.Name = sessionInfoName
-	case headerName != "":
-		s.Name = headerName
-	case firstUserText != "":
-		s.Name = truncate(firstUserText, 80)
-	default:
-		s.Name = fileName
-	}
-
-	if headerCwd != "" {
-		s.Project = headerCwd
-		if _, err := os.Stat(headerCwd); err != nil {
-			s.ChatAvailable = false
-			s.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
-		}
-	}
+	applySummaryContext(&s, path, fileName, sessionInfoName, headerName, firstUserText, headerCwd)
 
 	return s, nil
 }
@@ -463,12 +478,7 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 	}
 	defer f.Close()
 
-	s := SessionSummary{
-		ID:            fileName,
-		Filename:      fileName,
-		Project:       cleanProjectName(dirName),
-		ChatAvailable: true,
-	}
+	s := newSessionSummary(dirName, fileName)
 
 	var entries []map[string]any
 	var header map[string]any
@@ -558,30 +568,7 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 		return Session{}, err
 	}
 
-	if s.LastActivity == "" {
-		if info, err := os.Stat(path); err == nil {
-			s.LastActivity = info.ModTime().Format(time.RFC3339)
-		}
-	}
-
-	switch {
-	case sessionInfoName != "":
-		s.Name = sessionInfoName
-	case headerName != "":
-		s.Name = headerName
-	case firstUserText != "":
-		s.Name = truncate(firstUserText, 80)
-	default:
-		s.Name = fileName
-	}
-
-	if headerCwd != "" {
-		s.Project = headerCwd
-		if _, err := os.Stat(headerCwd); err != nil {
-			s.ChatAvailable = false
-			s.ChatDisabledReason = "This session can be viewed, but chat is disabled because its working directory no longer exists."
-		}
-	}
+	applySummaryContext(&s, path, fileName, sessionInfoName, headerName, firstUserText, headerCwd)
 
 	return Session{SessionSummary: s, Header: header, Entries: entries}, nil
 }
