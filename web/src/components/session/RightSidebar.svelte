@@ -6,8 +6,6 @@
   import AnnotationLayer from './AnnotationLayer.svelte';
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { createScratchpadController } from './right-sidebar-scratchpad.js';
-  import { createRightSidebarTabs } from './right-sidebar-tabs.js';
-  import { createRightSidebarVisibility } from './right-sidebar-visibility.js';
 
   let { scratchpad = '', projectPath = '' } = $props();
 
@@ -16,6 +14,73 @@
   const RIGHT_SIDEBAR_TAB_KEY = 'pi-web:v1:right-sidebar-tab';
   const MIN_CONTENT_WIDTH = 320;
   const DEFAULT_WIDTH_PX = 320; // double-click reset width
+  const TAB_PANES = ['scratchpad', 'notes', 'artifacts'];
+
+  function readInitialTab() {
+    try {
+      const stored = globalThis.localStorage?.getItem(RIGHT_SIDEBAR_TAB_KEY);
+      if (stored && TAB_PANES.includes(stored)) return stored;
+    } catch {}
+    return 'scratchpad';
+  }
+
+  // The active tab is component-local state bound straight into the markup. The
+  // collapse/expand state lives on <body> (it shifts the whole page layout) and
+  // callers/tests expect it to react synchronously, so it stays imperative below.
+  let activeTab = $state(readInitialTab());
+
+  function activateTab(pane) {
+    if (!TAB_PANES.includes(pane)) return;
+    activeTab = pane;
+    try {
+      globalThis.localStorage?.setItem(RIGHT_SIDEBAR_TAB_KEY, pane);
+    } catch {}
+  }
+
+  // Assigned in onMount once the scratchpad controller exists; the visibility
+  // helpers below call it when un-collapsing the sidebar.
+  let loadScratchpad = () => {};
+
+  function isCollapsed() {
+    return document.body.classList.contains('right-sidebar-collapsed');
+  }
+  function setCollapsed(collapsed) {
+    document.body.classList.toggle('right-sidebar-collapsed', collapsed);
+    try {
+      globalThis.localStorage?.setItem(RIGHT_SIDEBAR_COLLAPSED_KEY, String(collapsed));
+    } catch {}
+  }
+  function setExpanded(expanded) {
+    document.body.classList.toggle('right-sidebar-expanded', expanded);
+  }
+  function toggleSidebar() {
+    if (isCollapsed()) {
+      setCollapsed(false);
+      loadScratchpad();
+    } else {
+      setCollapsed(true);
+      setExpanded(false);
+    }
+  }
+  function openSidebar() {
+    if (isCollapsed()) {
+      setCollapsed(false);
+      loadScratchpad();
+    }
+  }
+  function collapseSidebar() {
+    setExpanded(false);
+    setCollapsed(true);
+  }
+  function toggleExpanded() {
+    if (document.body.classList.contains('right-sidebar-expanded')) {
+      setExpanded(false);
+    } else {
+      if (isCollapsed()) setCollapsed(false);
+      setExpanded(true);
+      loadScratchpad();
+    }
+  }
 
   onMount(() => {
     const documentImpl = document;
@@ -24,33 +89,32 @@
 
     const sidebar = documentImpl.getElementById('right-sidebar');
     const resizer = documentImpl.getElementById('right-sidebar-resizer');
-    const backdrop = documentImpl.getElementById('right-sidebar-backdrop');
     const textarea = documentImpl.getElementById('scratchpad-textarea');
     const statusEl = documentImpl.getElementById('scratchpad-status');
-    const closeBtn = documentImpl.getElementById('close-right-sidebar');
-    const expandBtn = documentImpl.getElementById('expand-right-sidebar');
     const toggleBtn = documentImpl.getElementById('toggle-right-sidebar-btn');
+    const backdrop = documentImpl.getElementById('right-sidebar-backdrop');
     const cleanups = [];
 
-    // ── Tabs ───────────────────────────────────────────────────────────────
-    const tabController = createRightSidebarTabs({
-      documentImpl,
-      sidebar,
-      storage,
-      storageKey: RIGHT_SIDEBAR_TAB_KEY,
-    });
-    const activateTab = tabController.activateTab;
-    cleanups.push(tabController.bind());
-    tabController.restoreInitialTab();
+    // The toggle button lives in <SessionHeader>; the backdrop is a
+    // non-interactive overlay — both are wired by id to avoid an a11y lint on a
+    // click handler attached to a static element.
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', toggleSidebar);
+      cleanups.push(() => toggleBtn.removeEventListener('click', toggleSidebar));
+    }
+    if (backdrop) {
+      backdrop.addEventListener('click', collapseSidebar);
+      cleanups.push(() => backdrop.removeEventListener('click', collapseSidebar));
+    }
 
-    // ── Sidebar visibility/resize/scratchpad ─────────────────────────────────
+    sessionRuntime.rightSidebar = {
+      toggle: toggleSidebar,
+      open: openSidebar,
+      collapse: collapseSidebar,
+      activateTab,
+    };
+
     if (!sidebar) {
-      sessionRuntime.rightSidebar = {
-        toggle: () => {},
-        open: () => {},
-        collapse: () => {},
-        activateTab,
-      };
       return () => {
         for (const fn of cleanups) fn();
         sessionRuntime.rightSidebar = null;
@@ -64,7 +128,7 @@
       statusEl,
       fetchImpl: fetch,
     });
-    const loadScratchpad = scratchpadController.load;
+    loadScratchpad = scratchpadController.load;
     if (textarea) cleanups.push(scratchpadController.bind());
 
     function getRightSidebarBounds() {
@@ -97,17 +161,6 @@
         storage?.setItem(RIGHT_SIDEBAR_WIDTH_KEY, String(Math.round(clampWidth(width))));
       } catch {}
     }
-
-    const visibilityController = createRightSidebarVisibility({
-      documentImpl,
-      storage,
-      collapsedStorageKey: RIGHT_SIDEBAR_COLLAPSED_KEY,
-      loadScratchpad,
-    });
-    const toggleSidebar = visibilityController.toggle;
-    const openSidebar = visibilityController.open;
-    const collapseSidebar = visibilityController.collapse;
-    cleanups.push(visibilityController.bindControls({ toggleBtn, closeBtn, expandBtn, backdrop }));
 
     // ── Resize (drag left edge) ──────────────────────────────────────────────
     if (resizer) {
@@ -200,13 +253,6 @@
       });
     }
 
-    sessionRuntime.rightSidebar = {
-      toggle: toggleSidebar,
-      open: openSidebar,
-      collapse: collapseSidebar,
-      activateTab,
-    };
-
     return () => {
       for (const fn of cleanups) fn();
       sessionRuntime.rightSidebar = null;
@@ -223,24 +269,28 @@
   aria-orientation="vertical"
   aria-label={t('sidebar.resizeScratchpad')}
 ></div>
-<aside id="right-sidebar" class="right-sidebar">
+<aside id="right-sidebar" class="right-sidebar" data-active-tab={activeTab}>
   <div class="right-sidebar-header">
     <div class="right-sidebar-tabs" role="tablist">
       <button
         type="button"
         id="right-tab-scratchpad"
-        class="right-sidebar-tab active"
+        class="right-sidebar-tab"
+        class:active={activeTab === 'scratchpad'}
         role="tab"
         data-pane="scratchpad"
-        aria-selected="true">{t('sidebar.scratchpad')}</button
+        aria-selected={activeTab === 'scratchpad'}
+        onclick={() => activateTab('scratchpad')}>{t('sidebar.scratchpad')}</button
       >
       <button
         type="button"
         id="right-tab-notes"
         class="right-sidebar-tab"
+        class:active={activeTab === 'notes'}
         role="tab"
         data-pane="notes"
-        aria-selected="false"
+        aria-selected={activeTab === 'notes'}
+        onclick={() => activateTab('notes')}
         >{t('sidebar.annotations')}<span
           id="annotation-tab-count"
           class="right-sidebar-tab-count"
@@ -251,9 +301,11 @@
         type="button"
         id="right-tab-artifacts"
         class="right-sidebar-tab"
+        class:active={activeTab === 'artifacts'}
         role="tab"
         data-pane="artifacts"
-        aria-selected="false"
+        aria-selected={activeTab === 'artifacts'}
+        onclick={() => activateTab('artifacts')}
         >{t('sidebar.artifacts')}<span
           id="artifact-tab-count"
           class="right-sidebar-tab-count"
@@ -262,22 +314,28 @@
       >
     </div>
     <div class="right-sidebar-actions">
-      <button id="expand-right-sidebar" class="right-sidebar-btn" title={t('sidebar.expandPanel')}
-        >{@html icon(Maximize2, { size: 14 })}</button
+      <button
+        id="expand-right-sidebar"
+        class="right-sidebar-btn"
+        title={t('sidebar.expandPanel')}
+        onclick={toggleExpanded}>{@html icon(Maximize2, { size: 14 })}</button
       >
       <button
         id="close-right-sidebar"
         class="right-sidebar-btn"
-        title={`${t('sidebar.hidePanel')} (⌘⇧N)`}>{@html icon(X, { size: 15 })}</button
+        title={`${t('sidebar.hidePanel')} (⌘⇧N)`}
+        onclick={collapseSidebar}>{@html icon(X, { size: 15 })}</button
       >
     </div>
   </div>
   <div class="right-sidebar-content">
     <div
       id="right-pane-scratchpad"
-      class="right-sidebar-pane active"
+      class="right-sidebar-pane"
+      class:active={activeTab === 'scratchpad'}
       role="tabpanel"
       aria-labelledby="right-tab-scratchpad"
+      hidden={activeTab !== 'scratchpad'}
     >
       <textarea
         id="scratchpad-textarea"
@@ -288,9 +346,10 @@
     <div
       id="right-pane-artifacts"
       class="right-sidebar-pane"
+      class:active={activeTab === 'artifacts'}
       role="tabpanel"
       aria-labelledby="right-tab-artifacts"
-      hidden
+      hidden={activeTab !== 'artifacts'}
     >
       <button
         id="artifact-help-btn"
@@ -303,9 +362,10 @@
     <div
       id="right-pane-notes"
       class="right-sidebar-pane"
+      class:active={activeTab === 'notes'}
       role="tabpanel"
       aria-labelledby="right-tab-notes"
-      hidden
+      hidden={activeTab !== 'notes'}
     >
       <AnnotationLayer />
     </div>
