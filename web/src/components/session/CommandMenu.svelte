@@ -30,6 +30,12 @@
   import { showToast } from '../../shared/toast.js';
   import { sessionTitle, setSessionTitle } from '../../session/session-title.svelte.js';
   import { USER_DOCS_URL, TELEGRAM_INVITE_URL } from '../../shared/links.js';
+  import {
+    cloneSession,
+    forkSession,
+    loadForkEntries,
+    renameSession,
+  } from '../../session/session-menu-actions.js';
 
   let { sessionId = '' } = $props();
 
@@ -38,23 +44,38 @@
   const MOBILE_PANEL_CLOSE_MS = 260;
   const DESKTOP_POPOVER_CLOSE_MS = 160;
 
-  const chatUrl = (path, id) => `${path}?id=${encodeURIComponent(id)}`;
+  // Primary actions shared by the desktop popover and mobile panel. kbd hints
+  // render on desktop only.
+  const primaryItems = [
+    { action: 'list-sessions', icon: Search, label: 'menu.searchSessions', kbd: '⌘K' },
+    { action: 'rename', icon: Pencil, label: 'menu.rename' },
+    { action: 'share', icon: Share2, label: 'menu.share' },
+    { action: 'fork', icon: GitFork, label: 'menu.fork' },
+    { action: 'clone', icon: Copy, label: 'menu.clone' },
+    { action: 'terminal', icon: Terminal, label: 'menu.resumeTerminal' },
+    { action: 'tree', icon: ListTree, label: 'menu.tree', kbd: '⌘B' },
+    { action: 'diff', icon: FileDiff, label: 'menu.diff' },
+    { action: 'model-usage', icon: ChartColumn, label: 'menu.modelUsage' },
+  ];
+
+  // Footer links/rows. desktopOnly items (the version row) are dropped on mobile.
+  const footerItems = [
+    { kind: 'action', action: 'user-docs', icon: BookOpen, label: 'common.userDocs' },
+    {
+      kind: 'link',
+      href: TELEGRAM_INVITE_URL,
+      external: true,
+      icon: Send,
+      label: 'common.telegram',
+    },
+    { kind: 'link', href: '/settings', icon: Settings, label: 'common.settings', kbd: '⌘,' },
+    { kind: 'version', action: 'version', icon: Tag, label: 'common.version', desktopOnly: true },
+  ];
 
   const toast = (message) => showToast(message, { id: 'command-menu-toast' });
 
   const clickHidden = (id) => document.getElementById(id)?.click();
   const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
-
-  async function renameSession(name) {
-    const res = await fetch('/api/rename-session?id=' + encodeURIComponent(sessionId), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'rename failed');
-    return data;
-  }
 
   onMount(() => {
     const menuBtn = document.getElementById('command-menu-btn');
@@ -144,7 +165,7 @@
           const trimmed = next ? next.trim() : '';
           closeMenu();
           if (!trimmed || trimmed === current) break;
-          renameSession(trimmed)
+          renameSession(sessionId, trimmed)
             .then((data) => {
               setSessionTitle((data && data.name) || trimmed);
               toast(t('menu.renamed'));
@@ -154,18 +175,10 @@
         }
         case 'fork': {
           closeMenu();
-          // Fetch fresh entries — the in-memory model is stale after live reload.
-          fetch(chatUrl('/api/session', sessionId))
-            .then((res) => res.json())
-            .then((data) => {
-              const entries = data.entries || [];
+          loadForkEntries(sessionId)
+            .then((entries) => {
               const onSelect = (entryId) => {
-                fetch(chatUrl('/api/fork-session', sessionId), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ entryId }),
-                })
-                  .then((res) => res.json())
+                forkSession(sessionId, entryId)
                   .then((data) => {
                     if (data.id) navigate('/session?id=' + encodeURIComponent(data.id));
                     else toast(data.error || t('menu.forkFailed'));
@@ -180,12 +193,7 @@
         }
         case 'clone': {
           closeMenu();
-          fetch(chatUrl('/api/clone-session', sessionId), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          })
-            .then((res) => res.json())
+          cloneSession(sessionId)
             .then((data) => {
               if (data.id) navigate('/session?id=' + encodeURIComponent(data.id));
               else toast(data.error || t('menu.cloneFailed'));
@@ -253,6 +261,53 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
 
+{#snippet label(item)}
+  <span class="menu-item-label">{@html icon(item.icon, { size: 15 })}{t(item.label)}</span>
+{/snippet}
+
+{#snippet menuBody(itemClass, sectionClass, desktop)}
+  <div class={sectionClass}>
+    {#each primaryItems as item (item.action)}
+      <button class={itemClass} type="button" data-action={item.action}
+        >{@render label(item)}{#if desktop && item.kbd}<kbd>{item.kbd}</kbd>{/if}</button
+      >
+    {/each}
+  </div>
+  <div class={sectionClass}>
+    {#each footerItems as item (item.label)}
+      {#if !item.desktopOnly || desktop}
+        {#if item.kind === 'link'}
+          <a
+            class={itemClass}
+            href={item.href}
+            role="menuitem"
+            target={item.external ? '_blank' : undefined}
+            rel={item.external ? 'noreferrer' : undefined}
+            >{@render label(item)}{#if desktop && item.kbd}<kbd>{item.kbd}</kbd>{/if}</a
+          >
+        {:else if item.kind === 'version'}
+          <button
+            class={itemClass}
+            type="button"
+            data-action={item.action}
+            data-version-row
+            role="menuitem"
+            >{@render label(item)}<span
+              class="version-status"
+              id="command-menu-version-status"
+              data-version-status>…</span
+            ></button
+          >
+        {:else}
+          <button class={itemClass} type="button" data-action={item.action}
+            >{@render label(item)}</button
+          >
+        {/if}
+      {/if}
+    {/each}
+  </div>
+{/snippet}
+
 <div
   id="command-menu-popover"
   class="command-menu-popover"
@@ -261,145 +316,13 @@
   style="display: none;"
 >
   <div class="command-menu-body">
-    <div class="command-menu-section">
-      <button class="command-menu-item" type="button" data-action="list-sessions"
-        ><span class="menu-item-label"
-          >{@html icon(Search, { size: 15 })}{t('menu.searchSessions')}</span
-        ><kbd>⌘K</kbd></button
-      >
-      <button class="command-menu-item" type="button" data-action="rename"
-        ><span class="menu-item-label">{@html icon(Pencil, { size: 15 })}{t('menu.rename')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="share"
-        ><span class="menu-item-label">{@html icon(Share2, { size: 15 })}{t('menu.share')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="fork"
-        ><span class="menu-item-label">{@html icon(GitFork, { size: 15 })}{t('menu.fork')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="clone"
-        ><span class="menu-item-label">{@html icon(Copy, { size: 15 })}{t('menu.clone')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="terminal"
-        ><span class="menu-item-label"
-          >{@html icon(Terminal, { size: 15 })}{t('menu.resumeTerminal')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="tree"
-        ><span class="menu-item-label">{@html icon(ListTree, { size: 15 })}{t('menu.tree')}</span
-        ><kbd>⌘B</kbd></button
-      >
-      <button class="command-menu-item" type="button" data-action="diff"
-        ><span class="menu-item-label">{@html icon(FileDiff, { size: 15 })}{t('menu.diff')}</span
-        ></button
-      >
-      <button class="command-menu-item" type="button" data-action="model-usage"
-        ><span class="menu-item-label"
-          >{@html icon(ChartColumn, { size: 15 })}{t('menu.modelUsage')}</span
-        ></button
-      >
-    </div>
-    <div class="command-menu-section">
-      <button class="command-menu-item" type="button" data-action="user-docs"
-        ><span class="menu-item-label"
-          >{@html icon(BookOpen, { size: 15 })}{t('common.userDocs')}</span
-        ></button
-      >
-      <a
-        class="command-menu-item"
-        href={TELEGRAM_INVITE_URL}
-        target="_blank"
-        rel="noreferrer"
-        role="menuitem"
-        ><span class="menu-item-label">{@html icon(Send, { size: 15 })}{t('common.telegram')}</span
-        ></a
-      >
-      <a class="command-menu-item" href="/settings" role="menuitem"
-        ><span class="menu-item-label"
-          >{@html icon(Settings, { size: 15 })}{t('common.settings')}</span
-        ><kbd>⌘,</kbd></a
-      >
-      <button
-        class="command-menu-item"
-        type="button"
-        data-action="version"
-        data-version-row
-        role="menuitem"
-        ><span class="menu-item-label">{@html icon(Tag, { size: 15 })}{t('common.version')}</span
-        ><span class="version-status" id="command-menu-version-status" data-version-status>…</span
-        ></button
-      >
-    </div>
+    {@render menuBody('command-menu-item', 'command-menu-section', true)}
   </div>
 </div>
 <div id="mobile-command-backdrop" class="mobile-command-backdrop" style="display: none;"></div>
 <div id="mobile-command-panel" class="mobile-command-panel" style="display: none;">
   <div class="mobile-command-body">
-    <div class="mobile-command-section">
-      <button class="mobile-command-item" type="button" data-action="list-sessions"
-        ><span class="menu-item-label"
-          >{@html icon(Search, { size: 15 })}{t('menu.searchSessions')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="rename"
-        ><span class="menu-item-label">{@html icon(Pencil, { size: 15 })}{t('menu.rename')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="share"
-        ><span class="menu-item-label">{@html icon(Share2, { size: 15 })}{t('menu.share')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="fork"
-        ><span class="menu-item-label">{@html icon(GitFork, { size: 15 })}{t('menu.fork')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="clone"
-        ><span class="menu-item-label">{@html icon(Copy, { size: 15 })}{t('menu.clone')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="terminal"
-        ><span class="menu-item-label"
-          >{@html icon(Terminal, { size: 15 })}{t('menu.resumeTerminal')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="tree"
-        ><span class="menu-item-label">{@html icon(ListTree, { size: 15 })}{t('menu.tree')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="diff"
-        ><span class="menu-item-label">{@html icon(FileDiff, { size: 15 })}{t('menu.diff')}</span
-        ></button
-      >
-      <button class="mobile-command-item" type="button" data-action="model-usage"
-        ><span class="menu-item-label"
-          >{@html icon(ChartColumn, { size: 15 })}{t('menu.modelUsage')}</span
-        ></button
-      >
-    </div>
-    <div class="mobile-command-section">
-      <button class="mobile-command-item" type="button" data-action="user-docs"
-        ><span class="menu-item-label"
-          >{@html icon(BookOpen, { size: 15 })}{t('common.userDocs')}</span
-        ></button
-      >
-      <a
-        class="mobile-command-item"
-        href={TELEGRAM_INVITE_URL}
-        target="_blank"
-        rel="noreferrer"
-        role="menuitem"
-        ><span class="menu-item-label">{@html icon(Send, { size: 15 })}{t('common.telegram')}</span
-        ></a
-      >
-      <a class="mobile-command-item" href="/settings" role="menuitem"
-        ><span class="menu-item-label"
-          >{@html icon(Settings, { size: 15 })}{t('common.settings')}</span
-        ></a
-      >
-    </div>
+    {@render menuBody('mobile-command-item', 'mobile-command-section', false)}
   </div>
 </div>
 
