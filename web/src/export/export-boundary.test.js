@@ -10,6 +10,7 @@ const forbidden = [
   'session/chat/',
   'session/live/',
   'session/session-globals.js',
+  'components/session/chat/',
   'components/session/ChatComposer.svelte',
   'components/session/LiveReload.svelte',
 ];
