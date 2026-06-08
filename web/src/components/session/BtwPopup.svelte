@@ -7,6 +7,7 @@
   import { onMount } from 'svelte';
   import { getSpinnerConfig } from '../../session/live/chat-preview.js';
   import { t } from '../../shared/i18n.js';
+  import { icon, X, Square, Send } from '../../shared/icons.js';
   import {
     enableBtwDrag,
     loadBtwGeometry,
@@ -378,7 +379,7 @@
         type="button"
         class="pi-btw-close"
         aria-label={t('common.close')}
-        onclick={closeWindow}>×</button
+        onclick={closeWindow}>{@html icon(X, { size: 16 })}</button
       >
     </div>
   </div>
@@ -430,7 +431,8 @@
       class:cancel={running}
       aria-label={running ? t('composer.cancel') : t('composer.send')}
       title={running ? t('btw.stop') : t('composer.send')}
-      onclick={onSend}>{running ? '◼' : '▷'}</button
+      onclick={onSend}
+      >{@html running ? icon(Square, { size: 16 }) : icon(Send, { size: 16 })}</button
     >
   </form>
 </div>

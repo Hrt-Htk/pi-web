@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { t } from '../../shared/i18n.js';
+  import { icon, X } from '../../shared/icons.js';
   import { formatAnnotationsForPi } from '../../session/annotations/annotation-format.js';
   import { getSelectionInfo, applyHighlights } from '../../session/annotations/annotation-range.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
@@ -310,6 +311,7 @@
   });
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG markup -->
 <div id="annotation-list-host" class="annotation-list-host" bind:this={listRootEl}>
   {#if annotations.length === 0}
     <div class="annotation-empty">{t('annotation.empty')}</div>
@@ -321,7 +323,7 @@
             type="button"
             class="annotation-delete"
             data-action="delete"
-            title={t('annotation.deleteNote')}>×</button
+            title={t('annotation.deleteNote')}>{@html icon(X, { size: 14 })}</button
           >
           {#if a.original}<div class="annotation-quote">{a.original}</div>{/if}
           {#if a.text}<div class="annotation-note">{a.text}</div>{/if}
