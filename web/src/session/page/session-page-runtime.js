@@ -9,7 +9,6 @@ import * as searchFiltersApi from '../ui/search-filters.js';
 import * as toggleStateApi from '../ui/toggle-state.js';
 import { configureSettingsSync, hydrateSettings } from '../../shared/settings-store.js';
 import { getSessionRuntime } from '../session-runtime-context.js';
-import { setupSessionAnnotations } from './session-page-annotations.js';
 
 export function startSessionPageRuntime({
   sessionId,
@@ -67,12 +66,10 @@ export function startSessionPageRuntime({
     model.urlTargetId || null,
   );
 
-  const disposeAnnotations = setupSessionAnnotations({ sessionId, ui, windowImpl, documentImpl });
   const disposeGlobals = setupSessionGlobals({ windowImpl, documentImpl });
 
   return () => {
     disposeGlobals?.();
-    disposeAnnotations?.();
     contentWiring.dispose?.();
   };
 }

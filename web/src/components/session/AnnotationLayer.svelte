@@ -21,16 +21,22 @@
   );
 
   // Runtime deps supplied by <SessionPage> via init() (live-only wiring).
-  let api = null;
-  let scopes = [];
-  let composerEl = null;
-  let countEl = null;
-  let onSelectArtifact = null;
-  let onCreate = null;
-  let onSend = null;
-  let onAddToChat = null;
-  let resolveArtifact = null;
-  let selectionDelayMs = 250;
+  // Config is supplied declaratively by the parent. `api` + the callbacks are
+  // stable; `scopes`/`composerEl`/`countEl` are live DOM anchors the parent
+  // resolves after mount (so they may arrive a tick later, which the setup
+  // $effect below handles). Standalone/tests pass them directly.
+  let {
+    api = null,
+    scopes = [],
+    composerEl = null,
+    countEl = null,
+    onSelectArtifact = null,
+    onCreate = null,
+    onSend = null,
+    onAddToChat = null,
+    resolveArtifact = null,
+    selectionDelayMs = 250,
+  } = $props();
   const FLASH_DURATION_MS = 1200;
 
   let pending = null; // selection info awaiting a note
@@ -48,12 +54,12 @@
   // ── highlight (re)application ─────────────────────────────────────────────
   function reapply() {
     observer?.disconnect();
-    for (const scope of scopes) {
+    for (const scope of activeScopes) {
       applyHighlights(scope, annotations, { documentImpl: document });
     }
     observer?.takeRecords?.();
     if (observer) {
-      for (const scope of scopes) observer.observe(scope, { childList: true, subtree: true });
+      for (const scope of activeScopes) observer.observe(scope, { childList: true, subtree: true });
     }
   }
 
@@ -193,7 +199,7 @@
     if (popoverEl && popoverEl.contains(document.activeElement)) return;
     const sel = window.getSelection?.();
     const info = getSelectionInfo(sel, { documentImpl: document });
-    if (!info || !scopes.some((s) => s.contains(info.anchorEl))) {
+    if (!info || !activeScopes.some((s) => s.contains(info.anchorEl))) {
       if (popoverVisible) hidePopover();
       return;
     }
@@ -252,31 +258,28 @@
     }
   }
 
-  function init(cfg = {}) {
-    api = cfg.api || null;
-    scopes = (Array.isArray(cfg.scopes) ? cfg.scopes : []).filter(Boolean);
-    composerEl = cfg.composerEl || null;
-    countEl = cfg.countEl || null;
-    onSelectArtifact = cfg.onSelectArtifact || null;
-    onCreate = cfg.onCreate || null;
-    onSend = cfg.onSend || null;
-    onAddToChat = cfg.onAddToChat || null;
-    resolveArtifact = cfg.resolveArtifact || null;
-    if (cfg.selectionDelayMs != null) selectionDelayMs = cfg.selectionDelayMs;
-    if (!api || scopes.length === 0) return;
-    if (window.MutationObserver) {
+  // Active scopes after filtering out any null DOM anchors the parent hasn't
+  // resolved yet.
+  const activeScopes = $derived((Array.isArray(scopes) ? scopes : []).filter(Boolean));
+
+  // (Re)load + observe whenever the api or the resolved scopes change. Document
+  // listeners attach once in onMount; the handlers read the reactive config, so
+  // they no-op until a scope/api is present.
+  $effect(() => {
+    if (!api || activeScopes.length === 0) return;
+    if (window.MutationObserver && !observer) {
       observer = new window.MutationObserver(() => {
         if (window.requestAnimationFrame) window.requestAnimationFrame(reapply);
         else reapply();
       });
     }
+    refresh();
+  });
+
+  onMount(() => {
     document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('selectionchange', onSelectionChange);
     document.addEventListener('keydown', onKeyDown);
-    refresh();
-  }
-
-  onMount(() => {
     // Relocate the popover + note modal to <body> so their fixed positioning is
     // viewport-relative (the right sidebar uses transforms, which would otherwise
     // become their containing block). Svelte keeps patching them by reference.
@@ -295,7 +298,7 @@
       else if (action === 'cancel-note') closeNote();
     });
 
-    sessionRuntime.annotations = { init, setAnnotations, reapply, refresh };
+    sessionRuntime.annotations = { setAnnotations, reapply, refresh };
 
     return () => {
       observer?.disconnect();

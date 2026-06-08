@@ -90,10 +90,12 @@ Key points:
 
 ## Load flow
 
-On session page init (`SessionPage`'s `startSessionRuntime()`),
-`sessionRuntime.annotations.init()` calls
-`refresh()` → `GET /api/annotations?session=<id>` → `applyHighlights` across all
-scopes + render the Annotations tab list + update the tab count badge.
+`SessionShell` assembles the annotation config (api, DOM scopes resolved after
+mount, and the runtime-routed callbacks) and passes it as props to
+`<AnnotationLayer>` (via `<RightSidebar>`). A setup `$effect` runs once the api +
+scopes are present: `refresh()` → `GET /api/annotations?session=<id>` →
+`applyHighlights` across all scopes + render the Annotations tab list + update the
+tab count badge.
 
 ## Delete flow
 

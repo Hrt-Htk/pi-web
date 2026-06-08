@@ -62,21 +62,21 @@ function setup({
   count.hidden = true;
   document.body.appendChild(count);
 
-  render(AnnotationLayer);
-  const layer = sessionRuntime.annotations;
   const resolvedApi = api || fakeApi();
-  if (init) {
-    layer.init({
-      api: resolvedApi,
-      scopes: [messages],
-      composerEl: composer,
-      countEl: count,
-      onCreate,
-      onSend,
-      onAddToChat,
-      selectionDelayMs,
-    });
-  }
+  const props = init
+    ? {
+        api: resolvedApi,
+        scopes: [messages],
+        composerEl: composer,
+        countEl: count,
+        onCreate,
+        onSend,
+        onAddToChat,
+        selectionDelayMs,
+      }
+    : {};
+  render(AnnotationLayer, { props });
+  const layer = sessionRuntime.annotations;
   return { layer, messages, composer, count, api: resolvedApi };
 }
 
@@ -277,9 +277,10 @@ describe('AnnotationLayer', () => {
         ? { id: 'art-1', filePath: '/Users/setkyar/milktea/the-silver-flute-of-bagan.md', content }
         : null;
 
-    render(AnnotationLayer);
+    render(AnnotationLayer, {
+      props: { api: fakeApi(), scopes: [messages], composerEl: composer, resolveArtifact },
+    });
     const layer = sessionRuntime.annotations;
-    layer.init({ api: fakeApi(), scopes: [messages], composerEl: composer, resolveArtifact });
     layer.setAnnotations([
       {
         id: 'n1',
@@ -361,9 +362,7 @@ describe('AnnotationLayer', () => {
     document.body.appendChild(count);
     const api = fakeApi();
 
-    render(AnnotationLayer);
-    const layer = sessionRuntime.annotations;
-    layer.init({ api, scopes: [messages, artHost], countEl: count });
+    render(AnnotationLayer, { props: { api, scopes: [messages, artHost], countEl: count } });
     await flush();
 
     const node = document.getElementById('artifact-art-1').firstChild;
@@ -391,7 +390,6 @@ describe('AnnotationLayer', () => {
     render(AnnotationLayer);
     const layer = sessionRuntime.annotations;
     expect(() => {
-      layer.init({});
       layer.setAnnotations([]);
       layer.reapply();
     }).not.toThrow();

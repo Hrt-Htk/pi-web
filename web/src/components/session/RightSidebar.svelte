@@ -7,7 +7,7 @@
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { createScratchpadController } from './right-sidebar-scratchpad.js';
 
-  let { scratchpad = '', projectPath = '' } = $props();
+  let { scratchpad = '', projectPath = '', annotationConfig = {} } = $props();
 
   const RIGHT_SIDEBAR_COLLAPSED_KEY = 'pi-web:v1:right-sidebar-collapsed';
   const RIGHT_SIDEBAR_WIDTH_KEY = 'pi-web:v1:right-sidebar-width';
@@ -367,7 +367,7 @@
       aria-labelledby="right-tab-notes"
       hidden={activeTab !== 'notes'}
     >
-      <AnnotationLayer />
+      <AnnotationLayer {...annotationConfig} />
     </div>
   </div>
   <div class="right-sidebar-footer">

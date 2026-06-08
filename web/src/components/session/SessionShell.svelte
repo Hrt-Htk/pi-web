@@ -19,6 +19,9 @@
   import ShareDialog from './ShareDialog.svelte';
   import { sessionModals } from '../../session/session-modals.svelte.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
+  import { onMount } from 'svelte';
+  import { createAnnotationApi } from '../../session/annotations/annotation-api.js';
+  import { sessionRuntime } from '../../session/session-runtime.js';
 
   let {
     sessionModel,
@@ -34,6 +37,53 @@
   } = $props();
 
   const runtime = getSessionRuntime();
+
+  // Annotation config, supplied as props to <AnnotationLayer> (via <RightSidebar>)
+  // instead of the former imperative init() up-call. The DOM anchors are resolved
+  // after mount; the callbacks route through the shared session runtime.
+  let annotationScopes = $state([]);
+  let annotationComposer = $state(null);
+  let annotationCountEl = $state(null);
+
+  const annotationApi = $derived(
+    sessionId ? createAnnotationApi({ sessionId, fetchImpl: window.fetch.bind(window) }) : null,
+  );
+
+  const annotationConfig = $derived({
+    api: annotationApi,
+    scopes: annotationScopes,
+    composerEl: annotationComposer,
+    countEl: annotationCountEl,
+    onSelectArtifact: (artifactId) => {
+      sessionRuntime.rightSidebar?.activateTab('artifacts');
+      sessionRuntime.artifacts?.selectArtifact(artifactId);
+    },
+    onCreate: () => {
+      sessionRuntime.rightSidebar?.open();
+      sessionRuntime.rightSidebar?.activateTab('notes');
+    },
+    onSend: () => {
+      if (sessionRuntime.layout?.isMobileLayout?.()) sessionRuntime.rightSidebar?.collapse();
+    },
+    onAddToChat: (attachment) => {
+      window.dispatchEvent(new CustomEvent('pi-chat-attach-text', { detail: attachment }));
+      if (sessionRuntime.layout?.isMobileLayout?.()) sessionRuntime.rightSidebar?.collapse();
+    },
+    resolveArtifact: (artifactId) => sessionRuntime.artifacts?.getArtifact(artifactId) || null,
+  });
+
+  onMount(() => {
+    annotationScopes = [
+      document.getElementById('messages'),
+      document.getElementById('artifact-panel-host'),
+    ].filter(Boolean);
+    annotationComposer = document.getElementById('pi-chat-message');
+    annotationCountEl = document.getElementById('annotation-tab-count');
+
+    const onReload = () => sessionRuntime.annotations?.reapply();
+    window.addEventListener('pi-session-reload', onReload);
+    return () => window.removeEventListener('pi-session-reload', onReload);
+  });
 </script>
 
 <SessionHeader {title} {cwd} {sessionId} />
@@ -57,7 +107,7 @@
     </main>
     <ChatComposer {sessionId} {chatAvailable} {chatDisabledReason} {cwd} {modelLabel} />
   </div>
-  <RightSidebar {scratchpad} projectPath={cwd} />
+  <RightSidebar {scratchpad} projectPath={cwd} {annotationConfig} />
   <ImageModal />
 </div>
 
