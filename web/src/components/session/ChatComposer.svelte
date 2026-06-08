@@ -34,6 +34,7 @@
   import { setupCwdCopy } from './chat/cwd-copy.js';
   import { setupComposerHeightVar } from './chat/composer-height.js';
   import { createComposerSendState } from './chat/composer-send-state.js';
+  import { getComposerStorage } from './chat/composer-storage.js';
   import { navigateInitialChatLeaf } from './chat/initial-navigation.js';
   import { createChatToolbarState } from './chat/toolbar-state.js';
   import { setupChatSubmission } from './chat/chat-submit.js';
@@ -199,18 +200,12 @@ export function runChatComposer({
     const autoResizeTextarea = textareaControls.autoResize;
 
 
-    let composerStorage = null;
-    try {
-      composerStorage = window.localStorage;
-    } catch (_) {
-      composerStorage = null;
-    }
     setupComposerExpansion({
       sessionId,
       shell,
       expandButton,
       textarea,
-      storage: composerStorage,
+      storage: getComposerStorage({ windowImpl: window }),
       onHeightChange: updateComposerHeightVar,
     });
 
