@@ -14,6 +14,10 @@ import (
 const (
 	autoTitleSystemPrompt = "You write short session titles. Reply with ONLY a 2-5 word Title Case title summarizing the user's task. No punctuation, no quotes, no extra words."
 	autoTitleTimeout      = 25 * time.Second
+
+	settingAutoTitleEnabled = "pi-web:v1:auto-title:enabled"
+	settingAutoTitleMode    = "pi-web:v1:auto-title:mode"
+	settingAutoTitleModel   = "pi-web:v1:auto-title:model"
 )
 
 // autoTitleGenerate is the model call, injectable for tests.
@@ -22,17 +26,17 @@ var autoTitleGenerate = func(ctx context.Context, opts rpc.PromptOpts) (string, 
 }
 
 func (s *Server) autoTitleEnabled() bool {
-	return s.getSetting("pi-web:v1:auto-title:enabled", "true") == "true"
+	return s.getSetting(settingAutoTitleEnabled, "true") == "true"
 }
 
 // autoTitleEachTurn reports whether titles should refresh on every new user
 // message (vs. titling a session just once).
 func (s *Server) autoTitleEachTurn() bool {
-	return s.getSetting("pi-web:v1:auto-title:mode", "each-turn") == "each-turn"
+	return s.getSetting(settingAutoTitleMode, "each-turn") == "each-turn"
 }
 
 func (s *Server) autoTitleModel() string {
-	return strings.TrimSpace(s.getSetting("pi-web:v1:auto-title:model", ""))
+	return strings.TrimSpace(s.getSetting(settingAutoTitleModel, ""))
 }
 
 // maybeAutoTitle generates and applies a session title when appropriate. It is
