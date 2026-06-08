@@ -16,7 +16,7 @@
 
   const noteNoun = $derived(annotations.length === 1 ? t('annotation.noteOne') : t('annotation.noteMany'));
 
-  // Runtime deps supplied by session.js via init() (live-only wiring).
+  // Runtime deps supplied by <SessionPage> via init() (live-only wiring).
   let api = null;
   let scopes = [];
   let composerEl = null;

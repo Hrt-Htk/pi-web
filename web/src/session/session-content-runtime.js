@@ -4,9 +4,6 @@
 // lazy highlight), the per-message copy/fork/label delegated handler, and the
 // download-JSONL action. Also builds the sessionFormat object setupSessionUi
 // needs. Live-only — the static export wires its own afterRender in export-entry.
-//
-// Relocated out of session.js during the Svelte migration teardown
-// (docs/dev/svelte-migration-plan.md §11).
 
 import { setIconElement, Loader } from '../shared/icons.js';
 import { t } from '../shared/i18n.js';

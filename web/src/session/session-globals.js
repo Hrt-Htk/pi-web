@@ -1,8 +1,7 @@
-// Page-global wiring for the live session view — the "tail" of the old
-// runSessionApp glue, relocated out of session.js (Svelte migration teardown,
-// docs/dev/svelte-migration-plan.md §11). Called once by <SessionPage> after the
-// model + navigateTo are ready. Everything here is live-only (SSE/clipboard/
-// keyboard) and never runs in the static export.
+// Page-global wiring for the live session view. Called once by <SessionPage>
+// after the model + navigateTo are ready. Everything here is live-only
+// (notifications/clipboard/keyboard/mobile viewport) and never runs in the
+// static export.
 //
 // Covers: done-notifier, keyboard navigation, global keyboard shortcuts, and
 // the mobile visual-viewport / scroll-lock handlers.

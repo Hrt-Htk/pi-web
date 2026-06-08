@@ -1,15 +1,15 @@
-// Reactive session model (Svelte 5 runes) — see docs/dev/svelte-migration-plan.md.
+// Reactive session model (Svelte 5 runes).
 //
 // This is the single source of truth for a session page. It is intentionally a
-// DROP-IN for the legacy plain data model produced by createSessionDataModel()
-// (session-data.js): it exposes the same fields (entries, header, byId,
-// toolCallMap, labelMap, leafId, urlTargetId, systemPrompt, tools,
-// renderedTools, total/from/truncated) so the imperative session.js / export
-// runtimes can use it via the session runtime context/window shim with no field changes —
-// while ALSO being reactive so the Svelte tree updates automatically.
+// data-shape-compatible replacement for the plain model produced by
+// createSessionDataModel() (session-data.js): it exposes the same fields
+// (entries, header, byId, toolCallMap, labelMap, leafId, urlTargetId,
+// systemPrompt, tools, renderedTools, total/from/truncated) so live components
+// and the static export can share session render helpers without field changes,
+// while also being reactive so Svelte views update automatically.
 //
-// Key reactivity rules that keep it compatible with the imperative code:
-//   • `entries` is a $state array → session.js's in-place splice() is tracked.
+// Key reactivity rules:
+//   • `entries` is a $state array, so reconcile()'s in-place splice is tracked.
 //   • byId / toolCallMap / labelMap are STABLE SvelteMaps, refilled IN PLACE
 //     (clear+set). Stable identity matters because the entry renderer / chat
 //     composer capture these Map references once; mutating-in-place keeps that
@@ -41,7 +41,7 @@ function refillMap(target, source) {
 }
 
 export class SessionDataModel {
-  // ── raw data (drop-in fields for the legacy plain model) ────────────────
+  // ── raw data (compatible fields for the plain model shape) ──────────────
   entries = $state([]);
   header = $state(null);
   systemPrompt = $state(null);
@@ -117,8 +117,7 @@ export class SessionDataModel {
   }
 
   // Replace data in place, preserving view state. Used by the static export and
-  // by standalone consumers; the live app drives reloads through session.js,
-  // which mutates this model's entries/maps directly.
+  // standalone consumers; the live app's reload path uses reconcile() below.
   applyLiveUpdate(data) {
     this.#hydrate(data, { preserveView: true });
   }

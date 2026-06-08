@@ -46,7 +46,7 @@ describe('SessionTreeNodes', () => {
   it('reactively grows the sidebar when entries are appended (live reload)', async () => {
     const { container, model } = mount();
     expect(container.querySelector('[data-id="leaf2"]')).not.toBeInTheDocument();
-    // mimic session.js's in-place splice on the reactive entries array
+    // mimic live reconcile's in-place splice on the reactive entries array
     model.entries.push({
       id: 'leaf2', parentId: 'leaf', timestamp: '2026-01-01T00:04:00Z',
       type: 'message', message: { role: 'assistant', content: 'appended' },

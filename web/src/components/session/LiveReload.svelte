@@ -271,8 +271,8 @@ export async function handleSessionReload({
   let newCount = 0;
 
   // Two modes:
-  //  • Imperative (appendEntry provided): patch #messages DOM directly — the
-  //    legacy path, still covered by tests.
+  //  • Imperative (appendEntry provided): patch #messages DOM directly. Kept
+  //    for isolated helper tests and non-Svelte callers.
   //  • Reactive (no appendEntry): the Svelte <SessionContent> owns #messages and
   //    re-renders from the model that onReloaded just updated, so here we only
   //    track which ids are brand-new (for follow/scroll/highlight decisions).
@@ -321,8 +321,7 @@ export async function handleSessionReload({
   }
 
   // Reactive mode: once Svelte has rendered the new entries, flag them so the
-  // caller can apply the new-entry highlight (the imperative path does this
-  // inline via appendEntry → highlightNewEntry).
+  // caller can apply the new-entry highlight.
   if (newIds.length && typeof onNewEntries === 'function') {
     onNewEntries(newIds);
   }

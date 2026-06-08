@@ -8,10 +8,8 @@
 
   const model = getSessionModel();
 
-  // Route a tree-node click through the imperative navigator so message content
-  // scrolls/renders; the navigator's
-  // onNavigate writes back to the model, which re-highlights the tree reactively.
-  // Parity with the old tree-renderer: navigate to the newest leaf under the
+  // Route a tree-node click through the shared navigator so message content
+  // scrolls after the reactive render. Navigate to the newest leaf under the
   // clicked node, with the clicked node as the scroll target; auto-close the
   // drawer on mobile.
   function onNavigate(id) {

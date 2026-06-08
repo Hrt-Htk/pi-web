@@ -2,8 +2,8 @@
   // Session actions menu — Svelte port of live/command-menu.js. Renders the
   // desktop popover + mobile panel (+ the session-list <CommandPalette>) and, in
   // onMount, wires open/close + the action dispatch. Several actions delegate to
-  // window bridges set by SessionPage / session.js (model-usage, fork, the
-  // session-list palette) or click hidden relay buttons (share/new/terminal).
+  // window bridges set by SessionPage / shared live chrome (model-usage, fork,
+  // the session-list palette) or click hidden relay buttons (share/new/terminal).
   import { onMount } from 'svelte';
   import CommandPalette from '../shared/CommandPalette.svelte';
   import { t } from '../../shared/i18n.js';
