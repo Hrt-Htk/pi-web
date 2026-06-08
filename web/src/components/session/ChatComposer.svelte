@@ -27,6 +27,7 @@
   import { setupComposerExpansion } from './chat/composer-expand.js';
   import { setupWorkerStatusPolling } from './chat/worker-status.js';
   import { setupAskQuestionHandlers } from './chat/ask-question-handler.js';
+  import { readComposerConfig } from './chat/composer-config.js';
   import { setupContextPopover } from './chat/context-popover.js';
   import { setupTextareaControls } from './chat/textarea-controls.js';
   import { setupAttachmentManager } from './chat/attachment-manager.js';
@@ -142,15 +143,9 @@ export function runChatComposer({
 
   function setupPiChatComposer() {
     const form = document.getElementById('pi-chat-composer');
-    if (!form) return false;
-    const sessionId = form.dataset.sessionId;
-    const chatAvailable = form.dataset.chatAvailable !== 'false';
-    if (!chatAvailable) {
-      const reason = form.dataset.chatDisabledReason || 'chat unavailable';
-      setChatStatus('unavailable', 'error');
-      form.title = reason;
-      return false;
-    }
+    const composerConfig = readComposerConfig({ form, setChatStatus });
+    if (!composerConfig.ready) return false;
+    const { sessionId } = composerConfig;
     const textarea = document.getElementById('pi-chat-message');
     const fileInput = document.getElementById('pi-chat-images');
     const attachButton = document.getElementById('pi-chat-attach');
