@@ -5,6 +5,7 @@
   import ArtifactPanel from './ArtifactPanel.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
   import { sessionRuntime } from '../../session/session-runtime.js';
+  import { createScratchpadController } from './right-sidebar-scratchpad.js';
 
   let { scratchpad = '', projectPath = '' } = $props();
 
@@ -207,64 +208,20 @@
     }
 
     // ── Scratchpad load/save ─────────────────────────────────────────────────
-    let saveTimer = null;
-    let lastSaved = '';
-
-    function setStatus(text, cls) {
-      if (!statusEl) return;
-      statusEl.textContent = text;
-      statusEl.className = `scratchpad-status ${cls || ''}`.trim();
-    }
-
-    async function loadScratchpad() {
-      if (!projectPath || !textarea) return;
-      try {
-        const res = await fetch(`/api/scratchpad?project=${encodeURIComponent(projectPath)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const content = data.content ?? '';
-        textarea.value = content;
-        lastSaved = content;
-        setStatus('Saved', 'saved');
-      } catch {
-        setStatus('Load failed', '');
-      }
-    }
-
-    async function saveScratchpad() {
-      if (!projectPath || !textarea) return;
-      const content = textarea.value;
-      if (content === lastSaved) return;
-      setStatus('Saving…', 'saving');
-      try {
-        const res = await fetch('/api/scratchpad', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project: projectPath, content }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        lastSaved = content;
-        setStatus('Saved', 'saved');
-      } catch {
-        setStatus('Save failed', '');
-      }
-    }
-
-    if (textarea) {
-      const onInput = () => {
-        setStatus('Saving…', 'saving');
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(saveScratchpad, 1000);
-      };
-      textarea.addEventListener('input', onInput);
-      cleanups.push(() => { textarea.removeEventListener('input', onInput); clearTimeout(saveTimer); });
-    }
+    const scratchpadController = createScratchpadController({
+      projectPath,
+      textarea,
+      statusEl,
+      fetchImpl: fetch,
+    });
+    const loadScratchpad = scratchpadController.load;
+    if (textarea) cleanups.push(scratchpadController.bind());
 
     // Scratchpad content is server/prop-rendered into the textarea, so adopt it
     // as the baseline instead of re-fetching (which would blank then refill it).
     const savedWidth = loadWidth();
     if (savedWidth !== null) applyWidth(savedWidth);
-    if (textarea) lastSaved = textarea.value;
+    scratchpadController.adoptCurrentValue();
 
     // ── Artifacts help (?) modal ─────────────────────────────────────────────
     // Shown only on the Artifacts tab via CSS; toggled by the help button.
