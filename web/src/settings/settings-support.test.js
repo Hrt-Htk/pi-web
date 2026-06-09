@@ -6,7 +6,9 @@ function makeLink() {
   let clickHandler = null;
   const link = {
     querySelector: (sel) => (sel === '[data-settings-back-label]' ? label : null),
-    addEventListener: (type, handler) => { if (type === 'click') clickHandler = handler; },
+    addEventListener: (type, handler) => {
+      if (type === 'click') clickHandler = handler;
+    },
     _click: (init = {}) => {
       const e = {
         button: 0,

@@ -32,16 +32,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		if errors.Is(err, sessions.ErrInvalidSessionID) {
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-			return
-		}
-		if errors.Is(err, sessions.ErrSessionNotFound) {
-			writeJSONError(w, http.StatusNotFound, "session not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if resolveOrWriteError(w, err) {
 		return
 	}
 	if !resolved.Session.ChatAvailable {
@@ -123,16 +114,7 @@ func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		if errors.Is(err, sessions.ErrInvalidSessionID) {
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-			return
-		}
-		if errors.Is(err, sessions.ErrSessionNotFound) {
-			writeJSONError(w, http.StatusNotFound, "session not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if resolveOrWriteError(w, err) {
 		return
 	}
 	if s.chatSender == nil {
@@ -184,16 +166,7 @@ func (s *Server) handleCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		if errors.Is(err, sessions.ErrInvalidSessionID) {
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-			return
-		}
-		if errors.Is(err, sessions.ErrSessionNotFound) {
-			writeJSONError(w, http.StatusNotFound, "session not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if resolveOrWriteError(w, err) {
 		return
 	}
 	if s.chatSender == nil {
@@ -221,12 +194,7 @@ func (s *Server) hasRecentSessionActivity(sessionID string) bool {
 	if sessionID == "" {
 		return false
 	}
-	var now time.Time
-	if s.now != nil {
-		now = s.now()
-	} else {
-		now = time.Now()
-	}
+	now := s.now()
 	s.fileModMu.RLock()
 	mod, ok := s.fileMod[sessionID]
 	s.fileModMu.RUnlock()
@@ -242,16 +210,7 @@ func (s *Server) handleSetModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		if errors.Is(err, sessions.ErrInvalidSessionID) {
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-			return
-		}
-		if errors.Is(err, sessions.ErrSessionNotFound) {
-			writeJSONError(w, http.StatusNotFound, "session not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if resolveOrWriteError(w, err) {
 		return
 	}
 	var body struct {
@@ -279,16 +238,7 @@ func (s *Server) handleSetThinkingLevel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
-	if err != nil {
-		if errors.Is(err, sessions.ErrInvalidSessionID) {
-			writeJSONError(w, http.StatusBadRequest, "invalid session id")
-			return
-		}
-		if errors.Is(err, sessions.ErrSessionNotFound) {
-			writeJSONError(w, http.StatusNotFound, "session not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+	if resolveOrWriteError(w, err) {
 		return
 	}
 	var body struct {

@@ -8,17 +8,18 @@ export function hydrateSessionModel({
   locationSearch = '',
   windowImpl = window,
 } = {}) {
-  sessionModel.load(createSessionDataModel(
-    decodeBase64JSON(payloadBase64, { atobImpl: windowImpl.atob?.bind(windowImpl) }),
-    new URLSearchParams(locationSearch),
-  ));
+  sessionModel.load(
+    createSessionDataModel(
+      decodeBase64JSON(payloadBase64, { atobImpl: windowImpl.atob?.bind(windowImpl) }),
+      new URLSearchParams(locationSearch),
+    ),
+  );
   return sessionModel;
 }
 
 export function createLiveSessionRuntime({
   sessionModel,
   contentRuntime,
-  windowImpl = window,
   documentImpl = document,
 } = {}) {
   const navigator = createSessionNavigator({
@@ -35,5 +36,5 @@ export function createLiveSessionRuntime({
     navigateTo: navigator.navigateTo,
     reconcileEntries: (entries) => sessionModel.reconcile(entries),
     contentRuntime,
-  }, { windowImpl });
+  });
 }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupSessionGlobals } from './session-globals.js';
 import { sessionModals, resetSessionModals } from './session-modals.svelte.js';
 import { sessionRuntime, resetSessionRuntime } from './session-runtime.js';
+import { setSessionPaletteApi } from '../shared/command-palette-runtime.js';
 
 // Focused coverage for the global keyboard shortcuts + relay buttons, which the
 // e2e suite does not exercise. The other wiring (done-notifier, version, palette,
@@ -9,17 +10,18 @@ import { sessionRuntime, resetSessionRuntime } from './session-runtime.js';
 // setupSessionGlobals registers them without throwing in jsdom.
 
 function dispatchKey(key, { meta = false, shift = false } = {}) {
-  window.dispatchEvent(new KeyboardEvent('keydown', {
-    key,
-    metaKey: meta,
-    shiftKey: shift,
-    bubbles: true,
-    cancelable: true,
-  }));
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key,
+      metaKey: meta,
+      shiftKey: shift,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
 }
 
 describe('setupSessionGlobals — keyboard shortcuts', () => {
-  let model;
   let dispose;
 
   beforeEach(() => {
@@ -30,16 +32,16 @@ describe('setupSessionGlobals — keyboard shortcuts', () => {
       <button id="new-session-header-btn"></button>
     `;
     document.body.classList.remove('sidebar-collapsed');
-    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    window.matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
     window.fetch = vi.fn(async () => new Response('{}', { status: 200 }));
     window.scrollTo = vi.fn();
-    model = { truncated: false, reconcile: vi.fn(), leafId: 'leaf' };
     dispose = setupSessionGlobals({
       windowImpl: window,
       documentImpl: document,
-      model,
-      sessionId: 'sess1',
-      navigateTo: vi.fn(),
     });
   });
 
@@ -49,12 +51,12 @@ describe('setupSessionGlobals — keyboard shortcuts', () => {
     document.body.innerHTML = '';
     resetSessionModals();
     resetSessionRuntime();
-    delete window.__piOpenSessionPalette;
+    setSessionPaletteApi(null);
   });
 
-  it('Cmd+K calls the Svelte command-palette bridge when present', () => {
+  it('Cmd+K calls the Svelte command-palette runtime when present', () => {
     const open = vi.fn();
-    window.__piOpenSessionPalette = open;
+    setSessionPaletteApi({ open });
     dispatchKey('k', { meta: true });
     expect(open).toHaveBeenCalledOnce();
   });

@@ -47,21 +47,14 @@ describe('App', () => {
     expect(document.querySelector('[data-setting="pi-web-theme"]')).toBeTruthy();
   });
 
-  it('routes /login to the Svelte login page', () => {
-    document.body.innerHTML = '<div id="app"></div>';
-
-    mounted = mountApp({ props: { path: '/login' } });
-
-    expect(document.querySelector('#login-title')?.textContent).toBe('Login');
-    expect(document.querySelector('input[name="token"]')).toBeTruthy();
-  });
-
   it('mounts the fallback probe for unmigrated SPA routes', () => {
     document.body.innerHTML = '<div id="app"></div>';
 
     mounted = mountApp({ props: { path: '/future-route' } });
 
-    expect(document.querySelector('[aria-label="Svelte app probe"]')?.textContent).toContain('Svelte ready for pi-web');
+    expect(document.querySelector('[aria-label="Svelte app probe"]')?.textContent).toContain(
+      'Svelte ready for pi-web',
+    );
   });
 
   it('swaps views on pushState navigation', () => {
@@ -86,7 +79,9 @@ describe('App', () => {
     flushSync();
     expect(document.querySelector('.settings-page')).toBeTruthy();
 
-    const popped = new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+    const popped = new Promise((resolve) =>
+      window.addEventListener('popstate', resolve, { once: true }),
+    );
     window.history.back();
     await popped;
     flushSync();

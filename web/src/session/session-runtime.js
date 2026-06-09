@@ -10,7 +10,7 @@
 // never sees a stale handle. Kept dependency-free so it stays safe to pull into
 // the server-less export bundle (via session-ui-runner).
 export const sessionRuntime = {
-  annotations: null, // { init, setAnnotations, reapply, refresh }
+  annotations: null, // { setAnnotations, reapply, refresh }
   artifacts: null, // { setArtifacts, selectArtifact, getArtifact, getCount, ... }
   rightSidebar: null, // { toggle, open, collapse, activateTab }
   layout: null, // { isMobileLayout, closeSidebar }

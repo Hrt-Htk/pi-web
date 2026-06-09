@@ -14,7 +14,9 @@ describe('session page model helpers', () => {
       leafId: 'leaf',
     });
     const sessionModel = {
-      load: vi.fn(function load(data) { Object.assign(this, data); }),
+      load: vi.fn(function load(data) {
+        Object.assign(this, data);
+      }),
       reconcile: vi.fn((entries) => entries),
     };
 
@@ -33,7 +35,6 @@ describe('session page model helpers', () => {
     const runtime = createLiveSessionRuntime({
       sessionModel,
       contentRuntime: { afterRender: null },
-      windowImpl: window,
       documentImpl: document,
     });
 
@@ -44,6 +45,6 @@ describe('session page model helpers', () => {
     expect(sessionModel.currentTargetId).toBe('leaf');
     expect(sessionModel.reconcile).toHaveBeenCalledWith([{ id: 'next' }]);
 
-    resetSessionRuntimeContext({ windowImpl: window });
+    resetSessionRuntimeContext();
   });
 });

@@ -26,7 +26,7 @@ export function setupSessionUi({
     setSearchQuery,
     setFilterMode,
     forceTreeRerender,
-    navigateTo
+    navigateTo,
   });
 
   const isMobileLayout = () => sidebarApi.isMobileLayout({ windowImpl });
@@ -36,10 +36,14 @@ export function setupSessionUi({
   const overlayEl = documentImpl.getElementById('sidebar-overlay');
   if (overlayEl) {
     overlayEl.addEventListener('click', closeSidebar);
-    overlayEl.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      closeSidebar();
-    }, { passive: false });
+    overlayEl.addEventListener(
+      'touchstart',
+      (e) => {
+        e.preventDefault();
+        closeSidebar();
+      },
+      { passive: false },
+    );
   }
 
   const toggleController = toggleStateApi.createToggleController({ documentImpl, storage });
@@ -57,7 +61,7 @@ export function setupSessionUi({
     clearSearch: () => searchFilterControls.clearAndNavigateBottom(),
     toggleThinking,
     toggleToolsVisibility,
-    toggleToolOutputs
+    toggleToolOutputs,
   });
 
   return {

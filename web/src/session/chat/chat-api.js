@@ -32,7 +32,7 @@ export function setModel(sessionId, { provider, modelId }, { fetchImpl = fetch }
   return fetchImpl(chatUrl('/api/set-model', sessionId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, modelId })
+    body: JSON.stringify({ provider, modelId }),
   });
 }
 
@@ -40,6 +40,6 @@ export function setThinkingLevel(sessionId, level, { fetchImpl = fetch } = {}) {
   return fetchImpl(chatUrl('/api/set-thinking-level', sessionId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level })
+    body: JSON.stringify({ level }),
   });
 }

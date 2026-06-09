@@ -10,9 +10,14 @@ afterEach(() => resetSessionRuntime());
 
 describe('session UI runner', () => {
   it('sets up markdown, sidebar, and toggles', () => {
-    const dom = new JSDOM('<body><button id="hamburger"></button><div id="sidebar"></div><div id="sidebar-overlay"></div><div id="sidebar-resizer"></div><button id="hide-sidebar" class="hide-sidebar"></button><input id="tree-search"><button class="filter-btn" data-filter="all"></button></body>');
+    const dom = new JSDOM(
+      '<body><button id="hamburger"></button><div id="sidebar"></div><div id="sidebar-overlay"></div><div id="sidebar-resizer"></div><button id="hide-sidebar" class="hide-sidebar"></button><input id="tree-search"><button class="filter-btn" data-filter="all"></button></body>',
+    );
     dom.window.matchMedia = () => ({ matches: false });
-    const markdownApi = { configureSessionMarkdown: vi.fn(), safeMarkedParse: vi.fn((text) => `<p>${text}</p>`) };
+    const markdownApi = {
+      configureSessionMarkdown: vi.fn(),
+      safeMarkedParse: vi.fn((text) => `<p>${text}</p>`),
+    };
     const result = setupSessionUi({
       documentImpl: dom.window.document,
       windowImpl: dom.window,
@@ -28,7 +33,7 @@ describe('session UI runner', () => {
       setSearchQuery: vi.fn(),
       setFilterMode: vi.fn(),
       forceTreeRerender: vi.fn(),
-      navigateTo: vi.fn()
+      navigateTo: vi.fn(),
     });
     expect(markdownApi.configureSessionMarkdown).toHaveBeenCalled();
     expect(result.safeMarkedParse('x')).toBe('<p>x</p>');
@@ -37,9 +42,14 @@ describe('session UI runner', () => {
   });
 
   it('applies desktop sidebar collapsed state on init', () => {
-    const dom = new JSDOM('<body><button id="hamburger"></button><div id="sidebar"></div><div id="sidebar-overlay"></div><div id="sidebar-resizer"></div><button id="hide-sidebar" class="hide-sidebar"></button><input id="tree-search"><button class="filter-btn" data-filter="all"></button></body>');
+    const dom = new JSDOM(
+      '<body><button id="hamburger"></button><div id="sidebar"></div><div id="sidebar-overlay"></div><div id="sidebar-resizer"></div><button id="hide-sidebar" class="hide-sidebar"></button><input id="tree-search"><button class="filter-btn" data-filter="all"></button></body>',
+    );
     dom.window.matchMedia = () => ({ matches: false });
-    const markdownApi = { configureSessionMarkdown: vi.fn(), safeMarkedParse: vi.fn((text) => `<p>${text}</p>`) };
+    const markdownApi = {
+      configureSessionMarkdown: vi.fn(),
+      safeMarkedParse: vi.fn((text) => `<p>${text}</p>`),
+    };
     setupSessionUi({
       documentImpl: dom.window.document,
       windowImpl: dom.window,
@@ -55,7 +65,7 @@ describe('session UI runner', () => {
       setSearchQuery: vi.fn(),
       setFilterMode: vi.fn(),
       forceTreeRerender: vi.fn(),
-      navigateTo: vi.fn()
+      navigateTo: vi.fn(),
     });
     expect(dom.window.document.body.classList.contains('sidebar-collapsed')).toBe(true);
   });

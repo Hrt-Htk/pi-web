@@ -32,9 +32,10 @@ export function setupBackLink(documentImpl, windowImpl) {
   let fromApp = false;
   try {
     const ref = documentImpl.referrer;
-    fromApp = !!ref
-      && new URL(ref).origin === windowImpl.location.origin
-      && new URL(ref).pathname !== '/settings';
+    fromApp =
+      !!ref &&
+      new URL(ref).origin === windowImpl.location.origin &&
+      new URL(ref).pathname !== '/settings';
   } catch {
     fromApp = false;
   }
@@ -79,8 +80,10 @@ export async function fetchModelGroups({ fetchImpl = fetch } = {}) {
     if (!byProvider.has(provider)) byProvider.set(provider, []);
     byProvider.get(provider).push({ id, name: m.name || id, value: `${provider}/${id}` });
   }
-  return Array.from(byProvider.keys()).sort((a, b) => a.localeCompare(b)).map((provider) => ({
-    provider,
-    models: byProvider.get(provider),
-  }));
+  return Array.from(byProvider.keys())
+    .sort((a, b) => a.localeCompare(b))
+    .map((provider) => ({
+      provider,
+      models: byProvider.get(provider),
+    }));
 }

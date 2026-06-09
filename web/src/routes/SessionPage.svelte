@@ -4,8 +4,14 @@
   import { applyLazyHighlighting } from '../session/lazy-highlight.js';
   import { loadSessionPageState } from './session-page-data.js';
   import { SessionDataModel } from '../session/data/session-data.svelte.js';
-  import { hydrateSessionModel, createLiveSessionRuntime } from '../session/page/session-page-model.js';
-  import { applySessionPageBodyClasses, applyStoredSessionLayout } from '../session/page/session-page-layout.js';
+  import {
+    hydrateSessionModel,
+    createLiveSessionRuntime,
+  } from '../session/page/session-page-model.js';
+  import {
+    applySessionPageBodyClasses,
+    applyStoredSessionLayout,
+  } from '../session/page/session-page-layout.js';
   import { startSessionPageRuntime } from '../session/page/session-page-runtime.js';
   import { setSessionModel } from '../session/session-context.js';
   import { resetSessionModals } from '../session/session-modals.svelte.js';
@@ -43,7 +49,11 @@
     let active = true;
     let disposeRuntime = null;
     const disposeBodyClasses = applySessionPageBodyClasses({ documentImpl: document });
-    applyStoredSessionLayout({ documentImpl: document, windowImpl: window, storage: window.localStorage });
+    applyStoredSessionLayout({
+      documentImpl: document,
+      windowImpl: window,
+      storage: window.localStorage,
+    });
 
     // Avoid flashing the loading text on fast (localhost) loads: only reveal the
     // indicator if the fetch is still pending after a short delay.
@@ -53,7 +63,10 @@
 
     (async () => {
       try {
-        const state = await loadSessionPageState({ locationSearch: window.location.search, fetchImpl: window.fetch.bind(window) });
+        const state = await loadSessionPageState({
+          locationSearch: window.location.search,
+          fetchImpl: window.fetch.bind(window),
+        });
         if (!active) return;
         sessionId = state.sessionId;
         title = state.title;
@@ -64,8 +77,13 @@
         chatAvailable = state.chatAvailable;
         chatDisabledReason = state.chatDisabledReason;
         modelLabel = state.modelLabel;
-        hydrateSessionModel({ sessionModel, payloadBase64, locationSearch: window.location.search, windowImpl: window });
-        createLiveSessionRuntime({ sessionModel, contentRuntime, windowImpl: window, documentImpl: document });
+        hydrateSessionModel({
+          sessionModel,
+          payloadBase64,
+          locationSearch: window.location.search,
+          windowImpl: window,
+        });
+        createLiveSessionRuntime({ sessionModel, contentRuntime, documentImpl: document });
         loading = false;
         clearTimeout(loadingTimer);
         await tick();
@@ -94,7 +112,7 @@
       disposeRuntime?.();
       resetSessionModals();
       resetSessionRuntime();
-      resetSessionRuntimeContext({ windowImpl: window });
+      resetSessionRuntimeContext();
       document.title = previousTitle;
       disposeBodyClasses();
     };
@@ -104,7 +122,10 @@
 {#if loading}
   {#if showLoading}<div class="session-loading">{t('session.loading')}</div>{/if}
 {:else if error}
-  <div class="session-loading"><h1>{error}</h1><p><a href="/">{t('session.backToSessions')}</a></p></div>
+  <div class="session-loading">
+    <h1>{error}</h1>
+    <p><a href="/">{t('session.backToSessions')}</a></p>
+  </div>
 {:else}
   <SessionShell
     {sessionModel}
