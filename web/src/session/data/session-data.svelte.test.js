@@ -130,6 +130,24 @@ describe('SessionDataModel', () => {
     expect(m.currentLeafId).toBe('old');
   });
 
+  it('reconcile() refuses to shrink the entries array (stale reload guard)', () => {
+    const m = model();
+    // Simulate: model has 4 entries (including optimistic preview), but a
+    // reload fetched stale data with only 2 entries (worker hasn't flushed yet).
+    m.reconcile(entries.slice(0, 2));
+    expect(m.entries).toHaveLength(4);
+    expect(m.byId.has('leaf')).toBe(true);
+  });
+
+  it('reconcile() skips no-op reloads (identical data guard)', () => {
+    const m = model();
+    const before = m.entries;
+    m.reconcile(entries);
+    // entries array should be the same reference — no splice triggered
+    expect(m.entries).toBe(before);
+    expect(m.entries).toHaveLength(4);
+  });
+
   it('derives the ordered active path (root→leaf)', () => {
     const m = model();
     expect(m.activePath.map((e) => e.id)).toEqual(['root', 'mid', 'leaf']);

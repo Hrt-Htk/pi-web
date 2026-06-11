@@ -184,8 +184,8 @@ func TestResumeButtonShowsToastWithoutChangingButtonText(t *testing.T) {
 	if !strings.Contains(src, `Copied`) || !strings.Contains(liveSessionCss, `.toast-notice`) {
 		t.Fatalf("resume copy should show an accent-colored toast notification")
 	}
-	if !strings.Contains(src, `document.body.dataset.sessionUuid`) {
-		t.Fatalf("resume copy should read real session UUID from body data attribute")
+	if !strings.Contains(src, `resumeSessionArg = sessionId`) {
+		t.Fatalf("resume copy should read session ID from sessionId prop")
 	}
 	if !strings.Contains(src, `resumeSessionArg`) {
 		t.Fatalf("resume copy should derive UUID-only session argument")

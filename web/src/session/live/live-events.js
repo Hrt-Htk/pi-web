@@ -11,6 +11,7 @@ export async function handleSessionReload({
   fetchImpl = fetch,
   entryState,
   clearChatPreview = () => {},
+  clearPendingUser = () => {},
   appendEntry,
   upsertEntry,
   refreshEntriesAffectedByToolResult,
@@ -66,11 +67,26 @@ export async function handleSessionReload({
     }
   });
 
-  // Clear optimistic pending user/assistant preview only after canonical
-  // entries have been appended/upserted (imperative) or merged into the model
-  // (reactive). Clearing earlier creates a visible blank/flicker when a cold
-  // worker finally writes the real message.
-  clearChatPreview();
+  // Clear the optimistic preview only when a canonical assistant entry with
+  // content arrives. A file-watcher reload that only brings the user message
+  // (or a label) should keep the streaming preview alive. A reload that brings
+  // the assistant's reply means the canonical content is on disk and the
+  // preview is no longer needed.
+  const hasNewAssistantWithContent = newIds.some(
+    (id) =>
+      entries.find((e) => e.id === id)?.message?.role === 'assistant' &&
+      entries.find((e) => e.id === id)?.message?.content?.length > 0,
+  );
+  if (hasNewAssistantWithContent) {
+    clearChatPreview();
+  }
+
+  const hasNewUserMessage = newIds.some(
+    (id) => entries.find((e) => e.id === id)?.message?.role === 'user',
+  );
+  if (hasNewUserMessage) {
+    clearPendingUser();
+  }
 
   if (newCount > 0) {
     updateStats(entries);
@@ -95,6 +111,7 @@ export function wireSessionEvents({
   eventSource,
   onReload,
   onChatPreview,
+  clearChatPreview = () => {},
   onAnnotations = null,
   onError = () => {},
   windowImpl = typeof window !== 'undefined' ? window : null,
@@ -115,12 +132,11 @@ export function wireSessionEvents({
     try {
       const payload = JSON.parse(event.data);
       onChatPreview(payload);
-      // The file-watch 'reload' event is dropped for a brand-new session's first
-      // write (the watcher treats it as an initial observation, not a change), so
-      // the canonical entries would never reconcile until a manual refresh. The
-      // chat-preview stream is worker-driven and independent of the watcher, so
-      // its 'done' signal is a reliable trigger to pull the written entries.
-      if (payload && payload.done) onReload(event);
+      // Don't clear the preview or trigger a reload here — the real pi worker
+      // sends 'done' BEFORE flushing entries to disk. Clearing the preview now
+      // would lose the streaming content. The file-watcher reload fires after
+      // the disk write, and handleSessionReload() clears the preview only when
+      // a canonical assistant entry with content arrives.
     } catch (error) {
       onError(error);
     }

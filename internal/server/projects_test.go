@@ -164,6 +164,8 @@ func TestHandleUpdateProject(t *testing.T) {
 		return w
 	}
 
+	proj := sessions.CanonicalProject(absTestPath("/home/user/proj"))
+
 	if w := post("/a", "enable"); w.Code != http.StatusOK {
 		t.Fatalf("enable status = %d", w.Code)
 	}
@@ -179,11 +181,11 @@ func TestHandleUpdateProject(t *testing.T) {
 	}
 
 	// register stores the path with source=registered and enabled.
-	if w := post("/home/user/proj", "register"); w.Code != http.StatusOK {
+	if w := post(proj, "register"); w.Code != http.StatusOK {
 		t.Fatalf("register status = %d", w.Code)
 	}
 	var source string
-	if err := s.db.QueryRow("SELECT source FROM project_prefs WHERE project_path = ?", "/home/user/proj").Scan(&source); err != nil {
+	if err := s.db.QueryRow("SELECT source FROM project_prefs WHERE project_path = ?", proj).Scan(&source); err != nil {
 		t.Fatal(err)
 	}
 	if source != "registered" {
@@ -191,11 +193,11 @@ func TestHandleUpdateProject(t *testing.T) {
 	}
 
 	// remove deletes the row.
-	if w := post("/home/user/proj", "remove"); w.Code != http.StatusOK {
+	if w := post(proj, "remove"); w.Code != http.StatusOK {
 		t.Fatalf("remove status = %d", w.Code)
 	}
 	var count int
-	if err := s.db.QueryRow("SELECT COUNT(*) FROM project_prefs WHERE project_path = ?", "/home/user/proj").Scan(&count); err != nil {
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM project_prefs WHERE project_path = ?", proj).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -270,17 +272,30 @@ func TestHandleApiProjects(t *testing.T) {
 	}
 }
 
+// absTestPath turns a POSIX-style absolute path into one absolute on the
+// current OS — on Windows it prefixes the home drive (e.g. C:\abs\path), on
+// Unix it returns the path unchanged.
+func absTestPath(p string) string {
+	home, _ := os.UserHomeDir()
+	if vol := filepath.VolumeName(home); vol != "" {
+		return vol + filepath.FromSlash(p)
+	}
+	return p
+}
+
 func TestNormalizeProjectPath(t *testing.T) {
 	home, _ := os.UserHomeDir()
+	absPath := absTestPath("/abs/path")
+	spaced := absTestPath("/spaced")
 	cases := []struct {
 		in      string
 		want    string
 		wantErr bool
 	}{
-		{"/abs/path", "/abs/path", false},
-		{"/abs/path/", "/abs/path", false},
+		{absPath, sessions.CanonicalProject(absPath), false},
+		{absPath + string(filepath.Separator), sessions.CanonicalProject(absPath), false},
 		{"~/proj", sessions.CanonicalProject(filepath.Join(home, "proj")), false},
-		{"  /spaced  ", "/spaced", false},
+		{"  " + spaced + "  ", sessions.CanonicalProject(spaced), false},
 		{"relative/path", "", true},
 		{"", "", true},
 	}

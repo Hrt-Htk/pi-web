@@ -171,6 +171,23 @@ export class SessionDataModel {
   // it was unset.
   reconcile(entries) {
     if (!Array.isArray(entries)) return;
+    // Guard against stale reloads: if the incoming entries are fewer than what
+    // we already have, the reload fetched the session before the worker flushed
+    // canonical entries to disk. Skip the replace so optimistic preview entries
+    // and recent canonical entries are preserved until a later reload delivers
+    // the real data (append-only semantics — a session never loses entries).
+    if (entries.length < this.entries.length) return;
+    // Guard against no-op reloads: if the incoming entries are identical to what
+    // we already have (same length, same last entry), the reload fetched stale
+    // data. Skip the splice to prevent a Svelte re-render that would destroy
+    // optimistic preview DOM elements inside #messages.
+    if (
+      entries.length === this.entries.length &&
+      entries.length > 0 &&
+      entries[entries.length - 1]?.id === this.entries[this.entries.length - 1]?.id
+    ) {
+      return;
+    }
     this.entries.splice(0, this.entries.length, ...entries);
     const lk = buildSessionLookups(this.entries);
     refillMap(this.byId, lk.byId);
@@ -182,9 +199,10 @@ export class SessionDataModel {
       this.currentLeafId && nodeMap.has(this.currentLeafId)
         ? findNewestLeaf(this.currentLeafId, nodeMap)
         : '';
-    if (!nextLeafId) {
+    if (!nextLeafId || this.byId.get(nextLeafId)?.type !== 'message') {
+      nextLeafId = '';
       for (let i = this.entries.length - 1; i >= 0; i -= 1) {
-        if (this.entries[i]?.id && this.entries[i]?.type !== 'label') {
+        if (this.entries[i]?.type === 'message' && this.entries[i]?.id) {
           nextLeafId = this.entries[i].id;
           break;
         }
