@@ -170,6 +170,7 @@ func New(deps Deps) (*Server, error) {
 		s.push = pm
 	}
 	s.watchFiles()
+	s.migrateProjectPaths()
 	if err := s.startSessionStatusWatcher(); err != nil {
 		fmt.Fprintf(os.Stderr, "session-status watcher unavailable: %v\n", err)
 	}

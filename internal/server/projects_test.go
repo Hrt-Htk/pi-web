@@ -279,7 +279,7 @@ func TestNormalizeProjectPath(t *testing.T) {
 	}{
 		{"/abs/path", "/abs/path", false},
 		{"/abs/path/", "/abs/path", false},
-		{"~/proj", filepath.Join(home, "proj"), false},
+		{"~/proj", sessions.CanonicalProject(filepath.Join(home, "proj")), false},
 		{"  /spaced  ", "/spaced", false},
 		{"relative/path", "", true},
 		{"", "", true},

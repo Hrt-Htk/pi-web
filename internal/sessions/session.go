@@ -194,7 +194,7 @@ func applySummaryContext(s *SessionSummary, path, fileName, sessionInfoName, hea
 	}
 
 	if headerCwd != "" {
-		s.Project = headerCwd
+		s.Project = CanonicalProject(headerCwd)
 		if _, err := os.Stat(headerCwd); err != nil {
 			s.ChatAvailable = false
 			s.ChatDisabledReason = chatDisabledMissingCwd
@@ -593,47 +593,66 @@ func sessionHeaderKey(raw map[string]any) string {
 // It handles both the new escape-based encoding (using _ as sentinel) and
 // the legacy encoding (where - stood for /).
 func cleanProjectName(dirName string) string {
-	s := strings.TrimPrefix(dirName, "--")
-	s = strings.TrimSuffix(s, "--")
-	s = decodeProjectBody(s)
-	return s
+	return CanonicalProject(DecodeProjectName(dirName))
+}
+
+// CanonicalProject normalizes a filesystem path for use as a project key.
+// Backslashes become forward slashes. Windows paths (identified by a drive
+// letter) are lowercased entirely because the volume is case-insensitive, so
+// H:\Software and H:\software are the same project and must group together.
+// POSIX paths are left case-sensitive.
+func CanonicalProject(path string) string {
+	p := strings.ReplaceAll(path, "\\", "/")
+	if len(p) >= 2 && p[1] == ':' {
+		return strings.ToLower(p)
+	}
+	return p
 }
 
 // EncodeProjectName converts an absolute filesystem path into a safe
-// directory name by escaping /, _, and all Windows-invalid filename
-// characters. The result is wrapped with "--" so callers can recognise
-// encoded project directories.
+// directory name.  It matches pi's encoding so that sessions created by
+// pi-web are discoverable by pi --resume and vice versa.
 //
-//	/home/user/my-project → --home_-user_-my-project--
-//	/home/user/_cache    → --home_-user_-__cache--
-//	H:\Software          → --H_co__bs_Software--
+// Algorithm (matches session-manager.js in pi):
+//   1. Strip leading / or \
+//   2. Replace / \ : with -
+//   3. Wrap in --
+//
+//	/home/user/my-project → --home-user-my-project--
+//	H:\Software           → --H--Software--
 func EncodeProjectName(path string) string {
 	s := strings.TrimSpace(path)
-	s = strings.Trim(s, "/")
-	// Escape _ first, then the rest.  Order matters: we must double _ before
-	// we introduce any new _ in the escape sequences.
-	s = strings.ReplaceAll(s, "_", "__")
-	s = strings.ReplaceAll(s, "/", "_-")
-	s = strings.ReplaceAll(s, "\\", "_bs_")
-	s = strings.ReplaceAll(s, ":", "_co_")
-	s = strings.ReplaceAll(s, "<", "_lt_")
-	s = strings.ReplaceAll(s, ">", "_gt_")
-	s = strings.ReplaceAll(s, "\"", "_dq_")
-	s = strings.ReplaceAll(s, "|", "_pi_")
-	s = strings.ReplaceAll(s, "?", "_qu_")
-	s = strings.ReplaceAll(s, "*", "_as_")
+	s = strings.TrimLeft(s, `/\`)
+	s = strings.ReplaceAll(s, `/`, `-`)
+	s = strings.ReplaceAll(s, `\`, `-`)
+	s = strings.ReplaceAll(s, `:`, `-`)
 	return "--" + s + "--"
 }
 
-// DecodeProjectName reverses EncodeProjectName.  It accepts both the
-// new escape-based encoding and the legacy encoding (where - meant /)
-// so that existing session directories continue to work.
+// DecodeProjectName reverses EncodeProjectName.  It accepts the
+// pi-compatible simple encoding, the old escape-based encoding,
+// and the legacy encoding (where - meant /) so that existing
+// session directories continue to work.
 func DecodeProjectName(dirName string) string {
 	s := strings.TrimPrefix(dirName, "--")
 	s = strings.TrimSuffix(s, "--")
 	s = decodeProjectBody(s)
-	if s != "" && !strings.HasPrefix(s, "/") {
-		// Don't add / prefix for Windows drive-letter paths.
+	if s == "" {
+		return s
+	}
+	// Normalize backslashes to forward slashes so old-format decodes
+	// (H:\Software) match new-format decodes (H:/Software).
+	s = strings.ReplaceAll(s, "\\", "/")
+	// Handle Windows drive paths: after simple decoding, H:\Software
+	// becomes H//Software (drive letter + two slashes from : and \).
+	// Convert to proper forward-slash form.
+	if len(s) >= 3 && s[1] == '/' && s[2] == '/' &&
+		(s[0] >= 'A' && s[0] <= 'Z' || s[0] >= 'a' && s[0] <= 'z') {
+		// e.g. "H//Software" → "H:/Software"
+		s = string(s[0]) + ":/" + strings.TrimLeft(s[3:], "/")
+		return s
+	}
+	if !strings.HasPrefix(s, "/") {
 		if !isWindowsDrivePath(s) {
 			s = "/" + s
 		}
@@ -647,12 +666,17 @@ func isWindowsDrivePath(s string) bool {
 	return len(s) >= 2 && s[1] == ':' && (s[0] >= 'A' && s[0] <= 'Z' || s[0] >= 'a' && s[0] <= 'z')
 }
 // decodeProjectBody decodes the content between the "--" wrappers.
-// New format (contains _):  _as_ → *, _qu_ → ?, _pi_ → |, _dq_ → ",
-//   _gt_ → >, _lt_ → <, _co_ → :, _bs_ → \, _- → /, __ → _
-// Legacy format (no _):     -  → /
+// It handles three encoding formats:
+//   1. Pi-compatible (simple): - means / (no _ escaping)
+//   2. Old escape-based: _as_ → *, _qu_ → ?, _pi_ → |, _dq_ → ",
+//      _gt_ → >, _lt_ → <, _co_ → :, _bs_ → \, _- → /, __ → _
+//   3. Legacy: - means / (no _ at all)
+//
+// To distinguish old escape format from pi-compatible format, we check
+// whether all _ characters are part of known escape sequences.
 func decodeProjectBody(s string) string {
-	if strings.Contains(s, "_") {
-		// New escape-based encoding.  Decode in reverse order of encoding
+	if isOldEscapeFormat(s) {
+		// Old escape-based encoding.  Decode in reverse order of encoding
 		// (longest/most specific sequences first to avoid partial matches).
 		s = strings.ReplaceAll(s, "_as_", "*")
 		s = strings.ReplaceAll(s, "_qu_", "?")
@@ -665,10 +689,42 @@ func decodeProjectBody(s string) string {
 		s = strings.ReplaceAll(s, "_-", "/")
 		s = strings.ReplaceAll(s, "__", "_")
 	} else {
-		// Legacy encoding: every - was a /.
+		// Pi-compatible or legacy: - means /
 		s = strings.ReplaceAll(s, "-", "/")
 	}
 	return s
+}
+
+// isOldEscapeFormat checks whether s uses the old escape-based encoding.
+// Heuristic: if s contains escape sequences that can ONLY come from the old
+// format, it's the old format.  Markers include:
+//   __  (escaped literal _)
+//   _co_ (escaped :), _bs_ (escaped \)
+//   _lt_, _gt_, _dq_, _pi_, _qu_, _as_ (other Windows-invalid chars)
+//
+// For "_-" we use a secondary check: in the old format, ALL dashes are part
+// of "_-" (the only way / is encoded). In the new format, dashes are bare
+// path separators.  If removing all "_-" leaves no bare dashes, it's old format.
+func isOldEscapeFormat(s string) bool {
+	if !strings.Contains(s, "_") {
+		return false
+	}
+	// Unambiguous old-format markers:
+	if strings.Contains(s, "__") || strings.Contains(s, "_co_") || strings.Contains(s, "_bs_") {
+		return true
+	}
+	if strings.Contains(s, "_lt_") || strings.Contains(s, "_gt_") ||
+		strings.Contains(s, "_dq_") || strings.Contains(s, "_pi_") ||
+		strings.Contains(s, "_qu_") || strings.Contains(s, "_as_") {
+		return true
+	}
+	// Check for "_-": old format uses _- as the ONLY separator.
+	// If all dashes are part of "_-", it's old format.
+	withoutUS := strings.ReplaceAll(s, "_-", "")
+	if !strings.Contains(withoutUS, "-") {
+		return true
+	}
+	return false
 }
 
 const maxRecentLocations = 10
