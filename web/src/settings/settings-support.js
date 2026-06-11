@@ -72,18 +72,30 @@ export async function fetchModelGroups({ fetchImpl = fetch } = {}) {
     return [];
   }
   if (!models?.length) return [];
+
   const byProvider = new Map();
   for (const m of models) {
     const id = m.id || m.modelId || '';
     const provider = m.provider || '';
     if (!id || !provider) continue;
-    if (!byProvider.has(provider)) byProvider.set(provider, []);
-    byProvider.get(provider).push({ id, name: m.name || id, value: `${provider}/${id}` });
+
+    // Strip pi's inline base-URL suffix (everything after the first '=')
+    const key = provider.split('=')[0];
+    let group = byProvider.get(key);
+    if (!group) {
+      group = { provider: key, models: new Map() };
+      byProvider.set(key, group);
+    }
+    // Dedupe by id within the group
+    if (!group.models.has(id)) {
+      group.models.set(id, { id, name: m.name || id, value: `${key}/${id}` });
+    }
   }
+
   return Array.from(byProvider.keys())
     .sort((a, b) => a.localeCompare(b))
-    .map((provider) => ({
-      provider,
-      models: byProvider.get(provider),
-    }));
+    .map((key) => {
+      const { provider, models } = byProvider.get(key);
+      return { provider, models: Array.from(models.values()) };
+    });
 }

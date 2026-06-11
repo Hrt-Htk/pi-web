@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"pi-web/internal/agentdir"
 	"pi-web/internal/rpc"
 	"pi-web/internal/sessions"
 )
 
 const (
 	autoTitleSystemPrompt = "You write short session titles. Reply with ONLY a 2-5 word Title Case title summarizing the user's task. No punctuation, no quotes, no extra words."
-	autoTitleTimeout      = 25 * time.Second
+	autoTitleTimeout      = 120 * time.Second
 
 	settingAutoTitleEnabled = "pi-web:v1:auto-title:enabled"
 	settingAutoTitleMode    = "pi-web:v1:auto-title:mode"
@@ -22,7 +23,7 @@ const (
 
 // autoTitleGenerate is the model call, injectable for tests.
 var autoTitleGenerate = func(ctx context.Context, opts rpc.PromptOpts) (string, error) {
-	return rpc.OneShotPrompt(ctx, opts)
+	return rpc.OneShotCompletion(ctx, agentdir.Path(), opts)
 }
 
 func (s *Server) autoTitleEnabled() bool {

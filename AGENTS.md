@@ -9,6 +9,13 @@
 
 Read the relevant doc in `@docs/` before structural changes, and update the matching doc whenever your change makes it out of date.
 
+## Environment
+
+- **Go:** `/c/Users/HTK/go/bin/go.exe` (add to PATH if not found: `export PATH="$PATH:/c/Users/HTK/go/bin"`)
+- **Always build with `-o pi-web.exe`** — WSL/Git Bash produces `pi-web` (no extension) by default, but the user runs `pi-web.exe` from PATH. Without `.exe` the new binary is never picked up.
+- **Node:** `/c/nvm4w/nodejs/` (npm at `C:/nvm4w/nodejs/npm.cmd`)
+- **make:** `C:/Users/HTK/AppData/Local/Microsoft/WinGet/Packages/ezwinports.make_Microsoft.Winget.Source_8wekyb3d8bbwe/bin` (GNU Make 4.4.1, on the user PATH). A reduced shell may not see it — add to PATH: `export PATH="$PATH:/c/Users/HTK/AppData/Local/Microsoft/WinGet/Packages/ezwinports.make_Microsoft.Winget.Source_8wekyb3d8bbwe/bin"`. Note: make recipes run via `sh`, which can't resolve `npm` (it's `npm.cmd`), so `make build`/`make frontend-build` fail at the npm step. When that bites, run the steps directly: `cd web && /c/nvm4w/nodejs/npm.cmd run build` then `go build -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty)" -o pi-web.exe ./cmd/pi-web`.
+
 ## Testing
 
 ```bash
