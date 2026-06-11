@@ -57,6 +57,12 @@ async function observeTimeline(page: import("@playwright/test").Page, label: str
       const messagesEl = document.getElementById("messages");
       const messagesCount = messagesEl ? messagesEl.children.length : -1;
 
+      const messagesListEl = document.getElementById("messages-list");
+      const messagesListCount = messagesListEl ? messagesListEl.children.length : -1;
+
+      const previewHost = document.getElementById("chat-preview-host");
+      const previewHostChildren = previewHost ? previewHost.children.length : -1;
+
       const pendingUser = document.getElementById("chat-pending-user");
       const hasPendingUser = !!pendingUser;
 
@@ -79,6 +85,8 @@ async function observeTimeline(page: import("@playwright/test").Page, label: str
 
       return {
         messages: messagesCount,
+        listCount: messagesListCount,
+        previewHost: previewHostChildren,
         pendingUser: hasPendingUser,
         previewExists,
         previewTextLen,
@@ -129,6 +137,8 @@ async function observeTimeline(page: import("@playwright/test").Page, label: str
 
 function formatTick(time: string, s: {
   messages: number;
+  listCount: number;
+  previewHost: number;
   pendingUser: boolean;
   previewExists: boolean;
   previewTextLen: number;
@@ -140,7 +150,7 @@ function formatTick(time: string, s: {
   const previewStr = s.previewExists
     ? `yes(${s.previewTextLen}ch)` + (s.previewSnippet ? ` "${s.previewSnippet}..."` : "") + (s.previewClasses ? `[${s.previewClasses}]` : "")
     : "no";
-  return `[${time}] messages=${s.messages} pending-user=${s.pendingUser ? "yes" : "no"} preview=${previewStr} status=${s.status} send=${s.sendDisabled ? "disabled" : "enabled"}`;
+  return `[${time}] msgs=${s.messages} list=${s.listCount} pHost=${s.previewHost} pending=${s.pendingUser ? "Y" : "n"} preview=${previewStr} status=${s.status} send=${s.sendDisabled ? "dis" : "en"}`;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -203,8 +213,24 @@ test.describe("new-session message disappearance — timeline observation", () =
 
     console.log(`[flow 1] Message sent, starting observation...`);
 
+    // Capture console logs for debugging
+    const logs: string[] = [];
+    page.on("console", msg => {
+      if (msg.type() === "error" || msg.type() === "warn") {
+        logs.push(`[${msg.type()}] ${msg.text()}`);
+      }
+    });
+
     // Observe the timeline
     await observeTimeline(page, `Flow 1 (from index) — prompt: "hello"`);
+
+    // Print any errors
+    if (logs.length > 0) {
+      console.log(`[flow 1] Console errors/warnings (${logs.length}):`);
+      for (const log of logs.slice(-10)) {
+        console.log(`  ${log}`);
+      }
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────

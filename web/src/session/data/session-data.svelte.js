@@ -199,9 +199,10 @@ export class SessionDataModel {
       this.currentLeafId && nodeMap.has(this.currentLeafId)
         ? findNewestLeaf(this.currentLeafId, nodeMap)
         : '';
-    if (!nextLeafId) {
+    if (!nextLeafId || this.byId.get(nextLeafId)?.type !== 'message') {
+      nextLeafId = '';
       for (let i = this.entries.length - 1; i >= 0; i -= 1) {
-        if (this.entries[i]?.id && this.entries[i]?.type !== 'label') {
+        if (this.entries[i]?.type === 'message' && this.entries[i]?.id) {
           nextLeafId = this.entries[i].id;
           break;
         }

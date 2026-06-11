@@ -84,7 +84,8 @@ describe('live events', () => {
     expect(result.newCount).toBe(1);
     expect(entryState.seen.has('b')).toBe(true);
     expect(onNewEntries).toHaveBeenCalledWith(['b']);
-    expect(clearChatPreview).not.toHaveBeenCalled();
+    // Assistant entry with content arrived — preview should be cleared
+    expect(clearChatPreview).toHaveBeenCalled();
     expect(scrollAfterLayout).toHaveBeenCalledWith(true);
   });
 
@@ -124,6 +125,7 @@ describe('live events', () => {
     );
     const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
     const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
     const onReloaded = vi.fn();
 
     await handleSessionReload({
@@ -131,18 +133,49 @@ describe('live events', () => {
       fetchImpl,
       entryState,
       clearChatPreview,
+      clearPendingUser,
       onReloaded,
     });
 
-    // user message is new but no assistant entry — preview stays
+    // user message is new — pending user preview is cleared, full preview stays
     expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(clearPendingUser).toHaveBeenCalled();
   });
 
-  it('clears preview when reload brings a canonical assistant entry', async () => {
+  it('clears pending user on reload that brings a new canonical user message', async () => {
+    // A brand-new canonical user message arrived — the optimistic
+    // #chat-pending-user is now redundant and should be removed while keeping
+    // the streaming assistant preview alive.
     const entries = [
       { id: 'welcome' },
       { id: 'user-msg', message: { role: 'user', content: 'hello' } },
-      { id: 'assistant-msg', message: { role: 'assistant', content: 'Hi!' } },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
+    const onReloaded = vi.fn();
+
+    await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      clearPendingUser,
+      onReloaded,
+    });
+
+    expect(clearPendingUser).toHaveBeenCalledTimes(1);
+    expect(clearChatPreview).not.toHaveBeenCalled();
+  });
+
+  it('clears preview when reload brings a canonical assistant entry with content', async () => {
+    const entries = [
+      { id: 'welcome' },
+      { id: 'user-msg', message: { role: 'user', content: 'hello' } },
+      { id: 'assistant-msg', message: { role: 'assistant', content: [{ type: 'text', text: 'Hi!' }] } },
     ];
     const fetchImpl = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
@@ -159,6 +192,32 @@ describe('live events', () => {
       onReloaded,
     });
 
+    // Assistant entry with content arrived — preview should be cleared
+    expect(clearChatPreview).toHaveBeenCalled();
+  });
+
+  it('does not clear preview when assistant entry has no content', async () => {
+    const entries = [
+      { id: 'welcome' },
+      { id: 'user-msg', message: { role: 'user', content: 'hello' } },
+      { id: 'assistant-msg', message: { role: 'assistant', content: [] } },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const onReloaded = vi.fn();
+
+    await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      onReloaded,
+    });
+
+    // Assistant entry exists but has no content — preview stays alive
     expect(clearChatPreview).not.toHaveBeenCalled();
   });
 
@@ -178,7 +237,7 @@ describe('live events', () => {
     expect(onError).toHaveBeenCalled();
   });
 
-  it('clears preview and reloads on chat-preview done', () => {
+  it('does not clear preview or reload on chat-preview done (real pi flushes after done)', () => {
     const eventSource = { addEventListener: vi.fn() };
     const onReload = vi.fn();
     const onChatPreview = vi.fn();
@@ -192,8 +251,10 @@ describe('live events', () => {
 
     previewHandler({ data: JSON.stringify({ content: 'final', done: true }) });
     expect(onChatPreview).toHaveBeenLastCalledWith({ content: 'final', done: true });
-    expect(clearChatPreview).toHaveBeenCalled();
-    expect(onReload).toHaveBeenCalledTimes(1);
+    // done fires BEFORE disk flush — preview stays alive until file-watcher
+    // reload brings the canonical assistant entry with content.
+    expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(onReload).not.toHaveBeenCalled();
   });
 
   it('dispatches pi-session-reload window event on reload', () => {

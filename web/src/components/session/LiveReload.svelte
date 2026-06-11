@@ -127,6 +127,9 @@
       const keepAssistant = !!(isChatRunning && !hasDoneClass);
       return clearChatPreviewState(CHAT_PREVIEW_STATE, { keepAssistant });
     }
+    function clearPendingUser() {
+      return clearChatPreviewState(CHAT_PREVIEW_STATE, { keepAssistant: true });
+    }
     function finishChatPreview() {
       finishChatPreviewState(CHAT_PREVIEW_STATE);
     }
@@ -158,6 +161,7 @@
         fetchImpl,
         entryState: LIVE_ENTRY_STATE,
         clearChatPreview,
+        clearPendingUser,
         // Reactive mode: the Svelte model owns #messages, so no DOM patchers.
         updateStats,
         updateTitle,
@@ -176,12 +180,25 @@
 
     on(windowImpl, 'pi-worker-done', () => {
       console.log('[LiveReload] pi-worker-done received for session:', sessId);
-      // Finish the preview animation (stop spinner, remove "waiting" label).
-      // Don't trigger a reload here — the worker status can briefly hit "idle"
-      // during processing, and an early reload fetches stale data, clears the
-      // optimistic preview, and the messages disappear. The file watcher fires
-      // a reload after the disk write completes, which is the correct time.
       finishChatPreview();
+
+      // Real pi flushes canonical entries to disk ~1-2s AFTER streaming done.
+      // The file-watcher reload event is unreliable for brand-new sessions,
+      // so we actively poll triggerReload until the preview is cleared (which
+      // happens when reconcile lands the canonical assistant entry with content).
+      let attempt = 0;
+      const MAX_ATTEMPTS = 10;
+      const RETRY_DELAY = 700;
+
+      const tryReload = () => {
+        triggerReload().finally(() => {
+          if (CHAT_PREVIEW_STATE.chatPreviewEl == null || ++attempt >= MAX_ATTEMPTS) {
+            return;
+          }
+          setTimeout(tryReload, RETRY_DELAY);
+        });
+      };
+      tryReload();
     });
 
     const liveConnection = setupSessionLiveConnection({

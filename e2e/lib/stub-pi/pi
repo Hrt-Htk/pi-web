@@ -117,19 +117,24 @@ function handlePrompt(cmd) {
       }
     }, delay + 1500);
   } else {
-    // Normal mode: write entries first, then send events.
+    // Normal mode: match real pi timing — send stream events first (including
+    // done), then write entries to disk after a short gap. This reproduces the
+    // race where the frontend sees 'done' before the canonical entries exist.
     setTimeout(() => {
-      if (sessionPath) {
-        const user = messageEntry("user", userText, lastEntryId());
-        appendEntry(user.entry);
-        const asst = messageEntry("assistant", reply, user.id);
-        appendEntry(asst.entry);
-      }
       // Best-effort stream signals; shape mismatch is harmless to the worker.
       send({ type: "message_update", assistantMessageEvent: { type: "text_delta", text: reply } });
       send({ type: "message_end" });
       send({ type: "turn_end" });
       send({ type: "agent_end" });
+      // Real pi flushes to disk AFTER sending events.
+      setTimeout(() => {
+        if (sessionPath) {
+          const user = messageEntry("user", userText, lastEntryId());
+          appendEntry(user.entry);
+          const asst = messageEntry("assistant", reply, user.id);
+          appendEntry(asst.entry);
+        }
+      }, 300);
     }, delay);
   }
 }

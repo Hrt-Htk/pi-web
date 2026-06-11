@@ -11,6 +11,7 @@ export async function handleSessionReload({
   fetchImpl = fetch,
   entryState,
   clearChatPreview = () => {},
+  clearPendingUser = () => {},
   appendEntry,
   upsertEntry,
   refreshEntriesAffectedByToolResult,
@@ -66,11 +67,26 @@ export async function handleSessionReload({
     }
   });
 
-  // Don't clear the preview here — the file-watcher reload may fire before
-  // streaming is done, and clearing would lose the streaming content. The
-  // preview is cleared when the chat-preview 'done' event fires (see
-  // wireSessionEvents), which is after streaming completes and the worker
-  // has flushed entries to disk.
+  // Clear the optimistic preview only when a canonical assistant entry with
+  // content arrives. A file-watcher reload that only brings the user message
+  // (or a label) should keep the streaming preview alive. A reload that brings
+  // the assistant's reply means the canonical content is on disk and the
+  // preview is no longer needed.
+  const hasNewAssistantWithContent = newIds.some(
+    (id) =>
+      entries.find((e) => e.id === id)?.message?.role === 'assistant' &&
+      entries.find((e) => e.id === id)?.message?.content?.length > 0,
+  );
+  if (hasNewAssistantWithContent) {
+    clearChatPreview();
+  }
+
+  const hasNewUserMessage = newIds.some(
+    (id) => entries.find((e) => e.id === id)?.message?.role === 'user',
+  );
+  if (hasNewUserMessage) {
+    clearPendingUser();
+  }
 
   if (newCount > 0) {
     updateStats(entries);
@@ -116,13 +132,11 @@ export function wireSessionEvents({
     try {
       const payload = JSON.parse(event.data);
       onChatPreview(payload);
-      // When streaming is done, clear the optimistic preview and trigger a
-      // reload to reconcile canonical entries. By this point the worker has
-      // finished generating and should have flushed to disk.
-      if (payload && payload.done) {
-        clearChatPreview();
-        onReload(event);
-      }
+      // Don't clear the preview or trigger a reload here — the real pi worker
+      // sends 'done' BEFORE flushing entries to disk. Clearing the preview now
+      // would lose the streaming content. The file-watcher reload fires after
+      // the disk write, and handleSessionReload() clears the preview only when
+      // a canonical assistant entry with content arrives.
     } catch (error) {
       onError(error);
     }
