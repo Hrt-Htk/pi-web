@@ -7,6 +7,8 @@
 // Do not hand-draw custom SVG icons or use unicode glyphs for icons. Import the
 // Lucide icon here and render it with icon(). See AGENTS.md.
 import {
+  Archive,
+  ArchiveRestore,
   ArrowDown,
   ArrowUp,
   BookOpen,
@@ -135,6 +137,8 @@ export function setThemeIconElement(el, theme, opts = {}) {
 }
 
 export {
+  Archive,
+  ArchiveRestore,
   ArrowDown,
   ArrowUp,
   BookOpen,

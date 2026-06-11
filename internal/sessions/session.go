@@ -32,6 +32,7 @@ type summaryLine struct {
 	Provider  string      `json:"provider"`
 	ModelID   string      `json:"modelId"`
 	AutoTitle bool        `json:"autoTitle"`
+	Archived  bool        `json:"archived"`
 	Message   *summaryMsg `json:"message"`
 }
 
@@ -66,6 +67,7 @@ type SessionSummary struct {
 	ModelProvider      string
 	ChatAvailable      bool
 	ChatDisabledReason string
+	Archived           bool
 }
 
 type Session struct {
@@ -267,6 +269,8 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 				s.Model = raw.ModelID
 				s.ModelProvider = raw.Provider
 			}
+		case "archive":
+			s.Archived = raw.Archived
 		default:
 			if raw.Timestamp != "" {
 				s.LastActivity = raw.Timestamp
@@ -440,6 +444,37 @@ func LabelSessionEntry(path, targetID, label string, now func() time.Time) error
 	return err
 }
 
+// ArchiveSession persists an archive/unarchive toggle by appending an archive
+// entry. Parsers track the latest archive entry so the Archived field on
+// SessionSummary always reflects the current state.
+func ArchiveSession(path string, archived bool, now func() time.Time) error {
+	if now == nil {
+		now = time.Now
+	}
+
+	entry := struct {
+		Type      string `json:"type"`
+		Timestamp string `json:"timestamp"`
+		Archived  bool   `json:"archived"`
+	}{
+		Type:      "archive",
+		Timestamp: now().UTC().Format(time.RFC3339),
+		Archived:  archived,
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(append(data, '\n'))
+	return err
+}
+
 func appendSessionName(path, name string, auto bool, now func() time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -564,6 +599,10 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 				s.Model = model
 				s.ModelProvider, _ = raw["provider"].(string)
 			}
+		case "archive":
+			if v, ok := raw["archived"].(bool); ok {
+				s.Archived = v
+			}
 		default:
 			if ts, ok := raw["timestamp"].(string); ok {
 				s.LastActivity = ts
@@ -660,11 +699,11 @@ func DecodeProjectName(dirName string) string {
 	return s
 }
 
-
 // isWindowsDrivePath checks if the path looks like a Windows drive-letter path.
 func isWindowsDrivePath(s string) bool {
 	return len(s) >= 2 && s[1] == ':' && (s[0] >= 'A' && s[0] <= 'Z' || s[0] >= 'a' && s[0] <= 'z')
 }
+
 // decodeProjectBody decodes the content between the "--" wrappers.
 // It handles three encoding formats:
 //   1. Pi-compatible (simple): - means / (no _ escaping)

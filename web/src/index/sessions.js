@@ -21,6 +21,7 @@ export function normalizeSession(raw = {}) {
     modelProvider: raw.modelProvider || raw.ModelProvider || '',
     chatAvailable: raw.chatAvailable ?? raw.ChatAvailable ?? true,
     chatDisabledReason: raw.chatDisabledReason || raw.ChatDisabledReason || '',
+    archived: raw.archived ?? raw.Archived ?? false,
   };
 }
 
@@ -89,21 +90,6 @@ export function groupSessionsByProject(sessions = []) {
   return groups;
 }
 
-export function groupSessionsTimeline(sessions = []) {
-  const sorted = [...sessions].sort((a, b) => activityMs(b) - activityMs(a));
-  const groups = [];
-  let current = null;
-  for (const session of sorted) {
-    const project = session.project || '';
-    if (!current || current.project !== project) {
-      current = { project, sessions: [] };
-      groups.push(current);
-    }
-    current.sessions.push(session);
-  }
-  return groups;
-}
-
 export function filterSessions(sessions = [], query = '') {
   const q = String(query || '')
     .trim()
@@ -126,4 +112,7 @@ export function defaultFetchProjects() {
 }
 export function defaultUpdateProject(path, action) {
   return postJSON('/api/projects', { path, action });
+}
+export function defaultArchiveSession(id, archived) {
+  return postJSON('/api/archive-session?id=' + encodeURIComponent(id), { archived });
 }

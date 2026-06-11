@@ -3,10 +3,10 @@
   import { icon, ChevronDown } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
+    activityMs,
     collapsedProjectsStorageKey,
     filterSessions,
     groupSessionsByProject,
-    groupSessionsTimeline,
     sessionsCountLabel,
   } from '../../index/sessions.js';
   import SessionCard from './SessionCard.svelte';
@@ -19,18 +19,43 @@
     runningStatuses = new Map(),
     loading = false,
     layoutReady = false,
+    onArchive = null,
   } = $props();
 
   let now = $state(Date.now());
   let collapsed = $state({});
+  let archivedOpen = $state({});
+  let timelineArchivedOpen = $state(false);
 
   const visibleSessions = $derived(filterSessions(sessions, query));
-  const groups = $derived(
-    layout === 'projects'
-      ? groupSessionsByProject(visibleSessions)
-      : groupSessionsTimeline(visibleSessions),
-  );
   const isTimeline = $derived(layout === 'timeline');
+  const searching = $derived(String(query || '').trim() !== '');
+
+  const groups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
+
+  const timelineSorted = $derived(
+    [...visibleSessions].sort((a, b) => activityMs(b) - activityMs(a)),
+  );
+  const timelineActive = $derived(
+    searching ? timelineSorted : timelineSorted.filter((session) => !session.archived),
+  );
+  const timelineArchived = $derived(
+    searching ? [] : timelineSorted.filter((session) => session.archived),
+  );
+
+  function toggleTimelineArchived() {
+    timelineArchivedOpen = !timelineArchivedOpen;
+  }
+
+  function splitArchived(sessionList) {
+    const active = [];
+    const archived = [];
+    for (const session of sessionList) {
+      if (session.archived) archived.push(session);
+      else active.push(session);
+    }
+    return { active, archived };
+  }
 
   function readCollapsed() {
     try {
@@ -57,6 +82,10 @@
       collapsed = next;
     }
     writeCollapsed(collapsed);
+  }
+
+  function toggleArchived(project) {
+    archivedOpen = { ...archivedOpen, [project]: !archivedOpen[project] };
   }
 
   function runningCountFor(group) {
@@ -95,16 +124,54 @@
       <h3>{t('index.noSessions')}</h3>
       <p>{t('index.noSessionsHint')}</p>
     </div>
+  {:else if isTimeline}
+    <div class="session-grid session-grid--timeline session-grid--flat">
+      {#each timelineActive as session (session.id)}
+        <SessionCard
+          {session}
+          running={runningSessionIds.has(session.id)}
+          runningStatus={runningStatuses.get(session.id)}
+          {now}
+          {onArchive}
+          showProject
+        />
+      {/each}
+    </div>
+    {#if timelineArchived.length > 0}
+      <button
+        class="archived-toggle"
+        type="button"
+        aria-expanded={String(timelineArchivedOpen)}
+        onclick={toggleTimelineArchived}
+      >
+        <span class="project-chevron" aria-hidden="true"
+          >{@html icon(ChevronDown, { size: 12 })}</span
+        >
+        {t('index.archivedCount', { count: timelineArchived.length })}
+      </button>
+      {#if timelineArchivedOpen}
+        <div class="session-grid session-grid--timeline session-grid--flat archived-grid">
+          {#each timelineArchived as session (session.id)}
+            <SessionCard
+              {session}
+              running={runningSessionIds.has(session.id)}
+              runningStatus={runningStatuses.get(session.id)}
+              {now}
+              {onArchive}
+              showProject
+            />
+          {/each}
+        </div>
+      {/if}
+    {/if}
   {:else}
     {#each groups as group (group.project + ':' + group.sessions[0]?.id)}
       {@const runningCount = runningCountFor(group)}
       {@const isCollapsed = !!collapsed[group.project]}
-      <div
-        class="project-group"
-        class:timeline-group={isTimeline}
-        class:collapsed={isCollapsed}
-        data-project={group.project}
-      >
+      {@const split = splitArchived(group.sessions)}
+      {@const cards = searching ? group.sessions : split.active}
+      {@const archOpen = !!archivedOpen[group.project]}
+      <div class="project-group" class:collapsed={isCollapsed} data-project={group.project}>
         <button
           class="project-toggle"
           type="button"
@@ -119,23 +186,50 @@
             class="project-count"
             data-project-count
             data-running={runningCount}
-            data-total={group.sessions.length}
+            data-total={cards.length}
           >
             {runningCount > 0
               ? t('index.activeCount', { count: runningCount })
-              : sessionsCountLabel(group.sessions.length)}
+              : sessionsCountLabel(cards.length)}
           </span>
         </button>
-        <div class="session-grid" class:session-grid--timeline={isTimeline}>
-          {#each group.sessions as session (session.id)}
+        <div class="session-grid">
+          {#each cards as session (session.id)}
             <SessionCard
               {session}
               running={runningSessionIds.has(session.id)}
               runningStatus={runningStatuses.get(session.id)}
               {now}
+              {onArchive}
             />
           {/each}
         </div>
+        {#if !searching && split.archived.length > 0}
+          <button
+            class="archived-toggle"
+            type="button"
+            aria-expanded={String(archOpen)}
+            onclick={() => toggleArchived(group.project)}
+          >
+            <span class="project-chevron" aria-hidden="true"
+              >{@html icon(ChevronDown, { size: 12 })}</span
+            >
+            {t('index.archivedCount', { count: split.archived.length })}
+          </button>
+          {#if archOpen}
+            <div class="session-grid archived-grid">
+              {#each split.archived as session (session.id)}
+                <SessionCard
+                  {session}
+                  running={runningSessionIds.has(session.id)}
+                  runningStatus={runningStatuses.get(session.id)}
+                  {now}
+                  {onArchive}
+                />
+              {/each}
+            </div>
+          {/if}
+        {/if}
       </div>
     {/each}
   {/if}
