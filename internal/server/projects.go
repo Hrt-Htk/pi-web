@@ -86,6 +86,64 @@ func distinctProjects(summaries []sessions.SessionSummary) []string {
 	return out
 }
 
+// migrateProjectPaths rewrites every project_path to its canonical form
+// (forward slashes, lowercased Windows drive paths) and merges rows that
+// collapse to the same canonical path, preferring an enabled row. Project keys
+// must match sessions.CanonicalProject so prefs line up with the project keys
+// derived from session cwds. Idempotent: canonical paths are left unchanged.
+func (s *Server) migrateProjectPaths() {
+	if s.db == nil {
+		return
+	}
+	rows, err := s.db.Query("SELECT rowid, project_path, enabled FROM project_prefs")
+	if err != nil {
+		return
+	}
+	type prefRow struct {
+		rowid   int64
+		path    string
+		enabled int
+	}
+	var all []prefRow
+	for rows.Next() {
+		var r prefRow
+		if err := rows.Scan(&r.rowid, &r.path, &r.enabled); err != nil {
+			continue
+		}
+		all = append(all, r)
+	}
+	rows.Close()
+
+	// Pick one surviving row per canonical path, preferring an enabled row so a
+	// user's enable choice is never lost when merging a backslash/case variant.
+	type survivor struct {
+		rowid   int64
+		enabled int
+	}
+	winners := make(map[string]survivor)
+	for _, r := range all {
+		key := sessions.CanonicalProject(r.path)
+		if w, ok := winners[key]; ok && !(r.enabled == 1 && w.enabled == 0) {
+			continue
+		}
+		winners[key] = survivor{rowid: r.rowid, enabled: r.enabled}
+	}
+	winRowids := make(map[int64]bool, len(winners))
+	for _, w := range winners {
+		winRowids[w.rowid] = true
+	}
+	// Delete losers first so rewriting a survivor to its canonical path can't
+	// collide with a duplicate that is about to be removed.
+	for _, r := range all {
+		if !winRowids[r.rowid] {
+			_, _ = s.db.Exec("DELETE FROM project_prefs WHERE rowid = ?", r.rowid)
+		}
+	}
+	for key, w := range winners {
+		_, _ = s.db.Exec("UPDATE project_prefs SET project_path = ? WHERE rowid = ?", key, w.rowid)
+	}
+}
+
 // syncProjectPrefs records any not-yet-tracked discovered projects. On the very
 // first run (empty table) every discovered project is enabled; afterwards new
 // projects are inserted disabled so they stay hidden until the user enables
@@ -341,5 +399,5 @@ func normalizeProjectPath(path string) (string, error) {
 	if !filepath.IsAbs(path) {
 		return "", errRelativePath
 	}
-	return path, nil
+	return sessions.CanonicalProject(path), nil
 }
