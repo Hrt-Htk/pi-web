@@ -702,4 +702,55 @@ describe('chat composer runner', () => {
     const popover = dom.window.document.getElementById('pi-chat-context-popover');
     expect(popover.querySelector('.pi-popover-limit').textContent).toBe('1.2M'); // 1,234,567 formats to 1.2M
   });
+
+  it('returns a cleanup function that disposes worker status polling', async () => {
+    const dom = new JSDOM(
+      '<body><form id="pi-chat-composer" data-chat-available="true" data-session-id="s1"><textarea id="pi-chat-message"></textarea><input id="pi-chat-images"><button id="pi-chat-attach"></button><div id="pi-chat-attachments"></div><button id="pi-chat-send"></button><span id="pi-chat-status"></span></form></body>',
+    );
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    let capturedIntervalId = null;
+    const setIntervalImpl = vi.fn((fn, ms) => {
+      capturedIntervalId = 99;
+      return 99;
+    });
+    const getWorkerStatus = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ state: 'idle' }), { status: 200 })),
+    );
+
+    const cleanup = runChatComposer({
+      documentImpl: dom.window.document,
+      windowImpl: dom.window,
+      chatApi: { getWorkerStatus, cancelChat: vi.fn() },
+      chatSelectors: { THINKING_LEVELS: [] },
+      modelSelector: { setupModelSelector: vi.fn() },
+      thinkingSelector: { setupThinkingLevelSelector: vi.fn() },
+      setIntervalImpl,
+    });
+
+    expect(typeof cleanup).toBe('function');
+
+    // JSDOM document is "complete" so init ran synchronously.
+    // Wait for the initial refresh promise to settle.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(setIntervalImpl).toHaveBeenCalledWith(expect.any(Function), 1500);
+    expect(capturedIntervalId).toBe(99);
+    const callsAfterInit = getWorkerStatus.mock.calls.length;
+
+    // Trigger a pi-session-reload to confirm polling is active.
+    dom.window.dispatchEvent(new dom.window.Event('pi-session-reload'));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getWorkerStatus.mock.calls.length).toBe(callsAfterInit + 1);
+
+    // Call cleanup — should clear the interval and remove listeners.
+    cleanup();
+    expect(clearIntervalSpy).toHaveBeenCalledWith(99);
+
+    // After cleanup, pi-session-reload should no longer trigger a refresh.
+    dom.window.dispatchEvent(new dom.window.Event('pi-session-reload'));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getWorkerStatus.mock.calls.length).toBe(callsAfterInit + 1);
+
+    clearIntervalSpy.mockRestore();
+  });
 });

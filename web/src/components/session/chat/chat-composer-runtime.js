@@ -217,6 +217,7 @@ export function runChatComposer({
       setIntervalImpl: setInterval,
       CustomEventImpl: CustomEvent,
     });
+    disposables.push(workerStatus.dispose);
     submission.setRefreshWorkerStatus(workerStatus.refresh);
 
     // Focus the message textarea on page load so the user can start typing immediately.
@@ -249,11 +250,24 @@ export function runChatComposer({
     _mentionSelectorApi = selectorLoaders.loadMentionSelector();
   }
 
+  const disposables = [];
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPiChatControls);
+    function onDomReady() {
+      document.removeEventListener('DOMContentLoaded', onDomReady);
+      initPiChatControls();
+    }
+    document.addEventListener('DOMContentLoaded', onDomReady);
+    disposables.push(() => {
+      document.removeEventListener('DOMContentLoaded', onDomReady);
+    });
   } else {
     initPiChatControls();
   }
 
   navigateInitialChatLeaf({ entries, leafId, urlTargetId, byId, navigateTo });
+
+  return () => {
+    for (const dispose of disposables) dispose();
+  };
 }

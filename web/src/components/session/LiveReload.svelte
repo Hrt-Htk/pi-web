@@ -175,6 +175,7 @@
     }
 
     on(windowImpl, 'pi-worker-done', () => {
+      console.log('[LiveReload] pi-worker-done received for session:', sessId);
       // If the final filesystem reload is missed/delayed, don't leave the
       // streaming preview "working"; proactively reconcile from /api/session.
       finishChatPreview();
