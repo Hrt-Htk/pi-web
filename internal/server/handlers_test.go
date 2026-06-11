@@ -110,7 +110,7 @@ func writeSessionWithCWD(t *testing.T, dir, name, cwd string) string {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, name)
-	content := `{"type":"session","version":3,"id":"sid","timestamp":"2026-05-06T00:00:00.000Z","cwd":"` + strings.ReplaceAll(cwd, `"`, `\"`) + `"}` + "\n" +
+	content := `{"type":"session","version":3,"id":"sid","timestamp":"2026-05-06T00:00:00.000Z","cwd":"` + strings.ReplaceAll(filepath.ToSlash(cwd), `"`, `\"`) + `"}` + "\n" +
 		`{"type":"message","id":"aaaaaaaa","parentId":null,"timestamp":"2026-05-06T00:00:01.000Z","message":{"role":"user","content":"hello","timestamp":1778025601000}}` + "\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)

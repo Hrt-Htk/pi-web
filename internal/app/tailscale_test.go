@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,9 @@ func writeFakeTailscale(t *testing.T, dir, script string) string {
 }
 
 func TestConfigureTailscaleServeRunsServeCommandWhenNoExistingRule(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tailscale CLI is a /bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "tailscale-args.log")
 	writeFakeTailscale(t, dir, `#!/bin/sh
@@ -63,6 +67,9 @@ exit 2
 }
 
 func TestConfigureTailscaleServeDoesNothingWhenSameRuleExists(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tailscale CLI is a /bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "tailscale-args.log")
 	writeFakeTailscale(t, dir, `#!/bin/sh
@@ -97,6 +104,9 @@ exit 2
 }
 
 func TestConfigureTailscaleServeDoesNotOverwriteDifferentRule(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tailscale CLI is a /bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "tailscale-args.log")
 	writeFakeTailscale(t, dir, `#!/bin/sh
@@ -128,6 +138,9 @@ exit 2
 }
 
 func TestTailscaleSelfDNSRejectsStoppedBackend(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tailscale CLI is a /bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	writeFakeTailscale(t, dir, `#!/bin/sh
 if [ "$1" = "status" ] && [ "$2" = "--json" ]; then
@@ -144,6 +157,9 @@ exit 2
 }
 
 func TestConfigureTailscaleServeOverallDeadlinePreventsLateServe(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tailscale CLI is a /bin/sh script; not executable on Windows")
+	}
 	oldCommandTimeout := tailscaleCommandTimeout
 	tailscaleCommandTimeout = time.Second
 	t.Cleanup(func() { tailscaleCommandTimeout = oldCommandTimeout })

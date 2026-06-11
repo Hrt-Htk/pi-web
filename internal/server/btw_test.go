@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"pi-web/internal/sessions"
@@ -92,7 +93,7 @@ func TestHandleNewBtwThenGet(t *testing.T) {
 	s := &Server{db: db, sessionsDir: dir}
 
 	// Create a new btw session for parent "parent-1".
-	body := bytes.NewBufferString(`{"path":"` + dir + `","parent":"parent-1"}`)
+	body := bytes.NewBufferString(`{"path":"` + filepath.ToSlash(dir) + `","parent":"parent-1"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/btw/new", body)
 	w := httptest.NewRecorder()
 	s.handleNewBtw(w, req)
