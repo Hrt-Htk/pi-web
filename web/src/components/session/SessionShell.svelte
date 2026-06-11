@@ -104,6 +104,10 @@
       <div id="messages">
         <SessionContent model={sessionModel} afterRender={contentRuntime.afterRender} live />
       </div>
+      <!-- Optimistic preview container outside #messages so it survives Svelte
+           re-renders of <SessionContent>. The preview is cleared by handleSessionReload
+           when canonical entries actually arrive. -->
+      <div id="chat-preview-host"></div>
     </main>
     <ChatComposer {sessionId} {chatAvailable} {chatDisabledReason} {cwd} {modelLabel} />
   </div>

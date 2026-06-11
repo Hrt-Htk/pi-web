@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_FILE = join(__dirname, "stub-delay.config");
 
-function readStubDelay(): number {
+function readStubDelay() {
   try {
     const content = fs.readFileSync(CONFIG_FILE, "utf8").trim();
     const ms = parseInt(content, 10);
@@ -93,25 +93,45 @@ function handlePrompt(cmd) {
 
   const userText = typeof cmd.message === "string" ? cmd.message : JSON.stringify(cmd.message ?? "");
   const reply = `Stub reply: ${userText}`;
+  const deferWrite = typeof cmd.message === "string" && cmd.message.includes("[[defer-write]]");
 
   // Configurable delay so e2e tests can create timing windows.
   // Reads from stub-delay.config file next to this script.
   const delay = readStubDelay();
 
-  // Mimic real pi taking ownership of the session file.
-  setTimeout(() => {
-    if (sessionPath) {
-      const user = messageEntry("user", userText, lastEntryId());
-      appendEntry(user.entry);
-      const asst = messageEntry("assistant", reply, user.id);
-      appendEntry(asst.entry);
-    }
-    // Best-effort stream signals; shape mismatch is harmless to the worker.
+  if (deferWrite) {
+    // Defer-write mode: emit stream + done events immediately so the reply
+    // renders as a preview, then write canonical entries after a gap.
+    // This reproduces the race where done fires before the entry is on disk.
     send({ type: "message_update", assistantMessageEvent: { type: "text_delta", text: reply } });
     send({ type: "message_end" });
     send({ type: "turn_end" });
     send({ type: "agent_end" });
-  }, delay);
+
+    setTimeout(() => {
+      if (sessionPath) {
+        const user = messageEntry("user", userText, lastEntryId());
+        appendEntry(user.entry);
+        const asst = messageEntry("assistant", reply, user.id);
+        appendEntry(asst.entry);
+      }
+    }, delay + 1500);
+  } else {
+    // Normal mode: write entries first, then send events.
+    setTimeout(() => {
+      if (sessionPath) {
+        const user = messageEntry("user", userText, lastEntryId());
+        appendEntry(user.entry);
+        const asst = messageEntry("assistant", reply, user.id);
+        appendEntry(asst.entry);
+      }
+      // Best-effort stream signals; shape mismatch is harmless to the worker.
+      send({ type: "message_update", assistantMessageEvent: { type: "text_delta", text: reply } });
+      send({ type: "message_end" });
+      send({ type: "turn_end" });
+      send({ type: "agent_end" });
+    }, delay);
+  }
 }
 
 function handle(cmd) {

@@ -176,10 +176,12 @@
 
     on(windowImpl, 'pi-worker-done', () => {
       console.log('[LiveReload] pi-worker-done received for session:', sessId);
-      // If the final filesystem reload is missed/delayed, don't leave the
-      // streaming preview "working"; proactively reconcile from /api/session.
+      // Finish the preview animation (stop spinner, remove "waiting" label).
+      // Don't trigger a reload here — the worker status can briefly hit "idle"
+      // during processing, and an early reload fetches stale data, clears the
+      // optimistic preview, and the messages disappear. The file watcher fires
+      // a reload after the disk write completes, which is the correct time.
       finishChatPreview();
-      triggerReload();
     });
 
     const liveConnection = setupSessionLiveConnection({
@@ -188,6 +190,7 @@
       sessionId: sessId,
       onReload: triggerReload,
       onChatPreview: renderChatPreview,
+      clearChatPreview,
       onAnnotations: (list) => sessionRuntime.annotations?.setAnnotations(list),
     });
     liveConnection.connect();

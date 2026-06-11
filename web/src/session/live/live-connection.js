@@ -15,6 +15,7 @@ export function setupSessionLiveConnection({
   wireEvents = wireSessionEvents,
   onReload = () => {},
   onChatPreview = () => {},
+  clearChatPreview = () => {},
   onAnnotations = () => {},
   onError = () => {},
   setTimeoutImpl = windowImpl.setTimeout.bind(windowImpl),
@@ -45,6 +46,7 @@ export function setupSessionLiveConnection({
       eventSource,
       onReload,
       onChatPreview,
+      clearChatPreview,
       onAnnotations,
       onError: (error) => {
         onError(error);

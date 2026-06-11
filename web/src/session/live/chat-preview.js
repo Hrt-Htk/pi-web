@@ -204,7 +204,10 @@ export function renderPendingChatState(
 ) {
   const text = String(message || '').trim();
   if (!text) return false;
+  // Render in the dedicated preview host outside #messages so it survives
+  // Svelte re-renders of <SessionContent> inside #messages.
   const container =
+    documentImpl.getElementById('chat-preview-host') ||
     documentImpl.getElementById('messages') ||
     documentImpl.getElementById('content') ||
     documentImpl.body;
@@ -244,7 +247,9 @@ export function renderChatPreviewState(
   } = {},
 ) {
   if (!payload || typeof payload.content !== 'string') return false;
+  // Render in the dedicated preview host outside #messages.
   const container =
+    documentImpl.getElementById('chat-preview-host') ||
     documentImpl.getElementById('messages') ||
     documentImpl.getElementById('content') ||
     documentImpl.body;

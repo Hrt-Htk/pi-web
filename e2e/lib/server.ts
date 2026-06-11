@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { BINARY, FIXTURES_SESSIONS, REPO_ROOT, TMP_DIR } from "./paths";
 
 /** Directory holding the stub `pi` binary, prepended to PATH so chat works without real pi. */
@@ -78,7 +78,7 @@ export async function startServer(): Promise<StartedServer> {
       ...process.env,
       PI_CODING_AGENT_DIR: agentDir,
       // Prepend stub `pi` so chat workers spawn the fake, never the real pi.
-      PATH: `${STUB_PI_DIR}:${process.env.PATH ?? ""}`,
+      PATH: `${STUB_PI_DIR}${delimiter}${process.env.PATH ?? ""}`,
       // Ensure auth is off for tests regardless of the dev's shell env.
       PI_WEB_TOKEN: "",
       // Lower the large-session truncation thresholds so the load-earlier spec

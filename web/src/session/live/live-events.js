@@ -66,11 +66,11 @@ export async function handleSessionReload({
     }
   });
 
-  // Clear optimistic pending user/assistant preview only after canonical
-  // entries have been appended/upserted (imperative) or merged into the model
-  // (reactive). Clearing earlier creates a visible blank/flicker when a cold
-  // worker finally writes the real message.
-  clearChatPreview();
+  // Don't clear the preview here — the file-watcher reload may fire before
+  // streaming is done, and clearing would lose the streaming content. The
+  // preview is cleared when the chat-preview 'done' event fires (see
+  // wireSessionEvents), which is after streaming completes and the worker
+  // has flushed entries to disk.
 
   if (newCount > 0) {
     updateStats(entries);
@@ -95,6 +95,7 @@ export function wireSessionEvents({
   eventSource,
   onReload,
   onChatPreview,
+  clearChatPreview = () => {},
   onAnnotations = null,
   onError = () => {},
   windowImpl = typeof window !== 'undefined' ? window : null,
@@ -115,12 +116,13 @@ export function wireSessionEvents({
     try {
       const payload = JSON.parse(event.data);
       onChatPreview(payload);
-      // The file-watch 'reload' event is dropped for a brand-new session's first
-      // write (the watcher treats it as an initial observation, not a change), so
-      // the canonical entries would never reconcile until a manual refresh. The
-      // chat-preview stream is worker-driven and independent of the watcher, so
-      // its 'done' signal is a reliable trigger to pull the written entries.
-      if (payload && payload.done) onReload(event);
+      // When streaming is done, clear the optimistic preview and trigger a
+      // reload to reconcile canonical entries. By this point the worker has
+      // finished generating and should have flushed to disk.
+      if (payload && payload.done) {
+        clearChatPreview();
+        onReload(event);
+      }
     } catch (error) {
       onError(error);
     }
