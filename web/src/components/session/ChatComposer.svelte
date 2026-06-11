@@ -37,11 +37,12 @@
   // both are ready before this onMount. <LiveReload> mounts first, so its
   // pi-chat-message-sent listener is attached before the user can send. Live-only.
   onMount(() => {
+    console.log('[ChatComposer] onMount for session:', sessionId);
     const target = window;
     const runtime = getSessionRuntime();
     const model = runtime.model;
     globalThis.__PI_TEST_CHAT_COMPOSER_HOOK__?.();
-    runChatComposer({
+    const dispose = runChatComposer({
       documentImpl: document,
       windowImpl: target,
       locationImpl: target.location,
@@ -58,6 +59,8 @@
       setIntervalImpl: target.setInterval.bind(target),
       toolbar,
     });
+    console.log('[ChatComposer] onMount returning dispose:', typeof dispose);
+    return dispose;
   });
 </script>
 

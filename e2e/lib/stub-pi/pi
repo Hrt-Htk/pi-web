@@ -12,6 +12,23 @@
 
 import fs from "node:fs";
 import readline from "node:readline";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Config file next to the stub script; e2e tests can write a delay value.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CONFIG_FILE = join(__dirname, "stub-delay.config");
+
+function readStubDelay(): number {
+  try {
+    const content = fs.readFileSync(CONFIG_FILE, "utf8").trim();
+    const ms = parseInt(content, 10);
+    if (!isNaN(ms) && ms > 0) return ms;
+  } catch {
+    /* file doesn't exist or invalid — use default */
+  }
+  return 30;
+}
 
 let sessionPath = "";
 let model = { id: "claude-opus-4-7", name: "Opus", provider: "anthropic" };
@@ -77,6 +94,10 @@ function handlePrompt(cmd) {
   const userText = typeof cmd.message === "string" ? cmd.message : JSON.stringify(cmd.message ?? "");
   const reply = `Stub reply: ${userText}`;
 
+  // Configurable delay so e2e tests can create timing windows.
+  // Reads from stub-delay.config file next to this script.
+  const delay = readStubDelay();
+
   // Mimic real pi taking ownership of the session file.
   setTimeout(() => {
     if (sessionPath) {
@@ -90,7 +111,7 @@ function handlePrompt(cmd) {
     send({ type: "message_end" });
     send({ type: "turn_end" });
     send({ type: "agent_end" });
-  }, 30);
+  }, delay);
 }
 
 function handle(cmd) {

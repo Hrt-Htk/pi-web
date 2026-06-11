@@ -37,7 +37,7 @@
     const newBtn = document.getElementById('new-btn');
 
     const onResume = () => {
-      const resumeSessionArg = document.body.dataset.sessionUuid;
+      const resumeSessionArg = sessionId;
       const command = 'pi --session ' + resumeSessionArg;
       copyText(command, () => showResumeCopiedNotice(command));
     };

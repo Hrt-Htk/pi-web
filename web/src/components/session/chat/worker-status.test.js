@@ -124,4 +124,40 @@ describe('setupWorkerStatusPolling', () => {
     await tick();
     expect(getWorkerStatus).toHaveBeenCalledTimes(2);
   });
+
+  it('dispose clears the interval and removes the pi-session-reload listener', async () => {
+    const windowImpl = new EventTarget();
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const intervalId = 42;
+    const setIntervalImpl = vi.fn().mockReturnValue(intervalId);
+    const getWorkerStatus = vi.fn(() => Promise.resolve(response({ state: 'idle' })));
+    const updateContextUsage = vi.fn();
+
+    const controller = setupWorkerStatusPolling({
+      windowImpl,
+      chatApi: { getWorkerStatus },
+      setIntervalImpl,
+      CustomEventImpl: Event,
+      updateContextUsage,
+    });
+    await tick();
+
+    expect(setIntervalImpl).toHaveBeenCalledTimes(1);
+
+    // Fire a pi-session-reload to confirm listener is registered.
+    windowImpl.dispatchEvent(new Event('pi-session-reload'));
+    await tick();
+    const callsAfterReload = getWorkerStatus.mock.calls.length;
+
+    // Dispose should clear the interval and remove the listener.
+    controller.dispose();
+    expect(clearIntervalSpy).toHaveBeenCalledWith(intervalId);
+
+    // After dispose, pi-session-reload should no longer trigger a refresh.
+    windowImpl.dispatchEvent(new Event('pi-session-reload'));
+    await tick();
+    expect(getWorkerStatus.mock.calls.length).toBe(callsAfterReload);
+
+    clearIntervalSpy.mockRestore();
+  });
 });

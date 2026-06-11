@@ -66,7 +66,8 @@ export function setupWorkerStatusPolling({
     }
   }
 
-  if (setIntervalImpl) setIntervalImpl(refresh, intervalMs);
+  let intervalId = undefined;
+  if (setIntervalImpl) intervalId = setIntervalImpl(refresh, intervalMs);
   void refresh();
   updateContextUsage();
 
@@ -79,6 +80,7 @@ export function setupWorkerStatusPolling({
   return {
     refresh,
     dispose: () => {
+      if (intervalId !== undefined) clearInterval(intervalId);
       windowImpl.removeEventListener?.('pi-session-reload', onSessionReload);
     },
   };

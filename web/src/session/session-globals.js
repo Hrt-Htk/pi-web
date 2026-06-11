@@ -30,6 +30,7 @@ export function setupSessionGlobals({ windowImpl, documentImpl }) {
   doneNotifier.setupDoneNotifyToggle({ documentImpl, windowImpl: target });
   doneNotifier.setupAppBadgeClearing({ documentImpl, windowImpl: target });
   on(target, 'pi-worker-done', () => {
+    console.log('[session-globals] pi-worker-done received, notifying');
     doneNotifier.notifyDone({ documentImpl, windowImpl: target });
   });
 

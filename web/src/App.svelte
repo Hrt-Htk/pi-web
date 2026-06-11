@@ -31,8 +31,12 @@
   // pushes the same URL) is a no-op.
   onMount(() => {
     const syncPath = () => {
-      path = window.location.pathname;
-      search = window.location.search;
+      const newPath = window.location.pathname;
+      const newSearch = window.location.search;
+      const newSessionId = new URLSearchParams(newSearch).get('id') || '';
+      console.log('[App] navigation:', newPath + newSearch, 'sessionId:', newSessionId);
+      path = newPath;
+      search = newSearch;
     };
     const { history } = window;
     const wrap = (name) => {
