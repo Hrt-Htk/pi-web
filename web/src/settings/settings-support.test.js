@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { setupBackLink } from './settings-support.js';
+import { setupBackLink, fetchModelGroups } from './settings-support.js';
 
 function makeLink() {
   const label = { textContent: '' };
@@ -98,5 +98,79 @@ describe('setupBackLink', () => {
     expect(e.preventDefault).not.toHaveBeenCalled();
     expect(win.history.pushState).not.toHaveBeenCalled();
     expect(win.history.back).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchModelGroups', () => {
+  function makeFetch(models) {
+    return async () => ({
+      ok: true,
+      json: async () => ({ models }),
+    });
+  }
+
+  it('passes through a normal provider unchanged', async () => {
+    const groups = await fetchModelGroups({
+      fetchImpl: makeFetch([{ id: 'claude-x', provider: 'anthropic', name: 'Claude X' }]),
+    });
+    expect(groups).toEqual([
+      {
+        provider: 'anthropic',
+        models: [{ id: 'claude-x', name: 'Claude X', value: 'anthropic/claude-x' }],
+      },
+    ]);
+  });
+
+  it('normalises an =url provider key', async () => {
+    const groups = await fetchModelGroups({
+      fetchImpl: makeFetch([
+        {
+          id: 'qwen3.6-27b-q4-mtp-128k',
+          provider: 'llama-server=https://ai.htk-hrt.cc/chat',
+          name: 'Qwen 3.6',
+        },
+      ]),
+    });
+    expect(groups).toEqual([
+      {
+        provider: 'llama-server',
+        models: [
+          {
+            id: 'qwen3.6-27b-q4-mtp-128k',
+            name: 'Qwen 3.6',
+            value: 'llama-server/qwen3.6-27b-q4-mtp-128k',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('merges declared and =url twins and dedupes by id', async () => {
+    const groups = await fetchModelGroups({
+      fetchImpl: makeFetch([
+        {
+          id: 'qwen3.6-27b-q4-mtp-128k',
+          provider: 'llama-server',
+          name: 'Qwen 3.6',
+        },
+        {
+          id: 'qwen3.6-27b-q4-mtp-128k',
+          provider: 'llama-server=https://ai.htk-hrt.cc/chat',
+          name: 'Qwen 3.6 (remote)',
+        },
+      ]),
+    });
+    expect(groups).toEqual([
+      {
+        provider: 'llama-server',
+        models: [
+          {
+            id: 'qwen3.6-27b-q4-mtp-128k',
+            name: 'Qwen 3.6',
+            value: 'llama-server/qwen3.6-27b-q4-mtp-128k',
+          },
+        ],
+      },
+    ]);
   });
 });

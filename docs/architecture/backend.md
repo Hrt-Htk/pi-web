@@ -48,7 +48,8 @@ pi-web/
 │   │   ├── client.go           # JSONL RPC command builders
 │   │   ├── worker.go           # pi --mode rpc subprocess worker
 │   │   ├── stream.go           # SSE chat-preview stream accumulator
-│   │   ├── prompt.go           # OneShotPrompt: spawn pi for a single prompt (auto-title)
+│   │   ├── prompt.go           # OneShotPrompt: spawn pi for a single prompt (legacy)
+│   │   ├── completion.go       # OneShotCompletion: direct OpenAI-compatible /chat/completions call (auto-title)
 │   │   └── oneshot.go          # One-shot RPC for model enumeration
 │   ├── server/
 │   │   ├── server.go           # Server type, deps, SSE registry, route registration, SQLite open
@@ -59,7 +60,7 @@ pi-web/
 │   │   ├── files.go            # /api/files handler + per-cwd file-walk cache
 │   │   ├── settings.go         # Server-backed user settings (/api/settings) + SPA shell helpers
 │   │   ├── btw.go              # btw scratch-chat registry: get/new + legacy migration (SQLite)
-│   │   ├── auto_title.go       # Auto-title sessions via OneShotPrompt; guards against clobbering user names
+│   │   ├── auto_title.go       # Auto-title sessions via OneShotCompletion (direct HTTP); guards against clobbering user names
 │   │   ├── auto_title_heuristic.go # Heuristic fallback title from first user message
 │   │   ├── metrics.go          # /metrics + /api/metrics + pprof registration (gopsutil sampler)
 │   │   ├── scratchpad.go       # Per-project scratchpad get/save (SQLite)
