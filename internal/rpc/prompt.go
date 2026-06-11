@@ -111,12 +111,14 @@ func OneShotPrompt(ctx context.Context, opts PromptOpts) (string, error) {
 				// The clean, complete reply is the last assistant message here.
 				if t := assistantTextFromAgentEnd(line); t != "" {
 					text = t
+					resCh <- result{text: text}
+					return // primary exit: we have the answer
 				}
 			case "response":
 				if probe.ID != reqID {
 					continue
 				}
-				resCh <- result{text: text}
+				resCh <- result{text: text} // backup: response arrived without agent_end text
 				return
 			}
 		}
