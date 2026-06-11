@@ -19,6 +19,7 @@
   import { t } from '../shared/i18n.js';
   import { SvelteSet, SvelteMap } from 'svelte/reactivity';
   import {
+    defaultArchiveSession,
     defaultCreateSession,
     defaultFetchProjects,
     defaultFetchRecent,
@@ -88,6 +89,15 @@
       refreshInflight = false;
       loading = false;
       layoutReady = true;
+    }
+  }
+
+  async function archiveSession(session, archived) {
+    try {
+      await defaultArchiveSession(session.id, archived);
+      await refreshSessions();
+    } catch {
+      // Soft-fail: leave the list as-is if the toggle request fails.
     }
   }
 
@@ -312,6 +322,7 @@
   {runningStatuses}
   {loading}
   {layoutReady}
+  onArchive={archiveSession}
 />
 
 <NewSessionModal

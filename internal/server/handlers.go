@@ -364,6 +364,44 @@ func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{"ok": true, "name": name})
 }
 
+func (s *Server) handleArchiveSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		Archived bool `json:"archived"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	var resolved sessions.ResolvedSession
+	var err error
+	if s.cache != nil {
+		resolved, err = s.cache.Resolve(s.sessionsDir, id)
+	} else {
+		resolved, err = sessions.ResolveByID(s.sessionsDir, id)
+	}
+	if resolveOrWriteError(w, err) {
+		return
+	}
+
+	if err := sessions.ArchiveSession(resolved.Path, body.Archived, s.now); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if s.fileMod != nil {
+		if info, err := os.Stat(resolved.Path); err == nil {
+			s.recordModTime(resolved.Session.ID, info.ModTime())
+		}
+	}
+	s.broadcast(resolved.Session.ID, "reload")
+	writeJSON(w, 0, map[string]any{"ok": true, "archived": body.Archived})
+}
+
 func (s *Server) handleLabelSessionEntry(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")

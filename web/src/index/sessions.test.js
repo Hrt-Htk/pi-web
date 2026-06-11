@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   formatRelativeTime,
   groupSessionsByProject,
-  groupSessionsTimeline,
   normalizeSession,
   sessionModelLabel,
   sessionSearchText,
@@ -50,12 +49,9 @@ describe('index sessions helpers', () => {
     expect(groups[1].sessions.map((s) => s.id)).toEqual(['mid', 'old']);
   });
 
-  it('groups timeline whenever the project changes in activity order', () => {
-    const groups = groupSessionsTimeline([
-      { id: '1', project: 'a', lastActivity: '2024-01-03T00:00:00Z' },
-      { id: '2', project: 'b', lastActivity: '2024-01-02T00:00:00Z' },
-      { id: '3', project: 'a', lastActivity: '2024-01-01T00:00:00Z' },
-    ]);
-    expect(groups.map((g) => `${g.project}:${g.sessions[0].id}`)).toEqual(['a:1', 'b:2', 'a:3']);
+  it('normalizes archived flag from both camelCase and PascalCase', () => {
+    expect(normalizeSession({ archived: true }).archived).toBe(true);
+    expect(normalizeSession({ Archived: true }).archived).toBe(true);
+    expect(normalizeSession({}).archived).toBe(false);
   });
 });

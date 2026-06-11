@@ -143,3 +143,63 @@ func TestHandleRenameSessionRejectsMissingSession(t *testing.T) {
 		t.Fatalf("status = %d, want 404", w.Code)
 	}
 }
+
+func TestHandleArchiveSessionTogglesArchived(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	s := &Server{
+		sessionsDir: root,
+		cache:       sessions.NewCache(),
+		now:         func() time.Time { return time.Date(2026, 5, 8, 10, 1, 2, 0, time.UTC) },
+	}
+
+	// Archive
+	req := httptest.NewRequest(http.MethodPost, "/api/archive-session?id=session.jsonl", strings.NewReader(`{"archived":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.handleArchiveSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["ok"] != true || payload["archived"] != true {
+		t.Fatalf("payload = %#v", payload)
+	}
+
+	resolved, err := sessions.ResolveByID(root, "session.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolved.Session.Archived {
+		t.Fatalf("Archived = false, want true")
+	}
+
+	// Unarchive
+	req = httptest.NewRequest(http.MethodPost, "/api/archive-session?id=session.jsonl", strings.NewReader(`{"archived":false}`))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.handleArchiveSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	payload = nil
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["ok"] != true || payload["archived"] != false {
+		t.Fatalf("payload = %#v", payload)
+	}
+
+	resolved, err = sessions.ResolveByID(root, "session.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Session.Archived {
+		t.Fatalf("Archived = true, want false")
+	}
+}

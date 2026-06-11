@@ -310,6 +310,40 @@ func TestCreateSessionFileRejectsRelativePath(t *testing.T) {
 	}
 }
 
+func TestArchiveSessionAppendsAndToggles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	content := `{"type":"session","name":"Test","timestamp":"2026-05-08T10:00:00Z"}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	now := func() time.Time { return time.Date(2026, 5, 8, 10, 1, 2, 0, time.UTC) }
+
+	// Archive the session
+	if err := ArchiveSession(path, true, now); err != nil {
+		t.Fatalf("ArchiveSession(true) failed: %v", err)
+	}
+	s, err := ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.Archived {
+		t.Fatalf("Archived = false, want true after archive")
+	}
+
+	// Unarchive the session
+	if err := ArchiveSession(path, false, now); err != nil {
+		t.Fatalf("ArchiveSession(false) failed: %v", err)
+	}
+	s, err = ParseSummary(path, "--proj--", "s.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Archived {
+		t.Fatalf("Archived = true, want false after unarchive")
+	}
+}
+
 func TestRenameSessionAppendsSessionInfo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	content := `{"type":"session","name":"Old Name","timestamp":"2026-05-08T10:00:00Z"}` + "\n"

@@ -53,7 +53,7 @@ pi-web/
 │   │   └── oneshot.go          # One-shot RPC for model enumeration
 │   ├── server/
 │   │   ├── server.go           # Server type, deps, SSE registry, route registration, SQLite open
-│   │   ├── handlers.go         # index, session, api/session(s), new, fork/clone, rename, locations, models, custom-themes
+│   │   ├── handlers.go         # index, session, api/session(s), new, fork/clone, rename, archive, locations, models, custom-themes
 │   │   ├── chat.go             # Chat, set-model, set-thinking, worker-status, commands handlers
 │   │   ├── new_session.go      # New-session creation logic
 │   │   ├── git.go              # /api/git/info, /api/git/rename-branch handlers
@@ -262,6 +262,7 @@ type piRPCWorker struct {
 | `/api/fork-session` | POST | `handleApiForkSession` | Fork a session into a new file |
 | `/api/clone-session` | POST | `handleApiCloneSession` | Clone a session into a new file |
 | `/api/rename-session` | POST | `handleRenameSession` | Append `session_info` rename metadata |
+| `/api/archive-session` | POST | `handleArchiveSession` | Append an `archive` entry toggling the session's archived state |
 | `/api/label-session` | POST | `handleLabelSessionEntry` | Append a label to a session entry |
 | `/api/recent-locations` | GET | `handleRecentLocations` | List known project paths |
 | `/api/files` | GET | `handleApiFiles` | Bounded file listing for @mention autocomplete |

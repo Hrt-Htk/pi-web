@@ -328,6 +328,85 @@ a { color: inherit; }
     background: color-mix(in srgb, var(--surface-2) 74%, var(--surface));
     border-color: color-mix(in srgb, var(--accent) 50%, var(--dim));
 }
+.session-card-wrap {
+    position: relative;
+    min-width: 0;
+}
+.session-archive-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.session-card-wrap:hover .session-archive-btn,
+.session-archive-btn:focus-visible,
+.session-archive-btn.always-visible {
+    opacity: 1;
+}
+.session-archive-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+.session-card-wrap .session-title-row {
+    padding-right: 26px;
+}
+.archived-toggle {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 3px 0;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    -webkit-tap-highlight-color: transparent;
+}
+.archived-toggle:hover {
+    opacity: 1;
+}
+.archived-toggle:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 4px;
+}
+/* In the projects layout the archived section is a child of a project group:
+   indent it so it reads as nested, and hide it when the project is collapsed. */
+.project-group .archived-toggle,
+.project-group .archived-grid {
+    margin-left: 16px;
+}
+.project-group.collapsed .archived-toggle {
+    display: none;
+}
+.archived-toggle .project-chevron {
+    transform: rotate(0deg);
+}
+.archived-toggle[aria-expanded='true'] .project-chevron {
+    transform: rotate(90deg);
+}
+.archived-grid {
+    margin-top: 12px;
+    opacity: 0.85;
+}
+.session-grid--flat + .archived-toggle {
+    margin-top: 28px;
+}
 .session-title-row {
     display: flex;
     align-items: flex-start;
@@ -360,6 +439,16 @@ a { color: inherit; }
     font-size: 10px;
 }
 .session-project { display: none; }
+.session-card.show-project .session-project {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .session-model {
     color: var(--text-soft);
     font-size: 12px;
