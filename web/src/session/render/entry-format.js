@@ -70,5 +70,10 @@ export function getLanguageFromPath(filePath) {
 export function splitOutputLines(text, maxLines) {
   const replaced = replaceTabs(text);
   const lines = replaced.split('\n');
-  return { lines, preview: lines.slice(0, maxLines), remaining: lines.length - maxLines };
+  return {
+    lines,
+    collapsed: lines.slice(0, 1),
+    preview: lines.slice(0, maxLines),
+    remaining: lines.length - maxLines,
+  };
 }

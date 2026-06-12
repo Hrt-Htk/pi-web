@@ -8,6 +8,13 @@
     if (window.getSelection && window.getSelection().toString()) return;
     e.currentTarget.classList.toggle('expanded');
   }
+
+  export function cycleOutput(e) {
+    if (window.getSelection && window.getSelection().toString()) return;
+    const el = e.currentTarget;
+    const next = { collapsed: 'preview', preview: 'expanded', expanded: 'collapsed' };
+    el.dataset.state = next[el.dataset.state] || 'preview';
+  }
 </script>
 
 <script>
@@ -17,11 +24,18 @@
 
   const split = $derived(splitOutputLines(text, maxLines));
   const expandable = $derived(split.remaining > 0);
+  const collapsedRemaining = $derived(split.lines.length - 1);
 </script>
 
 {#if lang}
   {#if expandable}
-    <div class="tool-output expandable" onclick={toggleExpanded} role="presentation">
+    <div class="tool-output expandable" data-state="collapsed" onclick={cycleOutput} role="presentation">
+      <div class="output-collapsed">
+        <pre><code class="hljs" data-highlight-pending data-lang={lang}
+            >{split.collapsed.join('\n')}</code
+          ></pre>
+        <div class="expand-hint">... ({collapsedRemaining} more lines)</div>
+      </div>
       <div class="output-preview">
         <pre><code class="hljs" data-highlight-pending data-lang={lang}
             >{split.preview.join('\n')}</code
@@ -41,7 +55,11 @@
     </div>
   {/if}
 {:else if expandable}
-  <div class="tool-output expandable" onclick={toggleExpanded} role="presentation">
+  <div class="tool-output expandable" data-state="collapsed" onclick={cycleOutput} role="presentation">
+    <div class="output-collapsed">
+      {#each split.collapsed as line, lineIndex (lineIndex)}<div>{line}</div>{/each}
+      <div class="expand-hint">... ({collapsedRemaining} more lines)</div>
+    </div>
     <div class="output-preview">
       {#each split.preview as line, lineIndex (lineIndex)}<div>{line}</div>{/each}
       <div class="expand-hint">... ({split.remaining} more lines)</div>
