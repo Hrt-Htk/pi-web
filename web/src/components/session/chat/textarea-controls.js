@@ -3,6 +3,7 @@ export function setupTextareaControls({
   textarea,
   shell,
   form,
+  collapseInputButton = null,
   isMobileTextInputMode = () => false,
   getSlashSelector = () => null,
   getMentionSelector = () => null,
@@ -16,15 +17,37 @@ export function setupTextareaControls({
     textarea.style.height = 'auto';
     const cs = windowImpl.getComputedStyle(textarea);
     const max = parseFloat(cs.maxHeight) || 200;
-    const min = parseFloat(cs.minHeight) || 48;
+    const min = parseFloat(cs.minHeight) || 36;
+    const lineHeight = parseFloat(cs.lineHeight) || 18;
+    const padding = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
     const next = Math.max(min, Math.min(textarea.scrollHeight, max));
     textarea.style.height = next + 'px';
+    shell?.classList.toggle('input-multiline', textarea.scrollHeight > lineHeight + padding + 2);
     updateComposerHeight();
   }
 
   const onInput = () => {
+    shell?.classList.remove('input-collapsed');
     autoResize();
     updateSendEnabled();
+  };
+
+  const onFocus = () => {
+    if (!shell?.classList.contains('input-collapsed')) return;
+    shell.classList.remove('input-collapsed');
+    autoResize();
+  };
+
+  const onBlur = () => {
+    if (textarea && textarea.value.trim() === '') {
+      shell?.classList.remove('input-collapsed');
+      autoResize();
+    }
+  };
+
+  const onCollapseClick = () => {
+    shell?.classList.add('input-collapsed');
+    updateComposerHeight();
   };
 
   const onKeydown = (event) => {
@@ -48,8 +71,11 @@ export function setupTextareaControls({
   if (textarea) {
     textarea.addEventListener('input', onInput);
     textarea.addEventListener('keydown', onKeydown);
+    textarea.addEventListener('focus', onFocus);
+    textarea.addEventListener('blur', onBlur);
     autoResize();
   }
+  collapseInputButton?.addEventListener('click', onCollapseClick);
   updateSendEnabled();
 
   return {
@@ -57,6 +83,9 @@ export function setupTextareaControls({
     dispose: () => {
       textarea?.removeEventListener('input', onInput);
       textarea?.removeEventListener('keydown', onKeydown);
+      textarea?.removeEventListener('focus', onFocus);
+      textarea?.removeEventListener('blur', onBlur);
+      collapseInputButton?.removeEventListener('click', onCollapseClick);
     },
   };
 }

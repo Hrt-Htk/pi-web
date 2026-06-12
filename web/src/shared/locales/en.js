@@ -152,6 +152,7 @@ export default {
   'composer.viewAttachment': 'View selected text',
   'composer.removeAttachment': 'Remove attachment',
   'composer.expand': 'Expand composer',
+  'composer.collapseInput': 'Collapse input',
   'composer.searchModels': 'Search models…',
   'composer.switchModel': 'Switch model',
   'composer.switchEffort': 'Switch effort',

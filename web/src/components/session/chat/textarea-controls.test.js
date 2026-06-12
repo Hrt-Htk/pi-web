@@ -94,4 +94,72 @@ describe('setupTextareaControls', () => {
     expect(model.open).toHaveBeenCalled();
     expect(ctrlL.defaultPrevented).toBe(true);
   });
+
+  it('adds input-multiline on multi-line content and input-collapsed on collapse click', () => {
+    const textarea = document.createElement('textarea');
+    const shell = document.createElement('div');
+    const form = document.createElement('form');
+    form.requestSubmit = vi.fn();
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 100 });
+    const collapseButton = document.createElement('button');
+    const updateComposerHeight = vi.fn();
+    setupTextareaControls({
+      textarea,
+      shell,
+      form,
+      collapseInputButton: collapseButton,
+      updateComposerHeight,
+      windowImpl: {
+        getComputedStyle: () => ({
+          maxHeight: '200px',
+          minHeight: '36px',
+          lineHeight: '18px',
+          paddingTop: '10px',
+          paddingBottom: '10px',
+        }),
+      },
+    });
+
+    // multi-line content triggers input-multiline (100 > 18+20+2 = 40)
+    expect(shell.classList.contains('input-multiline')).toBe(true);
+
+    // clicking collapse button adds input-collapsed
+    collapseButton.click();
+    expect(shell.classList.contains('input-collapsed')).toBe(true);
+
+    // focus removes input-collapsed
+    textarea.dispatchEvent(new Event('focus'));
+    expect(shell.classList.contains('input-collapsed')).toBe(false);
+  });
+
+  it('typing removes input-collapsed class', () => {
+    const textarea = document.createElement('textarea');
+    const shell = document.createElement('div');
+    const form = document.createElement('form');
+    form.requestSubmit = vi.fn();
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 100 });
+    const collapseButton = document.createElement('button');
+    setupTextareaControls({
+      textarea,
+      shell,
+      form,
+      collapseInputButton: collapseButton,
+      windowImpl: {
+        getComputedStyle: () => ({
+          maxHeight: '200px',
+          minHeight: '36px',
+          lineHeight: '18px',
+          paddingTop: '10px',
+          paddingBottom: '10px',
+        }),
+      },
+    });
+
+    collapseButton.click();
+    expect(shell.classList.contains('input-collapsed')).toBe(true);
+
+    textarea.value = 'hello';
+    textarea.dispatchEvent(new Event('input'));
+    expect(shell.classList.contains('input-collapsed')).toBe(false);
+  });
 });

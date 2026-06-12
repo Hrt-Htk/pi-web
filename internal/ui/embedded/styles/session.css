@@ -3619,9 +3619,9 @@
     #pi-chat-message {
       display: block;
       width: 100%;
-      min-height: 92px;
-      max-height: 260px;
-      height: 92px;
+      min-height: 36px;
+      max-height: 200px;
+      height: 36px;
       resize: none;
       overflow-y: auto;
       font-family: inherit;
@@ -3646,6 +3646,47 @@
         max-height: 72vh;
       }
     }
+
+    /* Manual single-line collapse of the auto-grown input (issue #11) */
+    .pi-chat-shell.input-collapsed #pi-chat-message {
+      height: 36px !important;
+      overflow-y: hidden;
+    }
+    .pi-chat-collapse-input-button {
+      position: absolute;
+      top: 6px;
+      right: 34px;
+      z-index: 5;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      cursor: pointer;
+      opacity: 0.55;
+      transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .pi-chat-shell.input-multiline:not(.expanded):not(.input-collapsed) .pi-chat-collapse-input-button {
+      display: inline-flex;
+    }
+    .pi-chat-shell:hover .pi-chat-collapse-input-button,
+    .pi-chat-shell:focus-within .pi-chat-collapse-input-button { opacity: 1; }
+    .pi-chat-collapse-input-button:hover {
+      color: var(--text);
+      background: var(--selectedBg);
+      border-color: var(--dim);
+    }
+    .pi-chat-collapse-input-button:focus-visible {
+      outline: 2px solid var(--accent, #8abeb7);
+      outline-offset: 2px;
+      opacity: 1;
+    }
+    .pi-chat-collapse-input-button:disabled { opacity: 0.3; cursor: not-allowed; }
 
     .pi-chat-expand-icon, .pi-chat-collapse-icon {
       width: 13px;
@@ -3696,6 +3737,11 @@
     }
     /* Reserve room on the cwd bar so the floating button never overlaps text */
     .pi-chat-cwd-bar { padding-right: 38px; }
+    /* When the collapse chevron is visible it sits left of the expand button —
+       give the cwd hint extra room so the two never overlap (issue #11). */
+    .pi-chat-shell.input-multiline:not(.expanded):not(.input-collapsed) .pi-chat-cwd-bar {
+      padding-right: 66px;
+    }
 
     .pi-chat-toolbar {
       min-height: 34px;

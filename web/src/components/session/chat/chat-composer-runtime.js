@@ -124,6 +124,7 @@ export function runChatComposer({
       cancelButton,
       shell,
       expandButton,
+      collapseInputButton,
     } = getComposerElements({ documentImpl: document, form });
 
     const { update: updateComposerHeightVar } = setupComposerHeightVar({
@@ -157,6 +158,7 @@ export function runChatComposer({
       textarea,
       shell,
       form,
+      collapseInputButton,
       isMobileTextInputMode,
       getSlashSelector: () => _slashSelectorApi,
       getMentionSelector: () => _mentionSelectorApi,
