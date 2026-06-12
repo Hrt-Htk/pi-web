@@ -9,5 +9,6 @@ export function getComposerElements({ documentImpl = document, form } = {}) {
     cancelButton: documentImpl.getElementById('pi-chat-cancel'),
     shell: form?.querySelector('.pi-chat-shell') || null,
     expandButton: documentImpl.getElementById('pi-chat-expand'),
+    collapseInputButton: documentImpl.getElementById('pi-chat-collapse-input'),
   };
 }

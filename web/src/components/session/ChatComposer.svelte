@@ -19,6 +19,7 @@
   import ContextUsage from './chat/ContextUsage.svelte';
   import TextAttachmentModal from './chat/TextAttachmentModal.svelte';
   import { ChatToolbarState } from './chat/chat-toolbar-state.svelte.js';
+  import { icon, ChevronDown } from '../../shared/icons.js';
 
   let {
     sessionId = '',
@@ -82,6 +83,15 @@
   />
   <div class="pi-chat-shell">
     <ChatExpandButton {chatAvailable} />
+    <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG -->
+    <button
+      type="button"
+      id="pi-chat-collapse-input"
+      class="pi-chat-collapse-input-button"
+      title={t('composer.collapseInput')}
+      aria-label={t('composer.collapseInput')}
+      disabled={!chatAvailable}>{@html icon(ChevronDown, { size: 14 })}</button
+    >
     {#if cwd}<div class="pi-chat-toolbar pi-chat-cwd-bar">
         <span class="pi-chat-cwd" title={t('composer.copyPath')} data-cwd={cwd}>cwd: {cwd}</span
         ><span class="pi-chat-focus-shortcut">{t('composer.focusShortcut')}</span>

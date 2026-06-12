@@ -17,6 +17,7 @@ describe('getComposerElements', () => {
           <button id="pi-chat-send"></button>
           <button id="pi-chat-cancel"></button>
           <button id="pi-chat-expand"></button>
+          <button id="pi-chat-collapse-input"></button>
         </div>
       </form>
     `;
@@ -33,6 +34,7 @@ describe('getComposerElements', () => {
     expect(elements.cancelButton.id).toBe('pi-chat-cancel');
     expect(elements.shell.className).toBe('pi-chat-shell');
     expect(elements.expandButton.id).toBe('pi-chat-expand');
+    expect(elements.collapseInputButton.id).toBe('pi-chat-collapse-input');
   });
 
   it('returns null for missing optional anchors', () => {
@@ -44,5 +46,6 @@ describe('getComposerElements', () => {
     expect(elements.textarea).toBe(null);
     expect(elements.shell).toBe(null);
     expect(elements.expandButton).toBe(null);
+    expect(elements.collapseInputButton).toBe(null);
   });
 });
