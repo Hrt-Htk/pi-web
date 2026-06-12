@@ -110,4 +110,274 @@ describe('createFollowScrollController', () => {
     fire('scroll');
     expect(controller.isFollowing()).toBe(true);
   });
+
+  it('keeps following after a reflow-induced scroll-down on #content', () => {
+    // Regression: when streaming preview clears and #content re-renders, the
+    // scroll container shrinks and the browser clamps scrollTop downward.
+    // That fires a scroll event with currentScroll < lastScrollTop even though
+    // the user is still parked at the bottom — follow mode must NOT drop.
+    const dom = new JSDOM('<body><main id="content"></main></body>');
+    const documentImpl = dom.window.document;
+    const content = documentImpl.getElementById('content');
+
+    // Window is NOT scrollable so isAtBottom falls through to #content path.
+    Object.defineProperty(documentImpl.documentElement, 'scrollHeight', {
+      value: 100, // <= innerHeight => not window-scrollable
+      configurable: true,
+    });
+    Object.defineProperty(documentImpl.body, 'scrollHeight', {
+      value: 100,
+      configurable: true,
+    });
+
+    // #content IS scrollable: scrollHeight 1000, clientHeight 100, scrollTop 900
+    // => remaining = 1000 - 900 - 100 = 0 < 100 => at bottom
+    Object.defineProperty(content, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(content, 'clientHeight', { value: 100, configurable: true });
+    Object.defineProperty(content, 'scrollTop', { value: 900, configurable: true });
+    content.scrollTo = vi.fn();
+
+    const handlers = {};
+    const contentHandlers = {};
+    const windowImpl = {
+      scrollY: 0,
+      pageYOffset: 0,
+      innerHeight: 600,
+      scrollTo: vi.fn(),
+      setTimeout: (cb) => {
+        cb();
+        return 0;
+      },
+      requestAnimationFrame: (cb) => {
+        cb();
+        return 0;
+      },
+      addEventListener: (type, handler) => {
+        (handlers[type] ||= []).push(handler);
+      },
+      removeEventListener: (type, handler) => {
+        handlers[type] = (handlers[type] || []).filter((h) => h !== handler);
+      },
+    };
+
+    // Monkey-patch content addEventListener so we can fire scroll on it.
+    const origAdd = content.addEventListener.bind(content);
+    content.addEventListener = (type, handler) => {
+      origAdd(type, handler);
+      (contentHandlers[type] ||= []).push(handler);
+    };
+
+    const controller = createFollowScrollController({
+      documentImpl,
+      windowImpl,
+      requestAnimationFrameImpl: (cb) => {
+        cb();
+        return 0;
+      },
+      setTimeoutImpl: (cb) => {
+        cb();
+        return 0;
+      },
+    });
+
+    // Initial state — user is at bottom, following.
+    expect(controller.isFollowing()).toBe(true);
+
+    // Simulate reflow: content shrinks from 1000 -> 950, scrollTop clamped 900 -> 850.
+    // User is STILL at bottom: 950 - 850 - 100 = 0 < 100.
+    // But currentScroll (850) < lastScrollTop (900) => scrolledUp = true.
+    Object.defineProperty(content, 'scrollHeight', { value: 950, configurable: true });
+    Object.defineProperty(content, 'scrollTop', { value: 850, configurable: true });
+
+    // Fire scroll on #content (the actual scroll container in this path).
+    (contentHandlers['scroll'] || []).forEach((h) => h({ type: 'scroll' }));
+
+    // Must still be following — this is the assertion that fails before the fix.
+    expect(controller.isFollowing()).toBe(true);
+  });
+
+  it('re-pins to the bottom when observed content grows while following', () => {
+    // The ResizeObserver fires AFTER the DOM grows, which is what lets us follow
+    // streaming output regardless of when the async render lands.
+    let roCb = null;
+    const observed = [];
+    class FakeResizeObserver {
+      constructor(cb) {
+        roCb = cb;
+      }
+      observe(el) {
+        observed.push(el);
+      }
+      disconnect() {}
+    }
+
+    const dom = new JSDOM(
+      '<body><main id="content"><div id="messages"></div><div id="chat-preview-host"></div></main></body>',
+      { url: 'http://localhost/' },
+    );
+    const documentImpl = dom.window.document;
+    Object.defineProperty(documentImpl.documentElement, 'scrollHeight', {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(documentImpl.body, 'scrollHeight', { value: 2000, configurable: true });
+
+    const windowImpl = {
+      scrollY: 1000, // at bottom: 2000 - 1000 - 1000 = 0
+      pageYOffset: 1000,
+      innerHeight: 1000,
+      scrollTo: vi.fn(),
+      setTimeout: (cb) => {
+        cb();
+        return 0;
+      },
+      requestAnimationFrame: (cb) => {
+        cb();
+        return 0;
+      },
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      ResizeObserver: FakeResizeObserver,
+    };
+
+    createFollowScrollController({
+      documentImpl,
+      windowImpl,
+      requestAnimationFrameImpl: (cb) => {
+        cb();
+        return 0;
+      },
+      setTimeoutImpl: (cb) => {
+        cb();
+        return 0;
+      },
+    });
+
+    expect(observed).toContain(documentImpl.getElementById('messages'));
+    expect(observed).toContain(documentImpl.getElementById('chat-preview-host'));
+
+    windowImpl.scrollTo.mockClear();
+    roCb(); // content grew below the fold
+    expect(windowImpl.scrollTo).toHaveBeenCalled();
+  });
+
+  it('does not re-pin on content growth after the user scrolls up', () => {
+    let roCb = null;
+    class FakeResizeObserver {
+      constructor(cb) {
+        roCb = cb;
+      }
+      observe() {}
+      disconnect() {}
+    }
+
+    const dom = new JSDOM('<body><main id="content"></main></body>');
+    const documentImpl = dom.window.document;
+    Object.defineProperty(documentImpl.documentElement, 'scrollHeight', {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(documentImpl.body, 'scrollHeight', { value: 2000, configurable: true });
+
+    const handlers = {};
+    const windowImpl = {
+      scrollY: 0, // NOT at bottom: 2000 - 0 - 1000 = 1000
+      pageYOffset: 0,
+      innerHeight: 1000,
+      scrollTo: vi.fn(),
+      setTimeout: (cb) => {
+        cb();
+        return 0;
+      },
+      requestAnimationFrame: (cb) => {
+        cb();
+        return 0;
+      },
+      addEventListener: (type, handler) => {
+        (handlers[type] ||= []).push(handler);
+      },
+      removeEventListener: () => {},
+      ResizeObserver: FakeResizeObserver,
+    };
+
+    const controller = createFollowScrollController({
+      documentImpl,
+      windowImpl,
+      requestAnimationFrameImpl: (cb) => {
+        cb();
+        return 0;
+      },
+      setTimeoutImpl: (cb) => {
+        cb();
+        return 0;
+      },
+    });
+
+    (handlers['scroll'] || []).forEach((h) => h({ type: 'scroll' }));
+    expect(controller.isFollowing()).toBe(false);
+
+    windowImpl.scrollTo.mockClear();
+    roCb(); // content grows, but the user has scrolled up
+    expect(windowImpl.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('a wheel-up stops following and is not yanked back as content streams in', () => {
+    let roCb = null;
+    class FakeResizeObserver {
+      constructor(cb) {
+        roCb = cb;
+      }
+      observe() {}
+      disconnect() {}
+    }
+
+    const dom = new JSDOM('<body><main id="content"></main></body>', { url: 'http://localhost/' });
+    const documentImpl = dom.window.document;
+    Object.defineProperty(documentImpl.documentElement, 'scrollHeight', {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(documentImpl.body, 'scrollHeight', { value: 2000, configurable: true });
+
+    const handlers = {};
+    const windowImpl = {
+      scrollY: 1000, // start AT the bottom (2000 - 1000 - 1000 = 0)
+      pageYOffset: 1000,
+      innerHeight: 1000,
+      scrollTo: vi.fn(),
+      setTimeout: (cb) => {
+        cb();
+        return 0;
+      },
+      requestAnimationFrame: (cb) => {
+        cb();
+        return 0;
+      },
+      addEventListener: (type, handler) => {
+        (handlers[type] ||= []).push(handler);
+      },
+      removeEventListener: () => {},
+      ResizeObserver: FakeResizeObserver,
+    };
+
+    const controller = createFollowScrollController({
+      documentImpl,
+      windowImpl,
+      requestAnimationFrameImpl: (cb) => {
+        cb();
+        return 0;
+      },
+    });
+    expect(controller.isFollowing()).toBe(true);
+
+    // User wheels up — follow stops immediately, regardless of position timing.
+    (handlers['wheel'] || []).forEach((h) => h({ type: 'wheel', deltaY: -200 }));
+    expect(controller.isFollowing()).toBe(false);
+    expect(documentImpl.querySelector('.follow-button')).not.toBeNull();
+
+    // Streaming content keeps growing; the re-pin must be suppressed.
+    windowImpl.scrollTo.mockClear();
+    roCb();
+    expect(windowImpl.scrollTo).not.toHaveBeenCalled();
+  });
 });

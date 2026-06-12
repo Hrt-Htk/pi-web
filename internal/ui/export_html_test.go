@@ -58,8 +58,9 @@ func TestSessionViteSourceForcesFollowOnChatSendAndScrollsNewEntries(t *testing.
 		"Date.now() < forcePreviewFollowUntil",
 		"forceFollowToBottom",
 		"scrollAfterLayout",
-		"scrollElementAboveComposer",
-		"chatComposerHeight",
+		"scrollToBottom",
+		"ResizeObserver",
+		"pinToBottom",
 		"showFollowButton",
 	} {
 		if !strings.Contains(combined, want) {

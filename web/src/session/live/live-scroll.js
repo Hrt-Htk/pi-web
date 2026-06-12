@@ -1,10 +1,6 @@
 import { icon, ArrowDown } from '../../shared/icons.js';
 
-export function chatComposerHeight() {
-  return 0;
-}
-
-export function isAtBottom({ documentImpl = document, windowImpl = window, threshold = 80 } = {}) {
+export function isAtBottom({ documentImpl = document, windowImpl = window, threshold = 100 } = {}) {
   const de = documentImpl.documentElement;
   const body = documentImpl.body;
   const content = documentImpl.getElementById('content');
@@ -42,35 +38,6 @@ export function scrollToBottom(smooth, { documentImpl = document, windowImpl = w
     top: Math.max(documentImpl.documentElement.scrollHeight, documentImpl.body.scrollHeight),
     behavior: smooth ? 'smooth' : 'auto',
   });
-}
-
-export function scrollElementAboveComposer(
-  el,
-  smooth,
-  { documentImpl = document, windowImpl = window } = {},
-) {
-  if (!el) {
-    scrollToBottom(smooth, { documentImpl, windowImpl });
-    return;
-  }
-  const gap = chatComposerHeight({ documentImpl }) + 24;
-  const content = documentImpl.getElementById('content');
-  if (content && content.contains(el)) {
-    const contentRect = content.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const delta = elRect.bottom - (contentRect.bottom - gap);
-    if (delta > 0) {
-      content.scrollTo({ top: content.scrollTop + delta, behavior: smooth ? 'smooth' : 'auto' });
-    }
-  }
-  const rect = el.getBoundingClientRect();
-  const viewportDelta = rect.bottom - (windowImpl.innerHeight - gap);
-  if (viewportDelta > 0) {
-    windowImpl.scrollTo({
-      top: (windowImpl.scrollY || windowImpl.pageYOffset) + viewportDelta,
-      behavior: smooth ? 'smooth' : 'auto',
-    });
-  }
 }
 
 export function createFollowButton({
