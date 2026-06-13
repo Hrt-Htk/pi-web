@@ -28,14 +28,12 @@ func (s *Server) computeRunningStatus(sessionID string) bool {
 		if workerStatus.State == workers.WorkerStateRunning {
 			return true
 		}
-		// Authoritative: if we have an in-process chat worker for this
-		// session (Model set ⇒ EnsureWorker has resolved it) and it
-		// reports idle, trust it and skip the activity-window fallback.
-		// Without this short-circuit the JSONL write that records the
-		// assistant's final message keeps the session "running" for up
-		// to recentSessionActivityWindow, making the Cancel button
-		// linger after the response is clearly done.
-		if workerStatus.Model != "" {
+		// A worker exists (or is being created) for this session: its idle
+		// state is authoritative — skip the file-activity fallback. This
+		// prevents the cold-start file write (real pi taking ownership of a
+		// new session) from being misread as "running" and firing a false
+		// done notification.
+		if s.chatSender.HasWorker(sessionID) {
 			return false
 		}
 	}

@@ -254,6 +254,16 @@ func (m *Manager) EnsureWorker(ctx context.Context, sessionID, sessionPath strin
 	return err
 }
 
+// HasWorker reports whether a worker is registered for the session or one is
+// currently being created. This is the authoritative check for "does a worker
+// exist for this session" — unlike Model != "" which is only populated after
+// get_state returns, HasWorker is true during the entire cold-start window.
+func (m *Manager) HasWorker(sessionID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.workers[sessionID] != nil || m.creating[sessionID] != nil
+}
+
 func (m *Manager) Close() error {
 	select {
 	case <-m.reaperStop:

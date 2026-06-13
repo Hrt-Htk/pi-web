@@ -24,6 +24,7 @@ type ChatSender interface {
 	GetCommands(ctx context.Context, sessionID string) ([]workers.SlashCommand, bool, error)
 	Status(sessionID string) workers.WorkerStatus
 	EnsureWorker(ctx context.Context, sessionID, sessionPath string) error
+	HasWorker(sessionID string) bool
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
