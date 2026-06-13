@@ -14,6 +14,11 @@ test.describe("sessions index", () => {
   test("groups cards by sanitized project path", async ({ page }) => {
     await page.goto("/");
 
+    // The index defaults to the timeline layout (flat list, no project groups).
+    // Switch to the projects layout, which renders the grouped view.
+    await page.locator("[data-sessions-content].index-layout-ready").waitFor();
+    await page.locator('[data-layout-btn="projects"]').click();
+
     await expect(
       page.locator('.project-group[data-project="/home/user/demo-project"]'),
     ).toBeVisible();

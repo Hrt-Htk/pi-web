@@ -48,6 +48,9 @@ async function openToolOutput(page: any, sessionsDir: string, testInfo: any) {
   await collapseScratchpad(page);
   await page.goto(`/session?id=${encodeURIComponent(id)}`);
   await expect(page.locator('#pi-chat-composer')).toHaveAttribute('data-chat-available', 'true');
+  // Tool calls now render inside a collapsed <details class="actions-group">
+  // (PR #28). Expand it so the nested tool output is visible.
+  await page.locator('.actions-group > summary').first().click();
   return page.locator('.tool-output.expandable');
 }
 
