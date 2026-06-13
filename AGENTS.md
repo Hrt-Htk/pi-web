@@ -38,8 +38,7 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 4. **Icons:** Lucide only, via `web/src/shared/icons.js` — no hand-drawn SVG or unicode glyphs.
 5. **i18n:** user-facing strings go through `t()` from `web/src/shared/i18n.js`; add keys to `web/src/shared/locales/en.js` first. Session content is never translated.
 6. **Default port `31415`.** State: `~/.pi/agent/pi-web/pi-web-state.json`. SSE topics: `__all__` for index-wide, session ID per-session.
-7. **Never start pi-web yourself** (`make dev`, `./pi-web`, etc.). The user runs it. Build/test with `make build` / `make test` / `make check`, but leave running the server to the user.
-8. **Always interact with the fork (`Hrt-Htk/pi-web`), never the upstream (`ygncode/pi-web`).** Issues, PRs, and any GitHub interactions go to the fork only.
+7. **Always interact with the fork (`Hrt-Htk/pi-web`), never the upstream (`ygncode/pi-web`).** Issues, PRs, and any GitHub interactions go to the fork only.
 
 ## User Override
 
