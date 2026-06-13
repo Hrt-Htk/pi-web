@@ -69,9 +69,15 @@
   <h1>Session: {sessionIdText}</h1>
   <div class="help-bar">
     <span class="help-hint"
-      >T show/hide thinking · O show/hide tools · P expand/collapse tool output</span
+      >G group actions · T show/hide thinking · O show/hide tools · P expand/collapse tool output</span
     >
     <div class="help-actions">
+      <button
+        type="button"
+        class="header-toggle-btn"
+        data-action="toggle-actions-grouped"
+        title="Group actions (G)">Actions</button
+      >
       <button
         type="button"
         class="header-toggle-btn"

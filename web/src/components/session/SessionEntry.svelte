@@ -5,7 +5,7 @@
   // keeps its `entry-<id>` anchor so annotation offsets + scroll/toggle survive.
   // Shared by the live app and the static export (model passed as a prop).
   import { marked } from 'marked';
-  import { icon, GitFork, Link2, Tag } from '../../shared/icons.js';
+  import { icon, ChevronRight, GitFork, Link2, Tag } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { formatTimestamp } from '../../session/render/entry-format.js';
@@ -35,6 +35,38 @@
   const userImages = $derived(
     Array.isArray(msg?.content) ? msg.content.filter((b) => b.type === 'image') : [],
   );
+
+  // Group non-text assistant blocks (thinking + toolCalls) into collapsible actions
+  // segments, interleaved with text segments, preserving document order.
+  const assistantSegments = $derived.by(() => {
+    if (!msg || msg.role !== 'assistant') return [];
+    const segments = [];
+    let run = null;
+    const flush = () => {
+      if (run && run.length > 0) {
+        segments.push({ kind: 'actions', items: run });
+        run = null;
+      }
+    };
+    for (const block of msg.content) {
+      if (block.type === 'text' && block.text?.trim()) {
+        flush();
+        segments.push({ kind: 'text', text: block.text });
+      } else if (block.type === 'thinking' && block.thinking?.trim()) {
+        if (!run) run = [];
+        run.push({ type: 'thinking', text: block.thinking });
+      } else if (block.type === 'toolCall') {
+        if (!run) run = [];
+        run.push({ type: 'toolCall', block });
+      }
+    }
+    flush();
+    return segments;
+  });
+
+  function formatCount(n) {
+    return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+  }
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
@@ -70,20 +102,49 @@
 {:else if msg && msg.role === 'assistant'}
   <div class="assistant-message" id={`entry-${entry.id}`}>
     {@render actions(entry.id)}{@render timestamp()}
-    {#each msg.content as block, blockIndex (blockIndex)}
-      {#if block.type === 'text' && block.text.trim()}<div class="assistant-text markdown-content">
-          {@html md(block.text)}
-        </div>{:else if block.type === 'thinking' && block.thinking.trim()}<div
-          class="thinking-block"
-        >
-          <div class="thinking-text">{block.thinking}</div>
-          <div class="thinking-collapsed">Thinking ...</div>
-        </div>{/if}
+    {#each assistantSegments as seg, segIndex (segIndex)}
+      {#if seg.kind === 'text'}
+        <div class="assistant-text markdown-content">{@html md(seg.text)}</div>
+      {:else}
+        {@const thinkingTokens = seg.items
+          .filter((i) => i.type === 'thinking')
+          .reduce((s, i) => s + Math.round(i.text.length / 4), 0)}
+        {@const toolCount = seg.items.filter((i) => i.type === 'toolCall').length}
+        {@const metaText = [
+          thinkingTokens > 0
+            ? `${formatCount(thinkingTokens)} ${t('session.actionsThinking')}`
+            : null,
+          toolCount > 0 ? `${toolCount} ${t('session.actionsTools')}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        <details class="actions-group">
+          <summary class="actions-summary"
+            ><span class="actions-connector">└─</span>{@html icon(ChevronRight, { size: 13 })}<span
+              class="actions-label">{t('session.actionsGroup')}</span
+            >{#if metaText}<span class="actions-meta">· {metaText}</span>{/if}</summary
+          >
+          <div class="actions-items">
+            {#each seg.items as item, i (i)}
+              {@const conn = i === seg.items.length - 1 ? '└─' : '├─'}
+              <div class="actions-item">
+                <span class="actions-item-connector">{conn}</span>
+                <div class="actions-item-body">
+                  {#if item.type === 'thinking'}
+                    <div class="thinking-block">
+                      <div class="thinking-text">{item.text}</div>
+                      <div class="thinking-collapsed">Thinking ...</div>
+                    </div>
+                  {:else if item.type === 'toolCall'}
+                    <ToolCall call={item.block} {model} />
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </details>
+      {/if}
     {/each}
-    {#each msg.content as block, toolBlockIndex (toolBlockIndex)}{#if block.type === 'toolCall'}<ToolCall
-          call={block}
-          {model}
-        />{/if}{/each}
     {#if msg.stopReason === 'aborted'}<div class="error-text">
         Aborted
       </div>{:else if msg.stopReason === 'error'}<div class="error-text">

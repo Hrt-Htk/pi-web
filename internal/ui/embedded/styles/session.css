@@ -1958,14 +1958,17 @@
       display: none;
     }
 
-    .chat-preview-stream .preview-label {
+    #chat-preview-host {
+      display: flex;
+      flex-direction: column;
+      gap: var(--line-height);
+    }
+
+    #chat-running-spinner {
+      order: 1;
       color: var(--muted);
       font-size: 11px;
       padding: calc(var(--line-height) / 2) var(--line-height) var(--line-height);
-    }
-
-    .chat-preview-stream.done .preview-label {
-      opacity: 0.6;
     }
 
     .chat-preview-stream .working-dots::after {
@@ -2191,6 +2194,98 @@
       padding: var(--line-height);
       color: var(--thinkingText);
       font-style: italic;
+    }
+
+    /* Actions group (collapsible thinking + tool calls) */
+    .actions-group {
+      margin: 6px 0;
+    }
+
+    .actions-summary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85em;
+      list-style: none;
+      user-select: none;
+    }
+
+    .actions-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .actions-summary svg {
+      transition: transform 0.12s ease;
+      flex: none;
+    }
+
+    .actions-group[open] > .actions-summary svg {
+      transform: rotate(90deg);
+    }
+
+    .actions-connector,
+    .actions-item-connector {
+      font-family: monospace;
+      white-space: pre;
+      color: var(--borderMuted);
+      user-select: none;
+      flex: none;
+    }
+
+    .actions-connector {
+      margin-right: 4px;
+    }
+
+    .actions-item-connector {
+      margin-right: 2px;
+      margin-left: -1px;
+      align-self: flex-start;
+    }
+
+    .actions-label {
+      font-weight: 600;
+    }
+
+    .actions-meta {
+      margin-left: 6px;
+    }
+
+    .actions-items {
+      margin: 4px 0 4px 0;
+      border-left: 1px solid var(--borderMuted);
+      margin-left: 7px;
+      padding-left: 0;
+    }
+
+    .actions-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .actions-item-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .actions-group.ungrouped > .actions-summary {
+      display: none;
+    }
+
+    .actions-group.ungrouped > .actions-items {
+      margin-left: 0;
+      border-left: none;
+      padding-left: 0;
+    }
+
+    .actions-group.ungrouped > .actions-items .actions-item {
+      display: block;
+    }
+
+    .actions-group.ungrouped > .actions-items .actions-item-connector {
+      display: none;
     }
 
     /* Tool execution */

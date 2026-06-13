@@ -58,12 +58,14 @@ describe('session search/filter UI', () => {
   it('wires keyboard shortcuts outside editable targets', () => {
     const jsdom = new JSDOM('<body><p tabindex="0"></p></body>');
     const clearSearch = vi.fn();
+    const toggleActionsGrouped = vi.fn();
     const toggleThinking = vi.fn();
     const toggleToolsVisibility = vi.fn();
     const toggleToolOutputs = vi.fn();
     setupSessionKeyboardShortcuts({
       documentImpl: jsdom.window.document,
       clearSearch,
+      toggleActionsGrouped,
       toggleThinking,
       toggleToolsVisibility,
       toggleToolOutputs,
@@ -72,11 +74,13 @@ describe('session search/filter UI', () => {
     jsdom.window.document.dispatchEvent(
       new jsdom.window.KeyboardEvent('keydown', { key: 'Escape' }),
     );
+    jsdom.window.document.dispatchEvent(new jsdom.window.KeyboardEvent('keydown', { key: 'g' }));
     jsdom.window.document.dispatchEvent(new jsdom.window.KeyboardEvent('keydown', { key: 't' }));
     jsdom.window.document.dispatchEvent(new jsdom.window.KeyboardEvent('keydown', { key: 'o' }));
     jsdom.window.document.dispatchEvent(new jsdom.window.KeyboardEvent('keydown', { key: 'p' }));
 
     expect(clearSearch).toHaveBeenCalled();
+    expect(toggleActionsGrouped).toHaveBeenCalled();
     expect(toggleThinking).toHaveBeenCalled();
     expect(toggleToolsVisibility).toHaveBeenCalled();
     expect(toggleToolOutputs).toHaveBeenCalled();

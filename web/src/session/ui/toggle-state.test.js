@@ -12,6 +12,7 @@ import {
 describe('toggle state helpers', () => {
   it('loads defaults and saved booleans defensively', () => {
     expect(loadToggleState({ storage: { getItem: () => null } })).toEqual({
+      actionsGrouped: true,
       thinkingExpanded: true,
       toolsVisible: true,
       toolOutputsExpanded: false,
@@ -20,10 +21,15 @@ describe('toggle state helpers', () => {
       loadToggleState({
         storage: {
           getItem: () =>
-            '{"thinkingExpanded":false,"toolsVisible":false,"toolOutputsExpanded":true}',
+            '{"actionsGrouped":false,"thinkingExpanded":false,"toolsVisible":false,"toolOutputsExpanded":true}',
         },
       }),
-    ).toEqual({ thinkingExpanded: false, toolsVisible: false, toolOutputsExpanded: true });
+    ).toEqual({
+      actionsGrouped: false,
+      thinkingExpanded: false,
+      toolsVisible: false,
+      toolOutputsExpanded: true,
+    });
   });
 
   it('saves state', () => {
@@ -39,9 +45,10 @@ describe('toggle state helpers', () => {
     const dom = new JSDOM(`<div>
       <div class="thinking-text"></div><div class="thinking-collapsed"></div>
       <div class="tool-execution"></div><div class="tool-output expandable"></div><div class="compaction"></div>
-      <button data-action="toggle-thinking"></button><button data-action="toggle-tools"></button><button data-action="toggle-tool-output"></button>
+      <details class="actions-group"><summary class="actions-summary"></summary><div class="actions-items"></div></details>
+      <button data-action="toggle-actions-grouped"></button><button data-action="toggle-thinking"></button><button data-action="toggle-tools"></button><button data-action="toggle-tool-output"></button>
     </div>`);
-    const state = { thinkingExpanded: false, toolsVisible: false, toolOutputsExpanded: true };
+    const state = { actionsGrouped: false, thinkingExpanded: false, toolsVisible: false, toolOutputsExpanded: true };
     applyToggleStateToNode(dom.window.document, state);
     syncToggleButtons(dom.window.document, state);
 
@@ -51,6 +58,14 @@ describe('toggle state helpers', () => {
     expect(dom.window.document.querySelector('.tool-output').classList.contains('expanded')).toBe(
       true,
     );
+    const actionsGroup = dom.window.document.querySelector('.actions-group');
+    expect(actionsGroup.classList.contains('ungrouped')).toBe(true);
+    expect(actionsGroup.open).toBe(true);
+    expect(
+      dom.window.document
+        .querySelector('[data-action="toggle-actions-grouped"]')
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
     expect(
       dom.window.document
         .querySelector('[data-action="toggle-thinking"]')
