@@ -95,9 +95,9 @@ jobs:
         run: |
           RANGE="${{ steps.range.outputs.range }}"
           STATS=$(git diff --shortstat "$RANGE")
-          FILES=$(echo "$STATS" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+')
-          INSERTIONS=$(echo "$STATS" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+')
-          DELETIONS=$(echo "$STATS" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+')
+          FILES=$(echo "$STATS" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' || true)
+          INSERTIONS=$(echo "$STATS" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || true)
+          DELETIONS=$(echo "$STATS" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || true)
           FILES=${FILES:-0}
           INSERTIONS=${INSERTIONS:-0}
           DELETIONS=${DELETIONS:-0}
