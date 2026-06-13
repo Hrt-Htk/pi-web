@@ -50,6 +50,7 @@ export function isEditableTarget(element) {
 export function setupSessionKeyboardShortcuts({
   documentImpl = document,
   clearSearch,
+  toggleActionsGrouped,
   toggleThinking,
   toggleToolsVisibility,
   toggleToolOutputs,
@@ -69,7 +70,10 @@ export function setupSessionKeyboardShortcuts({
     }
 
     const key = e.key.toLowerCase();
-    if (key === 't') {
+    if (key === 'g') {
+      e.preventDefault();
+      toggleActionsGrouped();
+    } else if (key === 't') {
       e.preventDefault();
       toggleThinking();
     } else if (key === 'o') {

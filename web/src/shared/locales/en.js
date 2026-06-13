@@ -112,6 +112,9 @@ export default {
   'session.loadingEarlier': 'Loading…',
   'session.loadEarlierFailed': 'Failed to load: {error}',
   'session.labelSaveFailed': 'Failed to save label',
+  'session.actionsGroup': 'Actions',
+  'session.actionsThinking': 'thinking',
+  'session.actionsTools': 'tools',
 
   // ── Session command menu ──
   'menu.searchSessions': 'Search Sessions',

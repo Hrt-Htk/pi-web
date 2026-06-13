@@ -52,6 +52,7 @@ export function setupSessionUi({
   sessionRuntime.toggleState = toggleController;
 
   const attachHeaderHandlers = () => toggleController.attachHeaderHandlers();
+  const toggleActionsGrouped = () => toggleController.toggleActionsGrouped();
   const toggleThinking = () => toggleController.toggleThinking();
   const toggleToolsVisibility = () => toggleController.toggleToolsVisibility();
   const toggleToolOutputs = () => toggleController.toggleToolOutputs();
@@ -59,6 +60,7 @@ export function setupSessionUi({
   searchFiltersApi.setupSessionKeyboardShortcuts({
     documentImpl,
     clearSearch: () => searchFilterControls.clearAndNavigateBottom(),
+    toggleActionsGrouped,
     toggleThinking,
     toggleToolsVisibility,
     toggleToolOutputs,

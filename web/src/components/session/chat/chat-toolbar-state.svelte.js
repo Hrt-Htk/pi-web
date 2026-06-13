@@ -1,3 +1,5 @@
+import { writable } from 'svelte/store';
+
 export function isRunningStatus(text, cls) {
   return (
     cls === 'running' ||
@@ -13,6 +15,11 @@ export function isRunningStatus(text, cls) {
 // and the declarative <ChatToolbar>. The runtime mutates these fields; the
 // component reads them through bindings. Replaces the former imperative
 // getElementById/textContent DOM mutation. Live-only.
+// Bridges the composer's worker-running state to the live streaming spinner in
+// <LiveReload>. ChatToolbarState is instantiated per-component, so this module-level
+// store is the shared channel between the two components. Live-only.
+export const chatRunningStore = writable(false);
+
 export class ChatToolbarState {
   statusText = $state('');
   statusClass = $state('');

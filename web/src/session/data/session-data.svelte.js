@@ -32,6 +32,7 @@ import {
   buildActivePathIds,
   findNewestLeaf,
   getPath,
+  getGroupedPath,
 } from '../tree/session-tree.js';
 import { filterNodes } from '../tree/session-filter.js';
 
@@ -75,6 +76,10 @@ export class SessionDataModel {
   // Ordered root→leaf entries for the message pane (what the content view
   // renders). Recomputes when entries or the active leaf change.
   activePath = $derived(getPath(this.currentLeafId, this.byId));
+  // Grouped variant: merges consecutive internal assistant entries (no user-facing
+  // text) into the terminal entry that follows them. One Actions group per user
+  // turn instead of one per model completion.
+  groupedPath = $derived(getGroupedPath(this.activePath));
   flatNodes = $derived(flattenTree(this.tree, this.activePathIds));
   filteredNodes = $derived(
     filterNodes(this.flatNodes, this.currentLeafId, {

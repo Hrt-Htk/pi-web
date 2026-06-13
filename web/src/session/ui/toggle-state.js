@@ -1,5 +1,6 @@
 export const TOGGLE_STATE_STORAGE_KEY = 'pi.sessionDetail.toggleState';
 export const toggleStateDefaults = {
+  actionsGrouped: true,
   thinkingExpanded: true,
   toolsVisible: true,
   toolOutputsExpanded: false,
@@ -9,6 +10,7 @@ export function loadToggleState({ storage = globalThis.localStorage } = {}) {
   const state = { ...toggleStateDefaults };
   try {
     const saved = JSON.parse(storage?.getItem(TOGGLE_STATE_STORAGE_KEY) || '{}');
+    if (typeof saved.actionsGrouped === 'boolean') state.actionsGrouped = saved.actionsGrouped;
     if (typeof saved.thinkingExpanded === 'boolean')
       state.thinkingExpanded = saved.thinkingExpanded;
     if (typeof saved.toolsVisible === 'boolean') state.toolsVisible = saved.toolsVisible;
@@ -41,10 +43,15 @@ export function applyToggleStateToNode(node, state) {
   node.querySelectorAll('.compaction').forEach((el) => {
     el.classList.toggle('expanded', state.toolOutputsExpanded);
   });
+  node.querySelectorAll('.actions-group').forEach((el) => {
+    el.classList.toggle('ungrouped', !state.actionsGrouped);
+    if (!state.actionsGrouped) el.open = true;
+  });
 }
 
 export function syncToggleButtons(documentImpl, state) {
   const buttons = [
+    [documentImpl.querySelector('[data-action="toggle-actions-grouped"]'), state.actionsGrouped],
     [documentImpl.querySelector('[data-action="toggle-thinking"]'), state.thinkingExpanded],
     [documentImpl.querySelector('[data-action="toggle-tools"]'), state.toolsVisible],
     [documentImpl.querySelector('[data-action="toggle-tool-output"]'), state.toolOutputsExpanded],
@@ -74,6 +81,9 @@ export function createToggleController({
 
   return {
     state,
+    get actionsGrouped() {
+      return state.actionsGrouped;
+    },
     get thinkingExpanded() {
       return state.thinkingExpanded;
     },
@@ -85,10 +95,14 @@ export function createToggleController({
     },
     applyToNode,
     syncButtons,
+    toggleActionsGrouped: () => toggle('actionsGrouped'),
     toggleThinking: () => toggle('thinkingExpanded'),
     toggleToolsVisibility: () => toggle('toolsVisible'),
     toggleToolOutputs: () => toggle('toolOutputsExpanded'),
     attachHeaderHandlers() {
+      documentImpl
+        .querySelector('[data-action="toggle-actions-grouped"]')
+        ?.addEventListener('click', this.toggleActionsGrouped);
       documentImpl
         .querySelector('[data-action="toggle-thinking"]')
         ?.addEventListener('click', this.toggleThinking);
