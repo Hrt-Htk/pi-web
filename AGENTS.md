@@ -5,6 +5,7 @@
 - Avoid helper functions when a simple inline expression would suffice
 - Use knip to remove unused code if making large changes
 - Read docs/dev/workflow.md for issue/PR/commit conventions. Every PR must reference an open issue.
+- Never start new work on a dirty tree. Run `git status` first; commit, stash, or discard changes before beginning. Scratch (`.tmp/`, `.pi/tasks/`, screenshots, transcripts) is gitignored so it never counts as dirty.
 
 ## Docs
 
