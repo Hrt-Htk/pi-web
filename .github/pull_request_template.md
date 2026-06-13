@@ -3,6 +3,13 @@ Thanks for contributing to pi-web! Per CONTRIBUTING.md, please open an issue
 first so we can discuss before code is written. Link that issue below.
 -->
 
+## Workflow Checklist
+
+- [ ] Linked issue exists and is open (see "Related issue" below)
+- [ ] Branch follows `type/issueN-description` naming
+- [ ] Commits follow [Conventional Commits](docs/dev/workflow.md)
+- [ ] Changes within size limits (10 files, 300 lines) or justified
+
 ## Summary
 
 <!-- What changed and why. Focus on the "why" — the motivation behind the change. -->
