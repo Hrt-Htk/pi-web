@@ -29,7 +29,12 @@
 
 {#if lang}
   {#if expandable}
-    <div class="tool-output expandable" data-state="collapsed" onclick={cycleOutput} role="presentation">
+    <div
+      class="tool-output expandable"
+      data-state="collapsed"
+      onclick={cycleOutput}
+      role="presentation"
+    >
       <div class="output-collapsed">
         <pre><code class="hljs" data-highlight-pending data-lang={lang}
             >{split.collapsed.join('\n')}</code
@@ -55,7 +60,12 @@
     </div>
   {/if}
 {:else if expandable}
-  <div class="tool-output expandable" data-state="collapsed" onclick={cycleOutput} role="presentation">
+  <div
+    class="tool-output expandable"
+    data-state="collapsed"
+    onclick={cycleOutput}
+    role="presentation"
+  >
     <div class="output-collapsed">
       {#each split.collapsed as line, lineIndex (lineIndex)}<div>{line}</div>{/each}
       <div class="expand-hint">... ({collapsedRemaining} more lines)</div>

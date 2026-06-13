@@ -48,7 +48,12 @@ describe('toggle state helpers', () => {
       <details class="actions-group"><summary class="actions-summary"></summary><div class="actions-items"></div></details>
       <button data-action="toggle-actions-grouped"></button><button data-action="toggle-thinking"></button><button data-action="toggle-tools"></button><button data-action="toggle-tool-output"></button>
     </div>`);
-    const state = { actionsGrouped: false, thinkingExpanded: false, toolsVisible: false, toolOutputsExpanded: true };
+    const state = {
+      actionsGrouped: false,
+      thinkingExpanded: false,
+      toolsVisible: false,
+      toolOutputsExpanded: true,
+    };
     applyToggleStateToNode(dom.window.document, state);
     syncToggleButtons(dom.window.document, state);
 
