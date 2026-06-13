@@ -4,6 +4,7 @@
 - Prefer clear function/variable names over inline comments
 - Avoid helper functions when a simple inline expression would suffice
 - Use knip to remove unused code if making large changes
+- Read docs/dev/workflow.md for issue/PR/commit conventions. Every PR must reference an open issue.
 
 ## Docs
 
