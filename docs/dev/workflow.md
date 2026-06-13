@@ -6,6 +6,14 @@ Rules for issues, branches, commits, and PRs. Designed for a solo dev working wi
 
 These rules exist to keep the repository history navigable and to catch mistakes before they land. On June 13, 2026 several issues were closed as "implemented" but the code was never committed or pushed — the work simply vanished. This workflow prevents that: every change is tied to an open issue, lives on a named branch, and passes through a PR with automated checks.
 
+## Clean Working Tree
+
+Never start new work while the tree is dirty. Before beginning a task, run `git status` — it must be clean. If it isn't, commit the work, stash it, or discard it first.
+
+A dirty tree is how the June 13 incident compounded: half-finished changes sat uncommitted, got entangled with new work, and were lost. A clean starting point means every change you make is attributable to the task at hand.
+
+Transient scratch — `.tmp/`, `.pi/tasks/`, screenshots under `e2e/.shots/`, session transcripts, build leftovers — is gitignored precisely so it never shows as dirty. If `git status` surfaces noise that isn't real work, add it to `.gitignore` rather than tolerating a permanently dirty tree.
+
 ## Issue Rules
 
 - **Labels are mandatory.** Every issue needs at least one label (`bug`, `enhancement`, `docs`, `chore`, etc.). Unlabelled issues are unclear and get deprioritized.

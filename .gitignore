@@ -15,3 +15,15 @@ node_modules/
 tmp/
 
 .requirements/
+
+# Scratch / transient — keep `git status` meaningful
+.tmp/
+.pi/tasks/
+/_*.md
+/*.jsonl
+*.exe~
+e2e/.shots/
+e2e/.tmp-*/
+e2e/scripts/check-inj.mjs
+e2e/scripts/shot-actions.mjs
+e2e/scripts/shot-clip.mjs
