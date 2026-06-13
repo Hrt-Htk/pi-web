@@ -37,7 +37,6 @@ export function clearChatPreviewState(state, { keepAssistant = false } = {}) {
       state.chatPreviewEl.parentNode.removeChild(state.chatPreviewEl);
     }
     state.chatPreviewEl = null;
-    stopWorkingAnimation(state);
   }
 }
 
@@ -45,9 +44,6 @@ export function finishChatPreviewState(state) {
   if (!state?.chatPreviewEl) return false;
   state.chatPreviewEl.classList.remove('chat-preview-waiting');
   state.chatPreviewEl.classList.add('done');
-  const label = state.chatPreviewEl.querySelector('.preview-label');
-  if (label && label.parentNode) label.parentNode.removeChild(label);
-  stopWorkingAnimation(state);
   return true;
 }
 // Test placeholder for TestSessionViteSourceShowsAnimatedWorkingPreviewLabel: working<span class="working-dots"
@@ -79,8 +75,8 @@ export function startWorkingAnimation(
   state.activePreviewMessage = null;
 
   // Sync initial spinner properties if spinner element is already present
-  if (state.chatPreviewEl) {
-    const spinnerEl = state.chatPreviewEl.querySelector('.preview-spinner');
+  if (state.runningSpinnerEl) {
+    const spinnerEl = state.runningSpinnerEl.querySelector('.preview-spinner');
     if (spinnerEl) {
       spinnerEl.style.fontFamily = config.fontFamily;
       spinnerEl.style.width = config.width;
@@ -89,12 +85,12 @@ export function startWorkingAnimation(
   }
 
   state.spinnerInterval = setIntervalImpl(() => {
-    if (!state.chatPreviewEl) {
+    if (!state.runningSpinnerEl) {
       stopWorkingAnimation(state);
       return;
     }
 
-    const spinnerEl = state.chatPreviewEl.querySelector('.preview-spinner');
+    const spinnerEl = state.runningSpinnerEl.querySelector('.preview-spinner');
     if (spinnerEl) {
       if (spinnerEl.style.fontFamily !== config.fontFamily) {
         spinnerEl.style.fontFamily = config.fontFamily;
@@ -105,7 +101,7 @@ export function startWorkingAnimation(
     }
 
     if (!state.activePreviewMessage && Date.now() - lastMsgChange >= 2000) {
-      const textEl = state.chatPreviewEl.querySelector('.preview-text');
+      const textEl = state.runningSpinnerEl.querySelector('.preview-text');
       if (textEl) {
         msgIdx = (msgIdx + 1) % CREATIVE_MESSAGES.length;
         textEl.textContent = CREATIVE_MESSAGES[msgIdx];
@@ -123,6 +119,52 @@ export function stopWorkingAnimation(state, { clearIntervalImpl = clearInterval 
   if (state) {
     state.activePreviewMessage = null;
   }
+}
+
+export function startRunningSpinner(
+  state,
+  {
+    documentImpl = document,
+    windowImpl = typeof window !== 'undefined' ? window : null,
+    setIntervalImpl = setInterval,
+  } = {},
+) {
+  if (!state.runningSpinnerEl) {
+    const container =
+      documentImpl.getElementById('chat-preview-host') ||
+      documentImpl.getElementById('messages') ||
+      documentImpl.getElementById('content') ||
+      documentImpl.body;
+    const config = getSpinnerConfig(windowImpl);
+    const el = documentImpl.createElement('div');
+    el.id = 'chat-running-spinner';
+    el.className = 'chat-running-spinner';
+    const spinner = documentImpl.createElement('span');
+    spinner.className = 'preview-spinner';
+    spinner.style.color = 'var(--accent)';
+    spinner.style.marginRight = '6px';
+    spinner.style.fontFamily = config.fontFamily;
+    spinner.style.display = 'inline-block';
+    spinner.style.width = config.width;
+    spinner.style.textAlign = 'center';
+    spinner.textContent = config.frames[0];
+    const text = documentImpl.createElement('span');
+    text.className = 'preview-text';
+    text.style.color = 'var(--muted)';
+    text.textContent = 'Working...';
+    el.append(spinner, text);
+    container.appendChild(el);
+    state.runningSpinnerEl = el;
+  }
+  startWorkingAnimation(state, { setIntervalImpl, windowImpl });
+}
+
+export function stopRunningSpinner(state, { clearIntervalImpl = clearInterval } = {}) {
+  stopWorkingAnimation(state, { clearIntervalImpl });
+  if (state.runningSpinnerEl && state.runningSpinnerEl.parentNode) {
+    state.runningSpinnerEl.parentNode.removeChild(state.runningSpinnerEl);
+  }
+  state.runningSpinnerEl = null;
 }
 
 function getActiveMessage(content) {
@@ -157,35 +199,12 @@ function createMarkdownBlock(documentImpl, className) {
   return el;
 }
 
-function createPreviewLabel(documentImpl, config) {
-  const label = documentImpl.createElement('div');
-  label.className = 'preview-label';
-  const spinner = documentImpl.createElement('span');
-  spinner.className = 'preview-spinner';
-  spinner.style.color = 'var(--accent)';
-  spinner.style.marginRight = '6px';
-  spinner.style.fontFamily = config.fontFamily;
-  spinner.style.display = 'inline-block';
-  spinner.style.width = config.width;
-  spinner.style.textAlign = 'center';
-  spinner.textContent = config.frames[0];
-  const text = documentImpl.createElement('span');
-  text.className = 'preview-text';
-  text.style.color = 'var(--muted)';
-  text.textContent = 'Working...';
-  label.append(spinner, text);
-  return label;
-}
-
 function createAssistantPreview(documentImpl, { waiting = false, windowImpl = null } = {}) {
-  const config = getSpinnerConfig(windowImpl);
+  void windowImpl;
   const el = documentImpl.createElement('div');
   el.id = 'chat-preview-stream';
   el.className = 'assistant-message chat-preview-stream' + (waiting ? ' chat-preview-waiting' : '');
-  el.append(
-    createMarkdownBlock(documentImpl, 'message-content assistant-text markdown-content'),
-    createPreviewLabel(documentImpl, config),
-  );
+  el.append(createMarkdownBlock(documentImpl, 'message-content assistant-text markdown-content'));
   return el;
 }
 
@@ -199,9 +218,10 @@ export function renderPendingChatState(
     shouldFollow = () => false,
     forceFollowToBottom = () => {},
     scrollAfterLayout = () => {},
-    setIntervalImpl = setInterval,
+    _setIntervalImpl = setInterval,
   } = {},
 ) {
+  void _setIntervalImpl;
   const text = String(message || '').trim();
   if (!text) return false;
   // Render in the dedicated preview host outside #messages so it survives
@@ -224,8 +244,6 @@ export function renderPendingChatState(
   state.chatPreviewEl = createAssistantPreview(documentImpl, { waiting: true, windowImpl });
   container.appendChild(state.chatPreviewEl);
 
-  startWorkingAnimation(state, { setIntervalImpl, windowImpl });
-
   if (shouldFollow()) {
     forceFollowToBottom(false);
     scrollAfterLayout(false, state.chatPreviewEl);
@@ -243,9 +261,10 @@ export function renderChatPreviewState(
     shouldFollow = () => false,
     forceFollowToBottom = () => {},
     scrollAfterLayout = () => {},
-    setIntervalImpl = setInterval,
+    _setIntervalImpl = setInterval,
   } = {},
 ) {
+  void _setIntervalImpl;
   if (!payload || typeof payload.content !== 'string') return false;
   // Render in the dedicated preview host outside #messages.
   const container =
@@ -256,13 +275,12 @@ export function renderChatPreviewState(
   if (!state.chatPreviewEl) {
     state.chatPreviewEl = createAssistantPreview(documentImpl, { windowImpl });
     container.appendChild(state.chatPreviewEl);
-    startWorkingAnimation(state, { setIntervalImpl, windowImpl });
   }
 
   const activeMsg = getActiveMessage(payload.content);
   if (activeMsg) {
     state.activePreviewMessage = activeMsg;
-    const textEl = state.chatPreviewEl.querySelector('.preview-text');
+    const textEl = state.runningSpinnerEl && state.runningSpinnerEl.querySelector('.preview-text');
     if (textEl) textEl.textContent = activeMsg;
   }
 

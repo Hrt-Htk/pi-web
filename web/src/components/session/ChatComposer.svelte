@@ -8,7 +8,7 @@
 </script>
 
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { escapeHtml } from '../../session/render/session-format.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
   import * as chatApi from '../../session/chat/chat-api.js';
@@ -18,7 +18,7 @@
   import ChatToolbar from './chat/ChatToolbar.svelte';
   import ContextUsage from './chat/ContextUsage.svelte';
   import TextAttachmentModal from './chat/TextAttachmentModal.svelte';
-  import { ChatToolbarState } from './chat/chat-toolbar-state.svelte.js';
+  import { ChatToolbarState, chatRunningStore } from './chat/chat-toolbar-state.svelte.js';
   import { icon, ChevronDown } from '../../shared/icons.js';
 
   let {
@@ -32,6 +32,14 @@
   // Reactive toolbar state owned here so the live runtime can mutate it while
   // <ChatToolbar> renders from it.
   const toolbar = new ChatToolbarState();
+
+  // Mirror the worker-running state into the shared store so <LiveReload> drives the
+  // streaming spinner from the same source of truth. Reset on teardown so a stale
+  // "running" value can't leak across a session navigation.
+  $effect(() => {
+    chatRunningStore.set(toolbar.isRunning);
+  });
+  onDestroy(() => chatRunningStore.set(false));
 
   // The composer runtime lives in <script module> (runChatComposer). It reads the
   // shared model + navigateTo (owned by SessionPage runtime context) at mount —

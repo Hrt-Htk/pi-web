@@ -5,6 +5,8 @@ import {
   finishChatPreviewState as finishChatPreview,
   renderChatPreviewState as renderChatPreview,
   renderPendingChatState as renderPendingChat,
+  startRunningSpinner,
+  stopRunningSpinner,
 } from './chat-preview.js';
 
 describe('chat preview', () => {
@@ -48,7 +50,7 @@ describe('chat preview', () => {
 
   it('renders pending user message and working placeholder immediately', () => {
     const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
-    const state = { chatPreviewEl: null, pendingUserEl: null };
+    const state = { chatPreviewEl: null, pendingUserEl: null, runningSpinnerEl: null };
     const forceFollowToBottom = vi.fn();
 
     expect(
@@ -65,10 +67,18 @@ describe('chat preview', () => {
       'hello **pi**',
     );
     expect(dom.window.document.getElementById('chat-preview-stream')).toBeTruthy();
-    expect(
-      dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase(),
-    ).toContain('working');
     expect(forceFollowToBottom).toHaveBeenCalledWith(false);
+
+    // Spinner is created separately via startRunningSpinner, not by renderPendingChat
+    startRunningSpinner(state, { documentImpl: dom.window.document });
+    expect(dom.window.document.getElementById('chat-running-spinner')).toBeTruthy();
+    expect(
+      dom.window.document.getElementById('chat-running-spinner').textContent.toLowerCase(),
+    ).toContain('working');
+
+    stopRunningSpinner(state);
+    expect(dom.window.document.getElementById('chat-running-spinner')).toBe(null);
+    expect(state.runningSpinnerEl).toBe(null);
 
     clearChatPreview(state);
     expect(dom.window.document.getElementById('chat-pending-user')).toBe(null);
@@ -92,6 +102,29 @@ describe('chat preview', () => {
       dom.window.document.getElementById('chat-preview-stream').textContent.toLowerCase(),
     ).not.toContain('working');
     expect(state.chatPreviewEl.classList.contains('done')).toBe(true);
+  });
+
+  it('running spinner element is independent of the preview', () => {
+    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const state = { chatPreviewEl: null, pendingUserEl: null, runningSpinnerEl: null };
+
+    renderChatPreview({ content: 'hi', done: false }, state, {
+      documentImpl: dom.window.document,
+      renderMarkdown: (text) => text,
+    });
+
+    startRunningSpinner(state, { documentImpl: dom.window.document });
+    expect(dom.window.document.getElementById('chat-running-spinner')).toBeTruthy();
+
+    // Clearing the preview stream does NOT remove the spinner
+    clearChatPreview(state);
+    expect(dom.window.document.getElementById('chat-preview-stream')).toBe(null);
+    expect(dom.window.document.getElementById('chat-running-spinner')).toBeTruthy();
+
+    // Stopping the spinner removes it
+    stopRunningSpinner(state);
+    expect(dom.window.document.getElementById('chat-running-spinner')).toBe(null);
+    expect(state.runningSpinnerEl).toBe(null);
   });
 
   it('clears pending user but keeps assistant preview when keepAssistant option is true', () => {

@@ -19,6 +19,8 @@
     finishChatPreviewState,
     renderChatPreviewState,
     renderPendingChatState,
+    startRunningSpinner,
+    stopRunningSpinner,
   } from '../../session/live/chat-preview.js';
   import { getSessionIdFromLocation, handleSessionReload } from '../../session/live/live-events.js';
   import { setupSessionLiveConnection } from '../../session/live/live-connection.js';
@@ -27,6 +29,7 @@
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
   import { setSessionTitle } from '../../session/session-title.svelte.js';
+  import { chatRunningStore } from './chat/chat-toolbar-state.svelte.js';
 
   onMount(() => {
     const documentImpl = document;
@@ -116,15 +119,13 @@
     const sessId = getSessionIdFromLocation({ locationImpl: windowImpl.location });
 
     // ── Streaming chat preview ─────────────────────────────────────────────────
-    const CHAT_PREVIEW_STATE = { chatPreviewEl: null, pendingUserEl: null };
+    const CHAT_PREVIEW_STATE = { chatPreviewEl: null, pendingUserEl: null, runningSpinnerEl: null };
 
     function clearChatPreview() {
-      const statusEl = documentImpl.getElementById('pi-chat-status');
-      const isChatRunning = statusEl && statusEl.classList.contains('running');
       const hasDoneClass =
         CHAT_PREVIEW_STATE.chatPreviewEl &&
         CHAT_PREVIEW_STATE.chatPreviewEl.classList.contains('done');
-      const keepAssistant = !!(isChatRunning && !hasDoneClass);
+      const keepAssistant = !!(chatRunning && !hasDoneClass);
       return clearChatPreviewState(CHAT_PREVIEW_STATE, { keepAssistant });
     }
     function clearPendingUser() {
@@ -178,18 +179,21 @@
       });
     }
 
-    on(windowImpl, 'pi-worker-done', () => {
-      console.log('[LiveReload] pi-worker-done received for session:', sessId);
+    // Driven by the worker-running store (same source as the cancel button), not the SSE
+    // streaming lifecycle: the spinner lives as long as the worker runs, surviving preview
+    // teardown on reloads.
+    let chatRunning = false;
+
+    function handleWorkerDone() {
       finishChatPreview();
 
-      // Real pi flushes canonical entries to disk ~1-2s AFTER streaming done.
-      // The file-watcher reload event is unreliable for brand-new sessions,
-      // so we actively poll triggerReload until the preview is cleared (which
-      // happens when reconcile lands the canonical assistant entry with content).
+      // Real pi flushes canonical entries to disk ~1-2s AFTER the worker goes idle, and the
+      // file-watcher reload event is unreliable for brand-new sessions, so actively poll
+      // triggerReload until the preview is cleared (which happens when reconcile lands the
+      // canonical assistant entry with content).
       let attempt = 0;
       const MAX_ATTEMPTS = 10;
       const RETRY_DELAY = 700;
-
       const tryReload = () => {
         triggerReload().finally(() => {
           if (CHAT_PREVIEW_STATE.chatPreviewEl == null || ++attempt >= MAX_ATTEMPTS) {
@@ -199,7 +203,20 @@
         });
       };
       tryReload();
+    }
+
+    const unsubscribeRunning = chatRunningStore.subscribe((running) => {
+      const wasRunning = chatRunning;
+      chatRunning = running;
+      if (running) {
+        startRunningSpinner(CHAT_PREVIEW_STATE, { documentImpl, windowImpl });
+      } else {
+        stopRunningSpinner(CHAT_PREVIEW_STATE);
+        if (wasRunning) handleWorkerDone();
+      }
     });
+    cleanups.push(unsubscribeRunning);
+    cleanups.push(() => stopRunningSpinner(CHAT_PREVIEW_STATE));
 
     const liveConnection = setupSessionLiveConnection({
       documentImpl,
