@@ -74,10 +74,11 @@ jobs:
           fi
 
       - name: Check issue reference
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           RANGE="${{ steps.range.outputs.range }}"
           COMMITS=$(git log --no-merges --format="%s %b" "$RANGE")
-          PR_BODY="${{ github.event.pull_request.body }}"
           HAS_ISSUE=0
           if echo "$COMMITS" | grep -qE '#[0-9]+'; then
             HAS_ISSUE=1
