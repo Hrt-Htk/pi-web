@@ -326,12 +326,7 @@ describe('getGroupedPath', () => {
     // custom entry passes through; a1 merges into a2 — one actions group
     expect(grouped.map((e) => e.id)).toEqual(['u1', 'custom1', 'a2']);
     const merged = grouped[2].message.content;
-    expect(merged.map((b) => b.type)).toEqual([
-      'thinking',
-      'toolCall',
-      'thinking',
-      'text',
-    ]);
+    expect(merged.map((b) => b.type)).toEqual(['thinking', 'toolCall', 'thinking', 'text']);
     expect(merged[0].thinking).toBe('plan search');
     expect(merged[1].id).toBe('tc1');
     expect(merged[2].thinking).toBe('analyze results');

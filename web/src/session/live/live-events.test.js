@@ -175,7 +175,10 @@ describe('live events', () => {
     const entries = [
       { id: 'welcome' },
       { id: 'user-msg', message: { role: 'user', content: 'hello' } },
-      { id: 'assistant-msg', message: { role: 'assistant', content: [{ type: 'text', text: 'Hi!' }] } },
+      {
+        id: 'assistant-msg',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Hi!' }] },
+      },
     ];
     const fetchImpl = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),

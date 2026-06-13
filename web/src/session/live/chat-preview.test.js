@@ -11,7 +11,9 @@ import {
 
 describe('chat preview', () => {
   it('renders, updates, follows, and clears preview', () => {
-    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="messages"></div><div id="chat-preview-host"></div></body>',
+    );
     const state = { chatPreviewEl: null, pendingUserEl: null };
     const forceFollowToBottom = vi.fn();
     const scrollAfterLayout = vi.fn();
@@ -49,7 +51,9 @@ describe('chat preview', () => {
   });
 
   it('renders pending user message and working placeholder immediately', () => {
-    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="messages"></div><div id="chat-preview-host"></div></body>',
+    );
     const state = { chatPreviewEl: null, pendingUserEl: null, runningSpinnerEl: null };
     const forceFollowToBottom = vi.fn();
 
@@ -86,7 +90,9 @@ describe('chat preview', () => {
   });
 
   it('can finish a pending preview without removing assistant text', () => {
-    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="messages"></div><div id="chat-preview-host"></div></body>',
+    );
     const state = { chatPreviewEl: null, pendingUserEl: null };
 
     renderChatPreview({ content: 'final answer', done: false }, state, {
@@ -105,7 +111,9 @@ describe('chat preview', () => {
   });
 
   it('running spinner element is independent of the preview', () => {
-    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="messages"></div><div id="chat-preview-host"></div></body>',
+    );
     const state = { chatPreviewEl: null, pendingUserEl: null, runningSpinnerEl: null };
 
     renderChatPreview({ content: 'hi', done: false }, state, {
@@ -128,7 +136,9 @@ describe('chat preview', () => {
   });
 
   it('clears pending user but keeps assistant preview when keepAssistant option is true', () => {
-    const dom = new JSDOM('<body><div id="messages"></div><div id="chat-preview-host"></div></body>');
+    const dom = new JSDOM(
+      '<body><div id="messages"></div><div id="chat-preview-host"></div></body>',
+    );
     const state = { chatPreviewEl: null, pendingUserEl: null };
 
     renderPendingChat('hello pi', state, {
