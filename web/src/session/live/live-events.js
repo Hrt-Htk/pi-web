@@ -111,7 +111,7 @@ export function wireSessionEvents({
   eventSource,
   onReload,
   onChatPreview,
-  clearChatPreview = () => {},
+  _clearChatPreview = () => {},
   onAnnotations = null,
   onError = () => {},
   windowImpl = typeof window !== 'undefined' ? window : null,

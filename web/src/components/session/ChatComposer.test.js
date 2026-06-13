@@ -709,7 +709,7 @@ describe('chat composer runner', () => {
     );
     const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
     let capturedIntervalId = null;
-    const setIntervalImpl = vi.fn((fn, ms) => {
+    const setIntervalImpl = vi.fn((_fn, _ms) => {
       capturedIntervalId = 99;
       return 99;
     });
