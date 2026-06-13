@@ -44,10 +44,11 @@ func TestComputeRunningStatusFromChatSender(t *testing.T) {
 func TestComputeRunningStatusFromRecentMtime(t *testing.T) {
 	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
 	s := &Server{
-		sessionsDir: t.TempDir(),
-		chatSender:  &fakeSender{},
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
-		now:         func() time.Time { return now },
+		sessionsDir:  t.TempDir(),
+		chatSender:   &fakeSender{},
+		fileMod:      map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		fileActivity: map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		now:          func() time.Time { return now },
 	}
 	if !s.computeRunningStatus("session.jsonl") {
 		t.Fatalf("expected running=true from recent mtime")
@@ -71,12 +72,13 @@ func TestComputeRunningStatusEmptyID(t *testing.T) {
 func TestRecomputeAndBroadcastStatusEmitsDeltaOnFlip(t *testing.T) {
 	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
 	s := &Server{
-		sessionsDir: t.TempDir(),
-		chatSender:  &fakeSender{},
-		clients:     make([]*sseClient, 0),
-		lastKnown:   make(map[string]struct{}),
-		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
-		now:         func() time.Time { return now },
+		sessionsDir:  t.TempDir(),
+		chatSender:   &fakeSender{},
+		clients:      make([]*sseClient, 0),
+		lastKnown:    make(map[string]struct{}),
+		fileMod:      map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
+		fileActivity: map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
+		now:          func() time.Time { return now },
 	}
 	c := s.addClient(globalSessID)
 	defer s.removeClient(c)
@@ -91,6 +93,27 @@ func TestRecomputeAndBroadcastStatusEmitsDeltaOnFlip(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("expected status-delta broadcast")
+	}
+}
+
+func TestComputeRunningStatusIgnoresInitialFileCreation(t *testing.T) {
+	now := time.Date(2026, 5, 8, 12, 0, 1, 0, time.UTC)
+	s := &Server{
+		sessionsDir:  t.TempDir(),
+		chatSender:   &fakeSender{},
+		clients:      make([]*sseClient, 0),
+		fileMod:      map[string]time.Time{"new.jsonl": {}}, // pre-seeded zero by fsnotify Create handler
+		fileActivity: make(map[string]time.Time),
+		lastKnown:    make(map[string]struct{}),
+		now:          func() time.Time { return now },
+	}
+
+	// Simulate the first real write of the freshly created file.
+	s.recordModTime("new.jsonl", now)
+
+	// The creation write must NOT be treated as running.
+	if s.computeRunningStatus("new.jsonl") {
+		t.Fatal("expected running=false after initial file creation write")
 	}
 }
 

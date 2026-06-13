@@ -74,6 +74,12 @@ func (s *Server) recordModTime(sessID string, mod time.Time) {
 	s.fileModMu.Lock()
 	lastMod, known := s.fileMod[sessID]
 	s.fileMod[sessID] = mod
+	// Record activity only for a genuine real→newer-real advance.
+	// The zero→first-real transition (file creation) must not count as
+	// running activity to avoid false "done" notifications.
+	if known && !lastMod.IsZero() && mod.After(lastMod) && s.fileActivity != nil {
+		s.fileActivity[sessID] = mod
+	}
 	s.fileModMu.Unlock()
 	if known && mod.After(lastMod) {
 		s.broadcast(sessID, "reload")

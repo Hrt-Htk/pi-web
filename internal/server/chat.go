@@ -196,7 +196,7 @@ func (s *Server) hasRecentSessionActivity(sessionID string) bool {
 	}
 	now := s.now()
 	s.fileModMu.RLock()
-	mod, ok := s.fileMod[sessionID]
+	mod, ok := s.fileActivity[sessionID]
 	s.fileModMu.RUnlock()
 	if !ok {
 		return false

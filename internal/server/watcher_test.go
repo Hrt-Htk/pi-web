@@ -88,12 +88,13 @@ func TestRecordModTimeBroadcastsStatusDelta(t *testing.T) {
 	root := t.TempDir()
 	now := time.Now()
 	s := &Server{
-		sessionsDir: root,
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-10 * time.Second)},
-		clients:     make([]*sseClient, 0),
-		lastKnown:   make(map[string]struct{}),
-		chatSender:  &fakeSender{},
-		now:         time.Now,
+		sessionsDir:  root,
+		fileMod:      map[string]time.Time{"session.jsonl": now.Add(-10 * time.Second)},
+		fileActivity: make(map[string]time.Time),
+		clients:      make([]*sseClient, 0),
+		lastKnown:    make(map[string]struct{}),
+		chatSender:   &fakeSender{},
+		now:          time.Now,
 	}
 	c := s.addClient(globalSessID)
 	defer s.removeClient(c)

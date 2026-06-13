@@ -248,10 +248,11 @@ func TestHandleWorkerStatusUsesRecentSessionFileActivity(t *testing.T) {
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
 	s := &Server{
-		sessionsDir: root,
-		chatSender:  &fakeSender{},
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
-		now:         func() time.Time { return now },
+		sessionsDir:  root,
+		chatSender:   &fakeSender{},
+		fileMod:      map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		fileActivity: map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		now:          func() time.Time { return now },
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
 	w := httptest.NewRecorder()
