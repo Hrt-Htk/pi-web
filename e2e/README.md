@@ -9,5 +9,5 @@ make e2e         # build binary + run the full suite
 ```
 
 See **[docs/dev/e2e-testing.md](../docs/dev/e2e-testing.md)** for the full guide:
-project matrix, scripted server lifecycle, sanitized fixtures, the stub `pi`, CI,
+project matrix, scripted server lifecycle, sanitized fixtures, the real-pi live-server fixture, CI,
 and how to add tests.

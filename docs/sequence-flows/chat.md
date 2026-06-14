@@ -215,4 +215,4 @@ After 10 minutes of idle time (no user-initiated actions), the reaper goroutine 
 
 ---
 
-**E2E coverage:** `e2e/tests/chat.spec.ts` drives this flow end-to-end with a stub `pi` worker (`e2e/lib/stub-pi/pi`). See [docs/dev/e2e-testing.md](../dev/e2e-testing.md).
+**E2E coverage:** `e2e/tests/chat.spec.ts` drives this flow end-to-end against real pi via the live-server fixture (`e2e/lib/live-test.ts`). See [docs/dev/e2e-testing.md](../dev/e2e-testing.md).
