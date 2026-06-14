@@ -2895,6 +2895,7 @@
       border: 1px solid var(--mdCodeBlockBorder);
       padding: 6px 10px;
       text-align: left;
+      white-space: nowrap;
     }
 
     .markdown-content th {
