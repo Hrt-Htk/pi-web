@@ -157,7 +157,7 @@ jobs:
       - name: Build pi-web
         run: make build
 
-      - name: Run UI Playwright tests (pi specs run on self-hosted)
+      - name: Run UI Playwright tests (pi specs run locally only)
         working-directory: e2e
         run: npx playwright test --grep-invert "real pi"
 
@@ -169,35 +169,4 @@ jobs:
           path: |
             e2e/playwright-report
             e2e/test-results
-          retention-days: 7
-
-  # e2e-pi: runs pi-dependent specs against the live pi-web server.
-  # Requires a self-hosted runner with:
-  #   - real `pi` on PATH with a working model config
-  #   - a running live pi-web server (state file at ~/.pi/agent/pi-web/)
-  # Adjust the `runs-on` labels to match your runner.
-  e2e-pi:
-    name: E2E real pi (Playwright, self-hosted)
-    runs-on: [self-hosted]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Build pi-web
-        run: make build
-
-      - name: Install e2e dependencies
-        working-directory: e2e
-        run: npm ci
-
-      - name: Run pi Playwright specs against the live server
-        working-directory: e2e
-        run: npx playwright test --grep "real pi"
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report-pi
-          path: e2e/playwright-report/
           retention-days: 7

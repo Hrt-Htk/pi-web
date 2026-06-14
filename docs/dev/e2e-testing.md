@@ -150,14 +150,14 @@ specs that don't need real pi.
 
 ## CI
 
-Two E2E jobs in `.github/workflows/ci.yml`:
+One E2E job in `.github/workflows/ci.yml`:
 
 - **`e2e-ui`** (ubuntu-latest): runs the non-pi specs via
-  `npx playwright test --grep-invert "real pi"`. The pi specs auto-skip when no
-  live server is present, but we exclude them explicitly for clarity.
-- **`e2e-pi`** (self-hosted): runs the pi specs via `npx playwright test --grep
-  "real pi"`. Requires a self-hosted runner with real `pi` on PATH (with a working
-  model config) and a running live pi-web server.
+  `npx playwright test --grep-invert "real pi"`.
+
+The **pi-dependent specs** (`--grep "real pi"`) are **not run in CI** — they need a
+live pi-web server with real pi, which CI runners don't have. Run them locally
+against your running server: `cd e2e && npx playwright test --grep "real pi"`.
 
 ## Adding a test
 
