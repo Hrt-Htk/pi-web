@@ -109,8 +109,8 @@ jobs:
             echo "::warning::PR changes $TOTAL_LINES lines (soft limit: 300). Consider splitting."
           fi
 
-  e2e:
-    name: E2E (Playwright)
+  e2e-ui:
+    name: E2E UI (Playwright, ubuntu)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -157,15 +157,15 @@ jobs:
       - name: Build pi-web
         run: make build
 
-      - name: Run Playwright tests
+      - name: Run UI Playwright tests (pi specs run locally only)
         working-directory: e2e
-        run: npx playwright test
+        run: npx playwright test --grep-invert "real pi"
 
       - name: Upload Playwright report
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-ui
           path: |
             e2e/playwright-report
             e2e/test-results

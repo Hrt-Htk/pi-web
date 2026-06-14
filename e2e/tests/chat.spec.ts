@@ -1,43 +1,59 @@
-import { test, expect, collapseScratchpad } from "../lib/test";
-import {
-  buildSession,
-  realWorkingDir,
-  uniqueSessionName,
-  writeSession,
-} from "../lib/sessions";
+import { test, expect } from "../lib/live-test";
+import { createLiveSession, deleteLiveSession } from "../lib/live-sessions";
+import { realWorkingDir } from "../lib/sessions";
 
-// Chat is driven by a `pi --mode rpc` worker. CI has no real pi, so a stub pi
-// (e2e/lib/stub-pi/pi, prepended to PATH by the server harness) answers the rpc
-// protocol and writes a deterministic reply into the session file, which the
-// browser then picks up via the live-reload SSE path.
+test.describe("chat (real pi)", () => {
+  test.setTimeout(120_000);
 
-test.describe("chat (stubbed pi)", () => {
   test("sending a message shows the assistant reply", async ({
     page,
+    baseURL,
     sessionsDir,
   }, testInfo) => {
+    // Run only on one project to avoid hitting the live server 7 times.
+    test.skip(testInfo.project.name !== "Desktop Chrome", "real-pi spec runs once, not across all 7 projects");
+
+    // Skip if the live server isn't available.
+    test.skip(
+      baseURL === undefined,
+      "live pi-web server not reachable — skip pi-dependent specs",
+    );
+
+    // At this point baseURL is guaranteed to be a string.
+    const liveURL = baseURL!;
+
     // Session cwd must exist on disk or chat is disabled ("View only").
     const cwd = realWorkingDir();
-    const { entries } = buildSession({ cwd });
-    const name = uniqueSessionName(testInfo, "chat");
-    const id = writeSession(sessionsDir, name, entries);
+    const id = await createLiveSession(liveURL, cwd);
 
-    await collapseScratchpad(page);
-    await page.goto(`/session?id=${encodeURIComponent(id)}`);
+    try {
+      await page.goto(`/session?id=${encodeURIComponent(id)}`);
 
-    // Composer should be enabled (cwd exists -> chat available).
-    const composer = page.locator("#pi-chat-composer");
-    await expect(composer).toHaveAttribute("data-chat-available", "true");
+      // Composer should be enabled (cwd exists -> chat available).
+      const composer = page.locator("#pi-chat-composer");
+      await expect(composer).toHaveAttribute("data-chat-available", "true");
 
-    const textarea = page.locator("#pi-chat-message");
-    const prompt = `e2e-chat-${testInfo.workerIndex}-${Date.now()}`;
-    await textarea.fill(prompt);
-    await page.locator("#pi-chat-send").click();
+      // Count assistant messages before sending.
+      const assistantBefore = await page.locator(".assistant-message").count();
 
-    // The stub echoes "Stub reply: <prompt>" and writes it to the session file;
-    // it surfaces in the message pane via the fsnotify -> SSE reload.
-    await expect(page.locator("#messages")).toContainText(`Stub reply: ${prompt}`, {
-      timeout: 20000,
-    });
+      const textarea = page.locator("#pi-chat-message");
+      const prompt = `Reply with the single word: pong`;
+      await textarea.fill(prompt);
+      await page.locator("#pi-chat-send").click();
+
+      // Wait for the user's message to appear (deterministic — it's our own text).
+      await expect(page.locator("#messages")).toContainText(prompt, { timeout: 15_000 });
+
+      // Wait for a NEW assistant message to appear.  We assert count > baseline
+      // rather than exact text because real pi output is non-deterministic.
+      // .assistant-message is the class SessionEntry.svelte applies to every
+      // assistant-role entry, so this survives re-renders and SSE reloads.
+      await expect.poll(
+        () => page.locator(".assistant-message").count(),
+        { timeout: 100_000 },
+      ).toBeGreaterThan(assistantBefore);
+    } finally {
+      deleteLiveSession(sessionsDir, id);
+    }
   });
 });

@@ -4,7 +4,7 @@
 - Prefer clear function/variable names over inline comments
 - Avoid helper functions when a simple inline expression would suffice
 - Use knip to remove unused code if making large changes
-- Read docs/dev/workflow.md for issue/PR/commit conventions. Every PR must reference an open issue.
+- **Before any commit, PR, or issue:** read `docs/dev/workflow.md` and follow its rules — labels mandatory, conventional commits (`type(scope): desc` + `Closes #N`), branch naming (`type/issueN-description`), one issue one PR, never close an issue before its PR merges.
 - Never start new work on a dirty tree. Run `git status` first; commit, stash, or discard changes before beginning. Scratch (`.tmp/`, `.pi/tasks/`, screenshots, transcripts) is gitignored so it never counts as dirty.
 
 ## Docs
@@ -29,7 +29,7 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 - **Go:** table-driven tests in `*_test.go` alongside source.
 - **Frontend:** tests next to source (`foo.js` → `foo.test.js`); DOM helpers take `{ documentImpl, windowImpl }` for DI.
 - **Lint/format (frontend):** ESLint (`eslint-plugin-svelte`) + Prettier, config in `web/`. `make check` runs `frontend-lint` + `frontend-format-check`. Fix locally with `cd web && npm run format` (auto-format) and `npm run lint`. Style is 2-space indent, single quotes (enforced by Prettier).
-- **E2E:** lives in `e2e/` (Playwright, built binary across desktop/mobile/iPad, stub `pi`). See `docs/dev/e2e-testing.md`.
+- **E2E:** lives in `e2e/` (Playwright, built binary across desktop/mobile/iPad; pi-dependent specs run against the live server with **real pi** (no stub)). See `docs/dev/e2e-testing.md`.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
 
 ## Critical Rules

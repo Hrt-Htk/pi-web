@@ -92,8 +92,10 @@ not failures:
   projects in parallel would race on the same key. It's gated to Desktop Chrome
   (persistence is browser-independent), so the other 6 projects skip it.
 
-So `92 passed + 13 skipped + 0 failed` is the healthy state. Each skip carries a
-reason string, visible with `npx playwright test --reporter=list`.
+The exact pass/skip count depends on the current suite size — several diagnostic
+specs were removed and the pi specs now run against the live server, so the total
+may differ from earlier versions. Each skip carries a reason string, visible with
+`npx playwright test --reporter=list`.
 
 ## How the server runs (scripted launch)
 
@@ -103,7 +105,7 @@ reason string, visible with `npx playwright test --reporter=list`.
 2. Creates a temp `PI_CODING_AGENT_DIR` and copies `e2e/fixtures/sessions/` into it.
 3. Picks a free port and starts `pi-web -host 127.0.0.1` (the `-host` flag skips
    Tailscale auto-serve; auth is disabled).
-4. Prepends `e2e/lib/stub-pi/` to `PATH` so chat spawns the stub, never real pi.
+4. Inherits the environment PATH; workers spawn the real `pi` binary.
 5. Writes `{ baseURL, sessionsDir, agentDir, pid }` to `e2e/.tmp/server.json`.
 
 The base fixture in `e2e/lib/test.ts` reads that file to set each test's
@@ -130,30 +132,32 @@ Mutating specs don't touch the committed fixtures: live-reload and chat each
 create a uniquely-named session file (`e2e/lib/sessions.ts`) inside an
 already-watched subdir, so the 7 parallel projects never collide.
 
-## The stub `pi`
+## Real pi (live-server fixture)
 
-Chat uses a `pi --mode rpc` worker (`internal/rpc`). CI has no real pi and no API
-keys, so `e2e/lib/stub-pi/pi` answers the line-delimited JSON protocol:
+Pi-dependent specs run against the user's **running live pi-web server** (real pi,
+real model). `global-setup.ts` detects it by reading the server's own state file
+at `<PI_CODING_AGENT_DIR or ~/.pi/agent>/pi-web/pi-web-state.json`, verifies it
+with a fetch, and writes `e2e/.tmp/live-server.json`. If the live server is
+unreachable, it writes a `baseURL: null` sentinel and the pi specs skip gracefully.
 
-- `switch_session` → remembers the session file path.
-- `get_state` / `set_model` / `set_thinking_level` / `abort` → acknowledge.
-- `prompt` → acks, then appends a user turn + a deterministic
-  `Stub reply: <prompt>` assistant turn to the session JSONL (like real pi owns
-  the file) and emits `message_update` / `message_end` / `turn_end` / `agent_end`.
+Pi-dependent specs: `chat`, `new-session-reply`, `slash-command`, `btw` (one
+test), `navigation-cleanup`. They import from `../lib/live-test`, are pinned to
+the Desktop Chrome project (so real model calls happen only once), and each
+creates a session via the live server and deletes it afterward.
 
-The browser surfaces the reply through the same fsnotify → SSE reload path as a
-real session. To extend chat coverage, add command handling in the stub mirroring
-the real protocol in `internal/rpc/client.go`.
-
-Note: chat is disabled ("View only") when a session's `cwd` doesn't exist on
-disk, so chat specs build sessions with a real temp `cwd` (`realWorkingDir()`).
+The isolated spawned server (`e2e/lib/server.ts`) is still used for the pure-UI
+specs that don't need real pi.
 
 ## CI
 
-The `e2e` job in `.github/workflows/ci.yml`: `npm ci` →
-`playwright install --with-deps chromium firefox webkit` → `make build` →
-`npx playwright test`. The HTML report + traces upload as artifacts on failure
-(`trace: on-first-retry`, `retries: 1` in CI).
+One E2E job in `.github/workflows/ci.yml`:
+
+- **`e2e-ui`** (ubuntu-latest): runs the non-pi specs via
+  `npx playwright test --grep-invert "real pi"`.
+
+The **pi-dependent specs** (`--grep "real pi"`) are **not run in CI** — they need a
+live pi-web server with real pi, which CI runners don't have. Run them locally
+against your running server: `cd e2e && npx playwright test --grep "real pi"`.
 
 ## Adding a test
 

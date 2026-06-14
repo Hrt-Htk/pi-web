@@ -1,54 +1,27 @@
-import { test, expect, collapseScratchpad } from "../lib/test";
-import {
-  buildSession,
-  realWorkingDir,
-  uniqueSessionName,
-  writeSession,
-} from "../lib/sessions";
+import { test, expect } from "../lib/live-test";
+import { createLiveSession, deleteLiveSession } from "../lib/live-sessions";
+import { realWorkingDir } from "../lib/sessions";
 
-/**
- * Reproduction tests for: assistant reply never appears in a newly-created session.
- *
- * The stub `pi` writes "Stub reply: <prompt>" into the session file on every
- * prompt.  Pre-existing sessions surface it fine (chat.spec.ts).  These tests
- * assert the reply actually materialises after the two new-session flows.
- */
-test.describe("new session assistant reply", () => {
-  test.beforeEach(async ({ page }) => {
-    await collapseScratchpad(page);
-  });
-
-  // ─────────────────────────────────────────────────────────────────
-  // Control: pre-existing session (should always pass)
-  // ─────────────────────────────────────────────────────────────────
-  test("control — pre-existing session shows the reply", async ({
-    page,
-    sessionsDir,
-  }, testInfo) => {
-    const cwd = realWorkingDir();
-    const { entries } = buildSession({ cwd });
-    const name = uniqueSessionName(testInfo, "control");
-    const id = writeSession(sessionsDir, name, entries);
-
-    await page.goto(`/session?id=${encodeURIComponent(id)}`);
-
-    const textarea = page.locator("#pi-chat-message");
-    const prompt = `e2e-control-${testInfo.workerIndex}-${Date.now()}`;
-    await textarea.fill(prompt);
-    await page.locator("#pi-chat-send").click();
-
-    await expect(page.locator("#messages")).toContainText(`Stub reply: ${prompt}`, {
-      timeout: 20000,
-    });
-  });
+test.describe("new session assistant reply (real pi)", () => {
+  test.setTimeout(120_000);
 
   // ─────────────────────────────────────────────────────────────────
   // Flow 1: new session from the sessions index
   // ─────────────────────────────────────────────────────────────────
   test("flow 1 — new session from index shows the reply", async ({
     page,
+    baseURL,
     sessionsDir,
   }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "Desktop Chrome",
+      "real-pi spec runs once, not across all 7 projects",
+    );
+    test.skip(
+      baseURL === undefined,
+      "live pi-web server not reachable — skip pi-dependent specs",
+    );
+
     const cwd = realWorkingDir();
 
     await page.goto("/");
@@ -60,13 +33,36 @@ test.describe("new session assistant reply", () => {
     await page.locator("#createBtn").click();
     await expect(page).toHaveURL(/\/session\?id=/, { timeout: 15000 });
 
+    const id = new URL(page.url()).searchParams.get("id");
+
+    const composer = page.locator("#pi-chat-composer");
+    await expect(composer).toHaveAttribute("data-chat-available", "true");
+
+    const assistantBefore = await page.locator(".assistant-message").count();
+
     const prompt = `e2e-flow1-${testInfo.workerIndex}-${Date.now()}`;
     await page.locator("#pi-chat-message").fill(prompt);
     await page.locator("#pi-chat-send").click();
 
-    await expect(page.locator("#messages")).toContainText(`Stub reply: ${prompt}`, {
-      timeout: 20000,
-    });
+    await expect(page.locator("#messages")).toContainText(prompt, { timeout: 15_000 });
+
+    await expect.poll(
+      () => page.locator(".assistant-message").count(),
+      { timeout: 100_000 },
+    ).toBeGreaterThan(assistantBefore);
+
+    // Wait for the PERSISTED reply (not the streaming preview) before reloading.
+    await expect(
+      page.locator(".assistant-message:not(.chat-preview-stream)").first(),
+    ).toBeVisible({ timeout: 100_000 });
+
+    // Persistence check: reload and verify the persisted assistant message survives.
+    await page.reload();
+    await expect(
+      page.locator(".assistant-message:not(.chat-preview-stream)").first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    deleteLiveSession(sessionsDir, id!);
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -74,26 +70,54 @@ test.describe("new session assistant reply", () => {
   // ─────────────────────────────────────────────────────────────────
   test("flow 2 — new session from within session shows the reply", async ({
     page,
+    baseURL,
     sessionsDir,
   }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "Desktop Chrome",
+      "real-pi spec runs once, not across all 7 projects",
+    );
+    test.skip(
+      baseURL === undefined,
+      "live pi-web server not reachable — skip pi-dependent specs",
+    );
+
     const cwd = realWorkingDir();
-    const { entries } = buildSession({ cwd });
-    const name = uniqueSessionName(testInfo, "source");
-    const sourceId = writeSession(sessionsDir, name, entries);
+    const sourceId = await createLiveSession(baseURL!, cwd);
 
-    await page.goto(`/session?id=${encodeURIComponent(sourceId)}`);
-    await expect(page.locator("#messages")).toContainText("Initial reply.");
+    try {
+      await page.goto(`/session?id=${encodeURIComponent(sourceId)}`);
 
-    await page.locator("#new-session-header-btn").click();
-    await expect(page).toHaveURL(/\/session\?id=/, { timeout: 15000 });
-    await page.waitForTimeout(1000);
+      // createLiveSession makes an empty session — wait for composer ready.
+      await expect(page.locator("#pi-chat-composer")).toHaveAttribute(
+        "data-chat-available",
+        "true",
+      );
 
-    const prompt = `e2e-flow2-${testInfo.workerIndex}-${Date.now()}`;
-    await page.locator("#pi-chat-message").fill(prompt);
-    await page.locator("#pi-chat-send").click();
+      await page.locator("#new-session-header-btn").click();
+      await expect(page).toHaveURL(/\/session\?id=/, { timeout: 15000 });
 
-    await expect(page.locator("#messages")).toContainText(`Stub reply: ${prompt}`, {
-      timeout: 20000,
-    });
+      const id = new URL(page.url()).searchParams.get("id");
+
+      const composer = page.locator("#pi-chat-composer");
+      await expect(composer).toHaveAttribute("data-chat-available", "true");
+
+      const assistantBefore = await page.locator(".assistant-message").count();
+
+      const prompt = `e2e-flow2-${testInfo.workerIndex}-${Date.now()}`;
+      await page.locator("#pi-chat-message").fill(prompt);
+      await page.locator("#pi-chat-send").click();
+
+      await expect(page.locator("#messages")).toContainText(prompt, { timeout: 15_000 });
+
+      await expect.poll(
+        () => page.locator(".assistant-message").count(),
+        { timeout: 100_000 },
+      ).toBeGreaterThan(assistantBefore);
+
+      deleteLiveSession(sessionsDir, id!);
+    } finally {
+      deleteLiveSession(sessionsDir, sourceId);
+    }
   });
 });
