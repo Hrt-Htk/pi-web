@@ -1,5 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { STATE_FILE, TMP_DIR, type ServerState } from "./lib/paths";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { STATE_FILE, TMP_DIR, LIVE_STATE_SRC, LIVE_STATE_FILE, LIVE_SESSIONS_DIR, type ServerState } from "./lib/paths";
 import { startServer } from "./lib/server";
 
 export default async function globalSetup() {
@@ -40,4 +40,29 @@ export default async function globalSetup() {
 
   // Detach so the spawned server outlives this setup process; teardown kills by pid.
   child.unref();
+
+  // ---------------------------------------------------------------------------
+  // Live server detection — for pi-dependent specs that run against the user's
+  // real pi-web (real pi workers, real responses).
+  // ---------------------------------------------------------------------------
+  try {
+    const liveSrc = JSON.parse(readFileSync(LIVE_STATE_SRC, "utf8"));
+    const liveBaseURL = `http://${liveSrc.host}:${liveSrc.port}`;
+    const probe = await fetch(liveBaseURL + "/api/sessions");
+    if (!probe.ok) {
+      throw new Error(`probe returned HTTP ${probe.status}`);
+    }
+    writeFileSync(
+      LIVE_STATE_FILE,
+      JSON.stringify({ baseURL: liveBaseURL, sessionsDir: LIVE_SESSIONS_DIR }, null, 2),
+    );
+    console.log(`[e2e] live pi-web verified at ${liveBaseURL}`);
+  } catch (err) {
+    console.warn(
+      `[e2e] live server not detected — pi-dependent specs will be skipped. ` +
+        `Error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    // Write a sentinel so the fixture can produce a clear skip message.
+    writeFileSync(LIVE_STATE_FILE, JSON.stringify({ baseURL: null, sessionsDir: LIVE_SESSIONS_DIR }, null, 2));
+  }
 }
