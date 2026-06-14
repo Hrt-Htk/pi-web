@@ -30,6 +30,7 @@ type fakeSender struct {
 	commands       []workers.SlashCommand
 	commandsReady  bool
 	commandsErr    error
+	hasWorker      bool
 
 	// mu guards every field below it. handleNewSession (and friends) initialize
 	// workers on a background goroutine, so the sender methods run concurrently
@@ -120,6 +121,10 @@ func (f *fakeSender) EnsureWorker(ctx context.Context, sessionID, sessionPath st
 		f.ensureWorkerCh <- struct{}{}
 	}
 	return nil
+}
+
+func (f *fakeSender) HasWorker(sessionID string) bool {
+	return f.hasWorker
 }
 
 // Accessors for the mutex-guarded fields, so tests read them safely from a
@@ -248,10 +253,11 @@ func TestHandleWorkerStatusUsesRecentSessionFileActivity(t *testing.T) {
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
 	s := &Server{
-		sessionsDir: root,
-		chatSender:  &fakeSender{},
-		fileMod:     map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
-		now:         func() time.Time { return now },
+		sessionsDir:  root,
+		chatSender:   &fakeSender{},
+		fileMod:      map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		fileActivity: map[string]time.Time{"session.jsonl": now.Add(-400 * time.Millisecond)},
+		now:          func() time.Time { return now },
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/worker-status?id=session.jsonl", nil)
 	w := httptest.NewRecorder()
@@ -316,7 +322,7 @@ func TestHandleWorkerStatusTrustsIdleWorkerOverRecentFileWrite(t *testing.T) {
 	root := t.TempDir()
 	writeSessionFile(t, root, "test-project", "session.jsonl")
 	now := time.Date(2026, 5, 7, 21, 0, 0, 0, time.UTC)
-	sender := &fakeSender{status: workers.WorkerStatus{State: workers.WorkerStateIdle, Model: "gpt-5.5"}}
+	sender := &fakeSender{status: workers.WorkerStatus{State: workers.WorkerStateIdle, Model: "gpt-5.5"}, hasWorker: true}
 	s := &Server{
 		sessionsDir: root,
 		chatSender:  sender,

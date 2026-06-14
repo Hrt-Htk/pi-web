@@ -37,12 +37,13 @@ func TestSweepStatusFlipsStaleRunningToIdle(t *testing.T) {
 func TestSweepStatusKeepsStillRunning(t *testing.T) {
 	now := time.Now()
 	s := &Server{
-		sessionsDir: t.TempDir(),
-		chatSender:  &fakeSender{},
-		clients:     make([]*sseClient, 0),
-		fileMod:     map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
-		lastKnown:   map[string]struct{}{"a.jsonl": {}},
-		now:         func() time.Time { return now },
+		sessionsDir:  t.TempDir(),
+		chatSender:   &fakeSender{},
+		clients:      make([]*sseClient, 0),
+		fileMod:      map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
+		fileActivity: map[string]time.Time{"a.jsonl": now.Add(-400 * time.Millisecond)},
+		lastKnown:    map[string]struct{}{"a.jsonl": {}},
+		now:          func() time.Time { return now },
 	}
 	c := s.addClient(globalSessID)
 	defer s.removeClient(c)

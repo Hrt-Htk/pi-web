@@ -64,6 +64,7 @@ type Server struct {
 	clients             []*sseClient
 	clientsMu           sync.RWMutex
 	fileMod             map[string]time.Time
+	fileActivity        map[string]time.Time
 	fileModMu           sync.RWMutex
 	chatSender          ChatSender
 	cache               *sessions.Cache
@@ -140,6 +141,7 @@ func New(deps Deps) (*Server, error) {
 		sessionsDir:         deps.SessionsDir,
 		clients:             make([]*sseClient, 0),
 		fileMod:             make(map[string]time.Time),
+		fileActivity:        make(map[string]time.Time),
 		chatSender:          deps.ChatSender,
 		cache:               deps.Cache,
 		auth:                deps.Auth,
