@@ -31,6 +31,7 @@ export default {
   'index.newSession': 'New Session',
   'index.manageProjects': 'Manage Projects',
   'index.startNewSession': 'Start a new session',
+  'index.newSessionInProject': 'New session in this project',
   'index.sessionPathPlaceholder': '/path/to/project or ~/project',
   'index.manageProjectsTitle': 'Manage projects',
   'index.filterProjects': 'Filter projects',
