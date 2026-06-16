@@ -16,6 +16,7 @@
     writeSetting,
   } from '../shared/settings-store.js';
   import { navigate } from '../shared/navigation.js';
+  import { showToast } from '../shared/toast.js';
   import { t } from '../shared/i18n.js';
   import { SvelteSet, SvelteMap } from 'svelte/reactivity';
   import {
@@ -159,6 +160,19 @@
       newSessionError = error.message || t('index.networkError');
     } finally {
       creating = false;
+    }
+  }
+
+  async function createSessionForProject(path) {
+    try {
+      const response = await defaultCreateSession(path);
+      if (response.ok && response.id) {
+        navigate('/session?id=' + encodeURIComponent(response.id));
+        return;
+      }
+      showToast(response.error || t('index.failedCreateSession'), { id: 'new-session-error' });
+    } catch (error) {
+      showToast(error.message || t('index.networkError'), { id: 'new-session-error' });
     }
   }
 
@@ -323,6 +337,7 @@
   {loading}
   {layoutReady}
   onArchive={archiveSession}
+  onNewSession={createSessionForProject}
 />
 
 <NewSessionModal

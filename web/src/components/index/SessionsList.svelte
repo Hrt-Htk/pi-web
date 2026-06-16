@@ -20,6 +20,7 @@
     loading = false,
     layoutReady = false,
     onArchive = null,
+    onNewSession = null,
   } = $props();
 
   let now = $state(Date.now());
@@ -172,27 +173,38 @@
       {@const cards = searching ? group.sessions : split.active}
       {@const archOpen = !!archivedOpen[group.project]}
       <div class="project-group" class:collapsed={isCollapsed} data-project={group.project}>
-        <button
-          class="project-toggle"
-          type="button"
-          aria-expanded={String(!isCollapsed)}
-          onclick={() => toggleProject(group.project)}
-        >
-          <span class="project-chevron" aria-hidden="true"
-            >{@html icon(ChevronDown, { size: 12 })}</span
+        <div class="project-header">
+          <button
+            class="project-toggle"
+            type="button"
+            aria-expanded={String(!isCollapsed)}
+            onclick={() => toggleProject(group.project)}
           >
-          <span class="project-name">{group.project}</span>
-          <span
-            class="project-count"
-            data-project-count
-            data-running={runningCount}
-            data-total={cards.length}
+            <span class="project-chevron" aria-hidden="true"
+              >{@html icon(ChevronDown, { size: 12 })}</span
+            >
+            <span class="project-name">{group.project}</span>
+            <span
+              class="project-count"
+              data-project-count
+              data-running={runningCount}
+              data-total={cards.length}
+            >
+              {runningCount > 0
+                ? t('index.activeCount', { count: runningCount })
+                : sessionsCountLabel(cards.length)}
+            </span>
+          </button>
+          <button
+            class="project-new-btn"
+            type="button"
+            aria-label={t('index.newSessionInProject')}
+            title={t('index.newSessionInProject')}
+            onclick={() => onNewSession && onNewSession(group.project)}
           >
-            {runningCount > 0
-              ? t('index.activeCount', { count: runningCount })
-              : sessionsCountLabel(cards.length)}
-          </span>
-        </button>
+            +
+          </button>
+        </div>
         <div class="session-grid">
           {#each cards as session (session.id)}
             <SessionCard
