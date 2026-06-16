@@ -10,6 +10,7 @@
     sessionsCountLabel,
   } from '../../index/sessions.js';
   import SessionCard from './SessionCard.svelte';
+  import { getGitInfoByPath } from '../../session/chat/git-api.js';
 
   let {
     sessions = [],
@@ -27,6 +28,7 @@
   let collapsed = $state({});
   let archivedOpen = $state({});
   let timelineArchivedOpen = $state(false);
+  let gitInfos = $state({});
 
   const visibleSessions = $derived(filterSessions(sessions, query));
   const isTimeline = $derived(layout === 'timeline');
@@ -92,6 +94,24 @@
   function runningCountFor(group) {
     return group.sessions.filter((session) => runningSessionIds.has(session.id)).length;
   }
+
+  function fetchGitInfoForProject(project) {
+    if (gitInfos[project] !== undefined) return;
+    getGitInfoByPath(project).then(
+      (info) => {
+        gitInfos = { ...gitInfos, [project]: info };
+      },
+      () => {
+        gitInfos = { ...gitInfos, [project]: null };
+      },
+    );
+  }
+
+  $effect(() => {
+    for (const group of groups) {
+      fetchGitInfoForProject(group.project);
+    }
+  });
 
   onMount(() => {
     collapsed = readCollapsed();
@@ -183,7 +203,29 @@
             <span class="project-chevron" aria-hidden="true"
               >{@html icon(ChevronDown, { size: 12 })}</span
             >
-            <span class="project-name">{group.project}</span>
+            <span class="project-name-line">
+              <span class="project-name">{group.project}</span>
+              {#if gitInfos[group.project]?.isRepo}
+                {@const gitInfo = gitInfos[group.project]}
+                <span class="pi-git-status">
+                  {#if gitInfo.modified > 0}<span class="pi-git-status-badge pi-git-status-modified"
+                      >M {gitInfo.modified}</span
+                    >{/if}
+                  {#if gitInfo.added > 0}<span class="pi-git-status-badge pi-git-status-added"
+                      >N {gitInfo.added}</span
+                    >{/if}
+                  {#if gitInfo.deleted > 0}<span class="pi-git-status-badge pi-git-status-deleted"
+                      >D {gitInfo.deleted}</span
+                    >{/if}
+                  {#if gitInfo.ahead > 0}<span class="pi-git-status-badge pi-git-status-ahead"
+                      >↑{gitInfo.ahead}</span
+                    >{/if}
+                  {#if gitInfo.behind > 0}<span class="pi-git-status-badge pi-git-status-behind"
+                      >↓{gitInfo.behind}</span
+                    >{/if}
+                </span>
+              {/if}
+            </span>
             <span
               class="project-count"
               data-project-count

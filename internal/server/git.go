@@ -37,20 +37,44 @@ func resolveOrWriteError(w http.ResponseWriter, err error) bool {
 		writeJSONError(w, http.StatusBadRequest, "invalid session id")
 	case errors.Is(err, sessions.ErrSessionNotFound):
 		writeJSONError(w, http.StatusNotFound, "session not found")
+	case errors.Is(err, errMissingGitParam):
+		writeJSONError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 	}
 	return true
 }
 
+// resolveCwd resolves a working directory from ?path= or ?id= query params.
+// ?path= takes precedence; ?id= resolves via session lookup.
+// Returns ErrMissingGitParam if neither is provided.
+var errMissingGitParam = errors.New("requires ?id= or ?path=")
+
+func resolveCwd(s *Server, r *http.Request) (string, error) {
+	path := r.URL.Query().Get("path")
+	if path != "" {
+		return path, nil
+	}
+	id := r.URL.Query().Get("id")
+	if id != "" {
+		_, cwd, err := s.resolveSessionCwd(id)
+		if err != nil {
+			return "", err
+		}
+		return cwd, nil
+	}
+	return "", errMissingGitParam
+}
+
 // handleGitInfo returns the current branch and a GitHub PR URL for the
-// session's working directory. Non-repo cwds return {isRepo:false}.
+// session's working directory. Accepts ?id=<sessionId> or ?path=<cwd>.
+// Non-repo cwds return {isRepo:false}.
 func (s *Server) handleGitInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	_, cwd, err := s.resolveSessionCwd(r.URL.Query().Get("id"))
+	cwd, err := resolveCwd(s, r)
 	if resolveOrWriteError(w, err) {
 		return
 	}
@@ -58,15 +82,16 @@ func (s *Server) handleGitInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, info)
 }
 
-// handleGitDirtyFiles returns the list of dirty file paths for the session's
-// working directory. Non-dirty repos return {files:[]}. Non-repo cwds return
-// {files:[]}. Best-effort: errors return 500.
+// handleGitDirtyFiles returns the list of dirty file paths for the
+// working directory. Accepts ?id=<sessionId> or ?path=<cwd>.
+// Non-dirty repos return {files:[]}. Non-repo cwds return {files:[]}.
+// Best-effort: errors return 500.
 func (s *Server) handleGitDirtyFiles(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	_, cwd, err := s.resolveSessionCwd(r.URL.Query().Get("id"))
+	cwd, err := resolveCwd(s, r)
 	if resolveOrWriteError(w, err) {
 		return
 	}

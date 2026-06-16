@@ -298,6 +298,22 @@ a { color: inherit; }
 .project-count[data-running]:not([data-running="0"]) { color: var(--accent); }
 .project-group.collapsed .session-grid { display: none; }
 
+/* Project name + git status — badges always on a second line */
+.project-name-line {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+.project-name-line .pi-git-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
 /* Per-project "New Session" button — sits beside the toggle in the project row */
 .project-header {
     display: flex;
