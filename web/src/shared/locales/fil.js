@@ -265,7 +265,6 @@ export default {
   'git.noRemote': 'Walang naka-configure na GitHub remote',
   'git.renameFailed': 'Nabigo ang pagpapalit ng pangalan',
   'git.currentBranch': 'Kasalukuyang branch',
-  'git.renameBranch': 'Palitan ang pangalan ng branch',
   'git.newBranchName': 'Bagong pangalan ng branch',
   'git.moreActions': 'Higit pang aksyon sa git',
 

@@ -262,7 +262,6 @@ export default {
   'git.noRemote': 'Kein GitHub-Remote konfiguriert',
   'git.renameFailed': 'Umbenennen fehlgeschlagen',
   'git.currentBranch': 'Aktueller Branch',
-  'git.renameBranch': 'Branch umbenennen',
   'git.newBranchName': 'Neuer Branch-Name',
   'git.moreActions': 'Weitere Git-Aktionen',
 

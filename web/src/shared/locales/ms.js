@@ -261,7 +261,6 @@ export default {
   'git.noRemote': 'Tiada remote GitHub dikonfigurasi',
   'git.renameFailed': 'Gagal menamakan semula',
   'git.currentBranch': 'Cabang semasa',
-  'git.renameBranch': 'Namakan semula cabang',
   'git.newBranchName': 'Nama cabang baharu',
   'git.moreActions': 'Lagi tindakan git',
 

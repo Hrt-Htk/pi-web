@@ -48,7 +48,6 @@ describe('GitFooter', () => {
     });
     await flush();
     expect(id('pi-git-primary-label').textContent).toBe('Create PR');
-    expect(id('pi-git-branch-edit').hidden).toBe(false);
     expect(id('pi-git-caret').hidden).toBe(false);
     expect(id('pi-git-pr-manual').hidden).toBe(false);
     expect(id('pi-git-pr-commit').hidden).toBe(true);
@@ -98,7 +97,7 @@ describe('GitFooter', () => {
     expect(open).toHaveBeenCalledWith('https://github.com/o/r/pull/42', '_blank', 'noopener');
   });
 
-  it('default branch + changes -> primary Commit & push, no caret, no edit pencil', async () => {
+  it('default branch + changes -> primary Commit & push, no caret', async () => {
     renderFooter({
       getGitInfo: vi
         .fn()
@@ -107,7 +106,6 @@ describe('GitFooter', () => {
     await flush();
     expect(id('pi-git-primary-label').textContent).toBe('Commit & push');
     expect(id('pi-git-caret').hidden).toBe(true);
-    expect(id('pi-git-branch-edit').hidden).toBe(true);
     id('pi-git-primary').click();
     expect(id('pi-chat-message').value).toBe(COMMIT_PUSH_PROMPT);
   });
@@ -139,23 +137,4 @@ describe('GitFooter', () => {
     expect(id('pi-chat-message').value).toBe(MERGE_PR_PROMPT);
   });
 
-  it('renames the branch and refreshes', async () => {
-    const renameBranch = vi.fn().mockResolvedValue({ ok: true, branch: 'renamed' });
-    const getGitInfo = vi
-      .fn()
-      .mockResolvedValueOnce({ isRepo: true, branch: 'old', isDefault: false, prUrl: '' })
-      .mockResolvedValueOnce({ isRepo: true, branch: 'renamed', isDefault: false, prUrl: '' });
-    renderFooter({ getGitInfo, renameBranch });
-    await flush();
-
-    id('pi-git-branch-edit').click();
-    const input = id('pi-git-branch-input');
-    expect(input.hidden).toBe(false);
-    input.value = 'renamed';
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    await flush();
-
-    expect(renameBranch).toHaveBeenCalledWith('s', 'renamed');
-    expect(id('pi-git-branch-name').textContent).toBe('renamed');
-  });
 });

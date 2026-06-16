@@ -9,6 +9,7 @@ import { buildUserMessageList } from '../components/session/ForkModal.svelte';
 
 export const sessionModals = $state({
   shortcuts: false,
+  dirtyFiles: false,
   modelUsage: false,
   fork: { open: false, entries: [], onSelect: null },
   catSettings: { open: false, controller: null, onChange: () => {} },
@@ -17,6 +18,10 @@ export const sessionModals = $state({
 
 export function openShortcuts() {
   sessionModals.shortcuts = true;
+}
+
+export function openDirtyFiles() {
+  sessionModals.dirtyFiles = true;
 }
 
 export function openModelUsage() {
@@ -48,6 +53,7 @@ export function openLabel({ entryId = '', currentLabel = '', onSave = null } = {
 
 export function resetSessionModals() {
   sessionModals.shortcuts = false;
+  sessionModals.dirtyFiles = false;
   sessionModals.modelUsage = false;
   sessionModals.fork.open = false;
   sessionModals.fork.entries = [];

@@ -263,7 +263,6 @@ export default {
   'git.noRemote': 'GitHub remote ပြင်ဆင်မထားပါ',
   'git.renameFailed': 'အမည်ပြောင်း၍ မရပါ',
   'git.currentBranch': 'လက်ရှိ branch',
-  'git.renameBranch': 'branch အမည်ပြောင်း',
   'git.newBranchName': 'branch အမည်သစ်',
   'git.moreActions': 'နောက်ထပ် git လုပ်ဆောင်ချက်များ',
 

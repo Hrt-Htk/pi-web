@@ -258,7 +258,6 @@ export default {
   'git.noRemote': 'Chưa cấu hình remote GitHub',
   'git.renameFailed': 'Đổi tên thất bại',
   'git.currentBranch': 'Nhánh hiện tại',
-  'git.renameBranch': 'Đổi tên nhánh',
   'git.newBranchName': 'Tên nhánh mới',
   'git.moreActions': 'Thêm hành động git',
 

@@ -20,9 +20,10 @@
 
 <script>
   import { onMount } from 'svelte';
-  import { icon, ChevronDown, ExternalLink } from '../../shared/icons.js';
+  import { icon, ChevronDown, ExternalLink, ArrowUp, ArrowDown } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import * as defaultGitApi from '../../session/chat/git-api.js';
+  import { openDirtyFiles } from '../../session/session-modals.svelte.js';
 
   // The branch indicator + smart git action control beneath the chat composer.
   // The bar stays visible (even outside a git repo) because it also hosts the
@@ -43,8 +44,9 @@
 
     const branchWrap = documentImpl.getElementById('pi-git-branch');
     const nameEl = documentImpl.getElementById('pi-git-branch-name');
-    const editBtn = documentImpl.getElementById('pi-git-branch-edit');
-    const input = documentImpl.getElementById('pi-git-branch-input');
+    const statusEl = documentImpl.getElementById('pi-git-status');
+
+    let isDirty = false;
     const prWrap = documentImpl.getElementById('pi-git-pr');
     const primaryBtn = documentImpl.getElementById('pi-git-primary');
     const primaryLabel = documentImpl.getElementById('pi-git-primary-label');
@@ -117,13 +119,39 @@
       prCreateUrl = info.prCreateUrl || '';
       existingPrUrl = info.prUrl || '';
       if (nameEl) nameEl.textContent = info.branch;
+      if (statusEl) {
+        isDirty = !!info.dirty;
+        statusEl.replaceChildren();
+
+        const addBadge = (cls, text, title) => {
+          const span = documentImpl.createElement('span');
+          span.className = `pi-git-status-badge ${cls}`;
+          span.textContent = text;
+          span.title = title;
+          statusEl.appendChild(span);
+        };
+        const addCommitBadge = (cls, iconNode, n, title) => {
+          const span = documentImpl.createElement('span');
+          span.className = `pi-git-status-badge ${cls}`;
+          span.innerHTML = icon(iconNode, { size: 11 }) + String(n);
+          span.title = title;
+          statusEl.appendChild(span);
+        };
+
+        if (info.modified > 0) addBadge('pi-git-status-modified', 'M ' + info.modified, t('git.modifiedFiles').replace('{n}', String(info.modified)));
+        if (info.added > 0) addBadge('pi-git-status-added', 'N ' + info.added, t('git.newFiles').replace('{n}', String(info.added)));
+        if (info.deleted > 0) addBadge('pi-git-status-deleted', 'D ' + info.deleted, t('git.deletedFiles').replace('{n}', String(info.deleted)));
+        if (info.ahead > 0) addCommitBadge('pi-git-status-ahead', ArrowUp, info.ahead, t('git.ahead').replace('{n}', String(info.ahead)));
+        if (info.behind > 0) addCommitBadge('pi-git-status-behind', ArrowDown, info.behind, t('git.behind').replace('{n}', String(info.behind)));
+
+        const hasAny = info.modified > 0 || info.added > 0 || info.deleted > 0 || info.ahead > 0 || info.behind > 0;
+        statusEl.hidden = !hasAny;
+      }
       if (items.manual) items.manual.title = prCreateUrl ? prCreateUrl : t('git.noRemote');
 
       const isDefault = !!info.isDefault;
       const hasPr = !isDefault && !!existingPrUrl;
       const hasChanges = !!info.hasChanges;
-
-      show(editBtn, !isDefault);
 
       const plan = planActions({ isDefault, hasPr, hasChanges });
       const primary = plan.primary ? ACTIONS[plan.primary] : null;
@@ -152,62 +180,6 @@
         .getGitInfo(sessionId)
         .then(applyInfo)
         .catch(() => {});
-    }
-
-    // ── Branch rename ──
-    function openEditor() {
-      if (!input) return;
-      input.value = currentBranch;
-      input.hidden = false;
-      if (nameEl) nameEl.hidden = true;
-      if (editBtn) editBtn.hidden = true;
-      input.focus();
-      input.select();
-    }
-    function closeEditor() {
-      if (!input) return;
-      input.hidden = true;
-      if (nameEl) nameEl.hidden = false;
-      if (editBtn) editBtn.hidden = false;
-    }
-    function commitRename() {
-      const next = (input ? input.value : '').trim();
-      if (!next || next === currentBranch) {
-        closeEditor();
-        return;
-      }
-      gitApi
-        .renameBranch(sessionId, next)
-        .then(() => {
-          closeEditor();
-          return refresh();
-        })
-        .catch((err) => {
-          if (input) {
-            input.title = (err && err.message) || t('git.renameFailed');
-            input.focus();
-            input.select();
-          }
-        });
-    }
-
-    if (editBtn) {
-      on(editBtn, 'click', (e) => {
-        e.preventDefault();
-        openEditor();
-      });
-    }
-    if (input) {
-      on(input, 'keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          commitRename();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          closeEditor();
-        }
-      });
-      on(input, 'blur', () => closeEditor());
     }
 
     // ── Split button ──
@@ -244,6 +216,15 @@
       });
     });
 
+    // ── Dirty files modal trigger ──
+    if (branchWrap) {
+      on(branchWrap, 'click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isDirty) openDirtyFiles();
+      });
+    }
+
     refresh();
 
     return () => {
@@ -257,21 +238,7 @@
 <div class="pi-git-bar" id="pi-git-bar">
   <div class="pi-git-branch" id="pi-git-branch" hidden>
     <span class="pi-git-branch-name" id="pi-git-branch-name" title={t('git.currentBranch')}
-    ></span><button
-      type="button"
-      class="pi-git-edit"
-      id="pi-git-branch-edit"
-      title={t('git.renameBranch')}
-      aria-label={t('git.renameBranch')}
-    ></button><input
-      type="text"
-      class="pi-git-branch-input"
-      id="pi-git-branch-input"
-      autocomplete="off"
-      spellcheck="false"
-      aria-label={t('git.newBranchName')}
-      hidden
-    />
+    ></span><span class="pi-git-status" id="pi-git-status" hidden></span>
   </div>
   <div class="pi-git-right">
     <button type="button" class="pi-git-pr-button pi-btw-button" id="pi-btw-button" title="btw"

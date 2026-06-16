@@ -263,7 +263,6 @@ export default {
   'git.noRemote': 'No hay remoto de GitHub configurado',
   'git.renameFailed': 'Error al renombrar',
   'git.currentBranch': 'Rama actual',
-  'git.renameBranch': 'Renombrar rama',
   'git.newBranchName': 'Nombre de la nueva rama',
   'git.moreActions': 'Más acciones de git',
 

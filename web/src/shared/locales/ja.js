@@ -260,7 +260,6 @@ export default {
   'git.noRemote': 'GitHub のリモートが設定されていません',
   'git.renameFailed': '名前の変更に失敗しました',
   'git.currentBranch': '現在のブランチ',
-  'git.renameBranch': 'ブランチ名を変更',
   'git.newBranchName': '新しいブランチ名',
   'git.moreActions': 'その他の git アクション',
 

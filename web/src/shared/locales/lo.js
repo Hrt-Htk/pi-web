@@ -258,7 +258,6 @@ export default {
   'git.noRemote': 'ບໍ່ໄດ້ກຳນົດ GitHub remote',
   'git.renameFailed': 'ປ່ຽນຊື່ບໍ່ສຳເລັດ',
   'git.currentBranch': 'ສາຂາປັດຈຸບັນ',
-  'git.renameBranch': 'ປ່ຽນຊື່ສາຂາ',
   'git.newBranchName': 'ຊື່ສາຂາໃໝ່',
   'git.moreActions': 'ການກະທຳ git ເພີ່ມເຕີມ',
 

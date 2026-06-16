@@ -41,6 +41,16 @@ type Info struct {
 	// HasChanges is true when the working tree is dirty or there are local
 	// commits not yet pushed to the upstream — i.e. there's something to push.
 	HasChanges bool `json:"hasChanges"`
+	// Dirty is true when the working tree has unstaged or staged changes.
+	Dirty bool `json:"dirty"`
+	// Ahead is the number of local commits not yet pushed to the upstream branch.
+	Ahead int `json:"ahead"`
+	// Behind is the number of upstream commits not yet pulled locally.
+	Behind int `json:"behind"`
+	// Modified/Added/Deleted count working-tree changes by kind (for the footer badges).
+	Modified int `json:"modified"`
+	Added    int `json:"added"`   // new / untracked files
+	Deleted  int `json:"deleted"`
 	// PRCreateURL is the GitHub "open a pull request" URL for this branch.
 	PRCreateURL string `json:"prCreateUrl"`
 	// PRURL is set when an OPEN pull request already exists for this branch,
@@ -55,7 +65,12 @@ func run(dir string, args ...string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+	// Trim only trailing newlines, not leading whitespace: `git status
+	// --porcelain` encodes the staged-status column as a leading space (" M path"),
+	// and stripping it would shift the path parse by one character. Single-value
+	// outputs (branch names, counts, URLs) carry no leading whitespace, so they are
+	// unaffected.
+	return strings.TrimRight(string(out), "\r\n"), nil
 }
 
 // CurrentBranch returns the checked-out branch name for dir.
@@ -82,7 +97,11 @@ func Describe(dir string) (Info, error) {
 	if err != nil {
 		return Info{IsRepo: false}, nil
 	}
-	info := Info{IsRepo: true, Branch: branch, HasChanges: HasLocalChanges(dir)}
+	info := Info{IsRepo: true, Branch: branch}
+	info.Dirty = isDirty(dir)
+	info.Modified, info.Added, info.Deleted = dirtyCounts(dir)
+	info.Ahead, info.Behind = aheadBehind(dir)
+	info.HasChanges = info.Dirty || info.Ahead > 0
 	if def := DefaultBranch(dir); def != "" && def == branch {
 		info.IsDefault = true
 	}
@@ -99,15 +118,57 @@ func Describe(dir string) (Info, error) {
 // HasLocalChanges reports whether there is something to commit or push: either
 // a dirty working tree, or local commits ahead of the upstream branch.
 func HasLocalChanges(dir string) bool {
-	if out, err := run(dir, "status", "--porcelain"); err == nil && out != "" {
+	if isDirty(dir) {
 		return true
 	}
-	if out, err := run(dir, "rev-list", "--count", "@{upstream}..HEAD"); err == nil {
-		if out != "" && out != "0" {
-			return true
-		}
+	ahead, _ := aheadBehind(dir)
+	return ahead > 0
+}
+
+// isDirty reports whether the working tree has unstaged or staged changes.
+func isDirty(dir string) bool {
+	if out, err := run(dir, "status", "--porcelain"); err == nil {
+		return out != ""
 	}
 	return false
+}
+
+// tally counts working-tree changes by kind from parsed porcelain entries.
+// Precedence: untracked/added first, then deleted, else modified.
+func tally(files []DirtyFile) (modified, added, deleted int) {
+	for _, f := range files {
+		switch {
+		case f.Status == "??" || strings.ContainsRune(f.Status, 'A'):
+			added++
+		case strings.ContainsRune(f.Status, 'D'):
+			deleted++
+		default:
+			modified++
+		}
+	}
+	return modified, added, deleted
+}
+
+// dirtyCounts tallies changed files by kind from `git status --porcelain`.
+func dirtyCounts(dir string) (modified, added, deleted int) {
+	out, err := run(dir, "status", "--porcelain")
+	if err != nil || out == "" {
+		return 0, 0, 0
+	}
+	return tally(parsePorcelain(out))
+}
+
+// aheadBehind returns the number of local commits ahead of upstream and
+// upstream commits behind (not yet pulled). Returns (0, 0) if no upstream
+// is configured or the command fails.
+func aheadBehind(dir string) (ahead, behind int) {
+	if out, err := run(dir, "rev-list", "--count", "@{upstream}..HEAD"); err == nil && out != "" {
+		fmt.Sscanf(out, "%d", &ahead)
+	}
+	if out, err := run(dir, "rev-list", "--count", "HEAD..@{upstream}"); err == nil && out != "" {
+		fmt.Sscanf(out, "%d", &behind)
+	}
+	return ahead, behind
 }
 
 // existingOpenPRURL returns the URL of an OPEN pull request for the current
@@ -207,6 +268,46 @@ func pullRequestURL(dir, branch string) (string, error) {
 		return "", ErrNoRemote
 	}
 	return fmt.Sprintf("https://github.com/%s/pull/new/%s", slug, branch), nil
+}
+
+// DirtyFile is one changed entry from `git status --porcelain`.
+type DirtyFile struct {
+	Status string `json:"status"` // trimmed XY code, e.g. "M", "A", "D", "R", "??"
+	Path   string `json:"path"`   // path with the status prefix stripped; rename dest
+}
+
+// parsePorcelain parses git status --porcelain output into DirtyFile entries.
+// Porcelain v1: 2 status chars (XY) + 1 space + path. Renames use " -> " or tabs.
+func parsePorcelain(out string) []DirtyFile {
+	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+	result := make([]DirtyFile, 0, len(lines))
+	for _, line := range lines {
+		if len(line) < 3 {
+			result = append(result, DirtyFile{Path: strings.TrimSpace(line)})
+			continue
+		}
+		status := strings.TrimSpace(line[:2])
+		rest := strings.TrimSpace(line[3:])
+		// For renames/copies, extract the destination after " -> ".
+		if idx := strings.Index(rest, " -> "); idx >= 0 {
+			rest = strings.TrimSpace(rest[idx+4:])
+		}
+		result = append(result, DirtyFile{Status: status, Path: rest})
+	}
+	return result
+}
+
+// DirtyFiles returns the list of changed files from `git status --porcelain`.
+// Returns nil if the working tree is clean.
+func DirtyFiles(dir string) ([]DirtyFile, error) {
+	out, err := run(dir, "status", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	return parsePorcelain(out), nil
 }
 
 // githubSlug extracts "owner/repo" from a github remote URL, or returns false.

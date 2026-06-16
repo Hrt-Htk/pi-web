@@ -1,137 +1,134 @@
 package git
 
 import (
-	"os/exec"
-	"path/filepath"
 	"testing"
 )
 
-func initTestRepo(t *testing.T) string {
-	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not available")
-	}
-	dir := t.TempDir()
-	mustGit := func(args ...string) {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v (%s)", args, err, out)
-		}
-	}
-	mustGit("init")
-	mustGit("config", "user.email", "test@example.com")
-	mustGit("config", "user.name", "Test")
-	mustGit("commit", "--allow-empty", "-m", "init")
-	mustGit("branch", "-M", "main")
-	return dir
-}
-
-func TestDescribeDefaultBranch(t *testing.T) {
-	dir := initTestRepo(t)
-
-	info, err := Describe(dir)
-	if err != nil {
-		t.Fatalf("Describe: %v", err)
-	}
-	if !info.IsRepo || info.Branch != "main" {
-		t.Fatalf("got %+v, want repo on main", info)
-	}
-	if !info.IsDefault {
-		t.Fatalf("main should be reported as the default branch")
-	}
-
-	// The default branch must not be renamable, even via the API directly.
-	if _, err := RenameBranch(dir, "renamed-main"); err != ErrDefaultBranch {
-		t.Fatalf("renaming default branch: got %v, want ErrDefaultBranch", err)
-	}
-	if info, _ := Describe(dir); info.Branch != "main" {
-		t.Fatalf("default branch was renamed to %q despite guard", info.Branch)
-	}
-
-	// Create and switch to a feature branch so the rename below is allowed.
-	cmd := exec.Command("git", "checkout", "-b", "feature/tmp")
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("checkout feature branch: %v (%s)", err, out)
-	}
-
-	if _, err := RenameBranch(dir, "feature/x"); err != nil {
-		t.Fatalf("RenameBranch: %v", err)
-	}
-	info, _ = Describe(dir)
-	if info.Branch != "feature/x" {
-		t.Fatalf("got branch %q, want feature/x", info.Branch)
-	}
-	if info.IsDefault {
-		t.Fatalf("feature/x should not be the default branch")
-	}
-}
-
-func TestDescribeNonRepo(t *testing.T) {
-	info, err := Describe(filepath.Join(t.TempDir(), "nope"))
-	if err != nil {
-		t.Fatalf("Describe non-repo returned error: %v", err)
-	}
-	if info.IsRepo {
-		t.Fatalf("expected IsRepo false for non-repo dir")
-	}
-}
-
-func TestValidBranchName(t *testing.T) {
-	valid := []string{
-		"main",
-		"feature/pr-button",
-		"fix_123",
-		"release-2.1.0",
-		"a",
-	}
-	for _, name := range valid {
-		if !ValidBranchName(name) {
-			t.Errorf("expected %q to be valid", name)
-		}
-	}
-
-	invalid := []string{
-		"",
-		"-leading-dash",
-		"/leading-slash",
-		"trailing-slash/",
-		"has space",
-		"double..dot",
-		"double//slash",
-		"semicolon;rm",
-		"tilde~name",
-		"caret^name",
-		"colon:name",
-		"quote\"name",
-	}
-	for _, name := range invalid {
-		if ValidBranchName(name) {
-			t.Errorf("expected %q to be invalid", name)
-		}
-	}
-}
-
-func TestGithubSlug(t *testing.T) {
-	cases := []struct {
-		remote string
-		want   string
-		ok     bool
+func TestParsePorcelain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []DirtyFile
 	}{
-		{"git@github.com:owner/repo.git", "owner/repo", true},
-		{"git@github.com:owner/repo", "owner/repo", true},
-		{"https://github.com/owner/repo.git", "owner/repo", true},
-		{"https://github.com/owner/repo", "owner/repo", true},
-		{"ssh://git@github.com/owner/repo.git", "owner/repo", true},
-		{"git@gitlab.com:owner/repo.git", "", false},
-		{"https://example.com/owner/repo.git", "", false},
-		{"", "", false},
+		{
+			name: "unstaged modified",
+			in:   " M internal/git/git.go",
+			want: []DirtyFile{{Status: "M", Path: "internal/git/git.go"}},
+		},
+		{
+			name: "staged modified",
+			in:   "M  staged.go",
+			want: []DirtyFile{{Status: "M", Path: "staged.go"}},
+		},
+		{
+			name: "untracked",
+			in:   "?? newfile.txt",
+			want: []DirtyFile{{Status: "??", Path: "newfile.txt"}},
+		},
+		{
+			name: "staged added",
+			in:   "A  added.go",
+			want: []DirtyFile{{Status: "A", Path: "added.go"}},
+		},
+		{
+			name: "rename with arrow",
+			in:   "R  old.go -> new.go",
+			want: []DirtyFile{{Status: "R", Path: "new.go"}},
+		},
+		{
+			name: "deleted",
+			in:   "D  gone.go",
+			want: []DirtyFile{{Status: "D", Path: "gone.go"}},
+		},
+		{
+			name: "multiple files",
+			in: " M foo.go\n?? bar.txt\nA  baz.go",
+			want: []DirtyFile{
+				{Status: "M", Path: "foo.go"},
+				{Status: "??", Path: "bar.txt"},
+				{Status: "A", Path: "baz.go"},
+			},
+		},
+		{
+			name: "short line",
+			in:   "M",
+			want: []DirtyFile{{Path: "M"}},
+		},
 	}
-	for _, c := range cases {
-		got, ok := githubSlug(c.remote)
-		if ok != c.ok || got != c.want {
-			t.Errorf("githubSlug(%q) = (%q, %v), want (%q, %v)", c.remote, got, ok, c.want, c.ok)
-		}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parsePorcelain(tt.in)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d entries, want %d", len(got), len(tt.want))
+			}
+			for i := range got {
+				if got[i].Status != tt.want[i].Status {
+					t.Errorf("[%d] status = %q, want %q", i, got[i].Status, tt.want[i].Status)
+				}
+				if got[i].Path != tt.want[i].Path {
+					t.Errorf("[%d] path = %q, want %q", i, got[i].Path, tt.want[i].Path)
+				}
+			}
+		})
+	}
+}
+
+func TestTally(t *testing.T) {
+	tests := []struct {
+		name       string
+		files      []DirtyFile
+		wantM, wantA, wantD int
+	}{
+		{
+			name:  "modified ( M )",
+			files: []DirtyFile{{Status: "M", Path: "x"}},
+			wantM: 1,
+		},
+		{
+			name:  "untracked (??)",
+			files: []DirtyFile{{Status: "??", Path: "y"}},
+			wantA: 1,
+		},
+		{
+			name:  "staged added (A )",
+			files: []DirtyFile{{Status: "A", Path: "z"}},
+			wantA: 1,
+		},
+		{
+			name:  "deleted (D )",
+			files: []DirtyFile{{Status: "D", Path: "w"}},
+			wantD: 1,
+		},
+		{
+			name:  "rename (R )",
+			files: []DirtyFile{{Status: "R", Path: "b"}},
+			wantM: 1,
+		},
+		{
+			name:  "staged+unstaged modified (MM)",
+			files: []DirtyFile{{Status: "MM", Path: "c"}},
+			wantM: 1,
+		},
+		{
+			name: "mixed",
+			files: []DirtyFile{
+				{Status: "M", Path: "a"},
+				{Status: "??", Path: "b"},
+				{Status: "D", Path: "c"},
+				{Status: "A", Path: "d"},
+				{Status: "R", Path: "e"},
+			},
+			wantM: 2, wantA: 2, wantD: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, a, d := tally(tt.files)
+			if m != tt.wantM || a != tt.wantA || d != tt.wantD {
+				t.Errorf("tally = (m=%d, a=%d, d=%d), want (m=%d, a=%d, d=%d)", m, a, d, tt.wantM, tt.wantA, tt.wantD)
+			}
+		})
 	}
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -59,36 +58,26 @@ func (s *Server) handleGitInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, info)
 }
 
-// handleGitRenameBranch renames the checked-out branch in the session's cwd.
-func (s *Server) handleGitRenameBranch(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+// handleGitDirtyFiles returns the list of dirty file paths for the session's
+// working directory. Non-dirty repos return {files:[]}. Non-repo cwds return
+// {files:[]}. Best-effort: errors return 500.
+func (s *Server) handleGitDirtyFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	var body struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
 	_, cwd, err := s.resolveSessionCwd(r.URL.Query().Get("id"))
 	if resolveOrWriteError(w, err) {
 		return
 	}
-	branch, err := git.RenameBranch(cwd, body.Name)
+	files, err := git.DirtyFiles(cwd)
 	if err != nil {
-		switch {
-		case errors.Is(err, git.ErrInvalidBranchName):
-			writeJSONError(w, http.StatusBadRequest, "invalid branch name")
-		case errors.Is(err, git.ErrDefaultBranch):
-			writeJSONError(w, http.StatusBadRequest, "refusing to rename the default branch")
-		case errors.Is(err, git.ErrNotRepo):
-			writeJSONError(w, http.StatusBadRequest, "not a git repository")
-		default:
-			writeJSONError(w, http.StatusBadRequest, err.Error())
-		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, 0, map[string]any{"ok": true, "branch": branch})
+	if files == nil {
+		files = []git.DirtyFile{}
+	}
+	writeJSON(w, 0, map[string]any{"files": files})
 }
+

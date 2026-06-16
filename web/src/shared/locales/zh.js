@@ -254,7 +254,6 @@ export default {
   'git.noRemote': '未配置 GitHub 远程仓库',
   'git.renameFailed': '重命名失败',
   'git.currentBranch': '当前分支',
-  'git.renameBranch': '重命名分支',
   'git.newBranchName': '新分支名称',
   'git.moreActions': '更多 git 操作',
 

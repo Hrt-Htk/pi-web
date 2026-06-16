@@ -8,6 +8,7 @@
   import SessionContent from './SessionContent.svelte';
   import ImageModal from './ImageModal.svelte';
   import ShortcutsModal from './ShortcutsModal.svelte';
+  import DirtyFilesModal from './DirtyFilesModal.svelte';
   import ModelUsageModal from './ModelUsageModal.svelte';
   import ForkModal from './ForkModal.svelte';
   import CatGatekeeperSettings from './CatGatekeeperSettings.svelte';
@@ -116,6 +117,7 @@
 </div>
 
 <ShortcutsModal bind:open={sessionModals.shortcuts} />
+<DirtyFilesModal bind:open={sessionModals.dirtyFiles} {sessionId} />
 <ModelUsageModal bind:open={sessionModals.modelUsage} />
 <ForkModal
   bind:open={sessionModals.fork.open}
