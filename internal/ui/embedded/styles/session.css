@@ -2888,6 +2888,8 @@
       border-collapse: collapse;
       margin: 0.5em 0;
       width: 100%;
+      display: block;
+      overflow-x: auto;
     }
 
     .markdown-content th,
@@ -3087,13 +3089,6 @@
       #content > * {
         max-width: 100%;
       }
-
-      .markdown-content table {
-        display: block;
-        overflow-x: auto;
-      }
-
-
 
       .session-header-bar {
         /* Grow the bar by the safe-area inset. Without this, box-sizing:
