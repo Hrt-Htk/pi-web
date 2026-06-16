@@ -193,8 +193,8 @@ export function getGroupedPath(path) {
       // Everything else is internal and gets merged forward:
       //  - has tool calls → "keep working" (even if also has transitional text)
       //  - no tool calls AND no text → thinking-only placeholder, merge forward
-      const hasToolCalls = Array.isArray(msg.content) &&
-        msg.content.some((b) => b.type === 'toolCall');
+      const hasToolCalls =
+        Array.isArray(msg.content) && msg.content.some((b) => b.type === 'toolCall');
       const isInternal = hasToolCalls || !hasTextContent(msg.content);
 
       if (isInternal) {
