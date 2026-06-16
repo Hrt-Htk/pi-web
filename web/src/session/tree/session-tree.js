@@ -189,15 +189,22 @@ export function getGroupedPath(path) {
     // Assistant message
     if (msg?.role === 'assistant') {
       lastAssistantEntry = entry;
-      const hasText = hasTextContent(msg.content);
-      const isInternal = !hasText;
+      // Terminal = final response to the user: no tool calls AND has real text.
+      // Everything else is internal and gets merged forward:
+      //  - has tool calls → "keep working" (even if also has transitional text)
+      //  - no tool calls AND no text → thinking-only placeholder, merge forward
+      const hasToolCalls = Array.isArray(msg.content) &&
+        msg.content.some((b) => b.type === 'toolCall');
+      const isInternal = hasToolCalls || !hasTextContent(msg.content);
 
       if (isInternal) {
-        // Collect thinking + toolCalls in document order
+        // Collect thinking + text + toolCalls in document order
         if (Array.isArray(msg.content)) {
           for (const block of msg.content) {
             if (block.type === 'thinking' && block.thinking?.trim()) {
               pendingBlocks.push({ type: 'thinking', thinking: block.thinking });
+            } else if (block.type === 'text' && block.text?.trim()) {
+              pendingBlocks.push({ type: 'text', text: block.text });
             } else if (block.type === 'toolCall') {
               pendingBlocks.push(block);
             }
