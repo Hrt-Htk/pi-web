@@ -26,7 +26,9 @@
   });
 
   const groups = $derived.by(() => {
-    const modified = [], newFiles = [], deleted = [];
+    const modified = [],
+      newFiles = [],
+      deleted = [];
     for (const f of files) {
       const s = f.status;
       if (s === '??' || s.includes('A')) {
@@ -65,7 +67,7 @@
       {:else if files.length === 0}
         <div class="dirty-files-empty">{t('git.noChanges')}</div>
       {:else}
-        {#each groups as g}
+        {#each groups as g (g.kind)}
           <div class="dirty-files-group">
             <div class="dirty-files-group-title {kindClass(g.kind)}">
               {g.label}<span class="dirty-files-group-count">{g.items.length}</span>

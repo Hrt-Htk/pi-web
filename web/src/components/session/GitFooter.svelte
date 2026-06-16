@@ -60,7 +60,6 @@
       commit: documentImpl.getElementById('pi-git-pr-commit'),
     };
 
-    let currentBranch = '';
     let prCreateUrl = '';
     let existingPrUrl = '';
     let primaryAction = () => {};
@@ -115,7 +114,6 @@
         return;
       }
       show(branchWrap, true);
-      currentBranch = info.branch;
       prCreateUrl = info.prCreateUrl || '';
       existingPrUrl = info.prUrl || '';
       if (nameEl) nameEl.textContent = info.branch;
@@ -138,13 +136,45 @@
           statusEl.appendChild(span);
         };
 
-        if (info.modified > 0) addBadge('pi-git-status-modified', 'M ' + info.modified, t('git.modifiedFiles').replace('{n}', String(info.modified)));
-        if (info.added > 0) addBadge('pi-git-status-added', 'N ' + info.added, t('git.newFiles').replace('{n}', String(info.added)));
-        if (info.deleted > 0) addBadge('pi-git-status-deleted', 'D ' + info.deleted, t('git.deletedFiles').replace('{n}', String(info.deleted)));
-        if (info.ahead > 0) addCommitBadge('pi-git-status-ahead', ArrowUp, info.ahead, t('git.ahead').replace('{n}', String(info.ahead)));
-        if (info.behind > 0) addCommitBadge('pi-git-status-behind', ArrowDown, info.behind, t('git.behind').replace('{n}', String(info.behind)));
+        if (info.modified > 0)
+          addBadge(
+            'pi-git-status-modified',
+            'M ' + info.modified,
+            t('git.modifiedFiles').replace('{n}', String(info.modified)),
+          );
+        if (info.added > 0)
+          addBadge(
+            'pi-git-status-added',
+            'N ' + info.added,
+            t('git.newFiles').replace('{n}', String(info.added)),
+          );
+        if (info.deleted > 0)
+          addBadge(
+            'pi-git-status-deleted',
+            'D ' + info.deleted,
+            t('git.deletedFiles').replace('{n}', String(info.deleted)),
+          );
+        if (info.ahead > 0)
+          addCommitBadge(
+            'pi-git-status-ahead',
+            ArrowUp,
+            info.ahead,
+            t('git.ahead').replace('{n}', String(info.ahead)),
+          );
+        if (info.behind > 0)
+          addCommitBadge(
+            'pi-git-status-behind',
+            ArrowDown,
+            info.behind,
+            t('git.behind').replace('{n}', String(info.behind)),
+          );
 
-        const hasAny = info.modified > 0 || info.added > 0 || info.deleted > 0 || info.ahead > 0 || info.behind > 0;
+        const hasAny =
+          info.modified > 0 ||
+          info.added > 0 ||
+          info.deleted > 0 ||
+          info.ahead > 0 ||
+          info.behind > 0;
         statusEl.hidden = !hasAny;
       }
       if (items.manual) items.manual.title = prCreateUrl ? prCreateUrl : t('git.noRemote');

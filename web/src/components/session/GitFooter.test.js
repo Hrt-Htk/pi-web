@@ -136,5 +136,4 @@ describe('GitFooter', () => {
     id('pi-git-pr-merge').click();
     expect(id('pi-chat-message').value).toBe(MERGE_PR_PROMPT);
   });
-
 });
