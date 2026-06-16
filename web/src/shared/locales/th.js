@@ -258,7 +258,6 @@ export default {
   'git.noRemote': 'ยังไม่ได้ตั้งค่ารีโมต GitHub',
   'git.renameFailed': 'เปลี่ยนชื่อไม่สำเร็จ',
   'git.currentBranch': 'แบรนช์ปัจจุบัน',
-  'git.renameBranch': 'เปลี่ยนชื่อแบรนช์',
   'git.newBranchName': 'ชื่อแบรนช์ใหม่',
   'git.moreActions': 'การดำเนินการ git เพิ่มเติม',
 

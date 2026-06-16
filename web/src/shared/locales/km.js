@@ -257,7 +257,6 @@ export default {
   'git.noRemote': 'មិនបានកំណត់ GitHub remote',
   'git.renameFailed': 'ប្ដូរឈ្មោះបរាជ័យ',
   'git.currentBranch': 'សាខាបច្ចុប្បន្ន',
-  'git.renameBranch': 'ប្ដូរឈ្មោះសាខា',
   'git.newBranchName': 'ឈ្មោះសាខាថ្មី',
   'git.moreActions': 'សកម្មភាព git បន្ថែម',
 
