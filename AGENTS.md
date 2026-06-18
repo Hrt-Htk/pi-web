@@ -31,6 +31,7 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 - **Frontend:** tests next to source (`foo.js` → `foo.test.js`); DOM helpers take `{ documentImpl, windowImpl }` for DI.
 - **Lint/format (frontend):** ESLint (`eslint-plugin-svelte`) + Prettier, config in `web/`. `make check` runs `frontend-lint` + `frontend-format-check`. Fix locally with `cd web && npm run format` (auto-format) and `npm run lint`. Style is 2-space indent, single quotes (enforced by Prettier).
 - **E2E:** lives in `e2e/` (Playwright, built binary across desktop/mobile/iPad; pi-dependent specs run against the live server with **real pi** (no stub)). See `docs/dev/e2e-testing.md`.
+- **Testing on a live server without restarting production:** `e2e/lib/server.ts` spawns a fresh pi-web instance on a free port (`startServer()`). Run E2E tests with `cd e2e && npx playwright test <spec>` — global-setup starts the test server automatically. To test manually, run `pi-web.exe -p <free-port> -host 127.0.0.1` in a separate terminal.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
 
 ## Critical Rules
