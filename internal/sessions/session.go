@@ -60,9 +60,6 @@ type SessionSummary struct {
 	Project            string
 	LastActivity       string
 	Name               string
-	MessageCount       int
-	TokenTotal         int
-	CostTotal          float64
 	Model              string
 	ModelProvider      string
 	ChatAvailable      bool
@@ -251,9 +248,6 @@ func ParseSummary(path, dirName, fileName string) (SessionSummary, error) {
 				continue
 			}
 			msg := raw.Message
-			s.MessageCount++
-			s.TokenTotal += int(msg.Usage.TotalTokens)
-			s.CostTotal += msg.Usage.Cost.Total
 			if msg.Model != "" {
 				s.Model = msg.Model
 				s.ModelProvider = msg.Provider
@@ -571,20 +565,9 @@ func ParseFile(path, dirName, fileName string) (Session, error) {
 			if !ok {
 				continue
 			}
-			s.MessageCount++
 			if model, _ := msg["model"].(string); model != "" {
 				s.Model = model
 				s.ModelProvider, _ = msg["provider"].(string)
-			}
-			if usage, ok := msg["usage"].(map[string]any); ok {
-				if t, ok := usage["totalTokens"].(float64); ok {
-					s.TokenTotal += int(t)
-				}
-				if cost, ok := usage["cost"].(map[string]any); ok {
-					if total, ok := cost["total"].(float64); ok {
-						s.CostTotal += total
-					}
-				}
 			}
 			if firstUserText == "" {
 				if role, _ := msg["role"].(string); role == "user" {

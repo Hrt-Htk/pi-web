@@ -455,9 +455,6 @@ func TestParseSummaryHandlesLargeToolResultLine(t *testing.T) {
 	if s.Name != "Big Session" {
 		t.Errorf("Name = %q, want %q", s.Name, "Big Session")
 	}
-	if s.MessageCount != 2 {
-		t.Errorf("MessageCount = %d, want 2", s.MessageCount)
-	}
 }
 
 func TestParseSummaryUsesHeaderName(t *testing.T) {
@@ -474,9 +471,6 @@ func TestParseSummaryUsesHeaderName(t *testing.T) {
 	}
 	if s.Name != "My Project" {
 		t.Errorf("Name = %q, want %q", s.Name, "My Project")
-	}
-	if s.MessageCount != 1 {
-		t.Errorf("MessageCount = %d, want 1", s.MessageCount)
 	}
 }
 
@@ -619,30 +613,6 @@ func TestParseSummaryExtractsSessionUUID(t *testing.T) {
 	}
 	if s.SessionUUID != "019e122d-bcc4-7308-8a30-7ef83dae1983" {
 		t.Errorf("SessionUUID = %q, want %q", s.SessionUUID, "019e122d-bcc4-7308-8a30-7ef83dae1983")
-	}
-}
-
-func TestParseSummaryAccumulatesUsage(t *testing.T) {
-	tmp := t.TempDir()
-	path := filepath.Join(tmp, "s.jsonl")
-	content := `{"type":"session","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
-		`{"type":"message","timestamp":"2026-05-08T10:00:01Z","message":{"role":"assistant","content":"x","usage":{"totalTokens":100,"cost":{"total":0.01}}}}` + "\n" +
-		`{"type":"message","timestamp":"2026-05-08T10:00:02Z","message":{"role":"assistant","content":"y","usage":{"totalTokens":50,"cost":{"total":0.005}}}}` + "\n"
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-	s, err := ParseSummary(path, "--proj--", "s.jsonl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if s.TokenTotal != 150 {
-		t.Errorf("TokenTotal = %d, want 150", s.TokenTotal)
-	}
-	if s.CostTotal < 0.0149 || s.CostTotal > 0.0151 {
-		t.Errorf("CostTotal = %v, want ~0.015", s.CostTotal)
-	}
-	if s.MessageCount != 2 {
-		t.Errorf("MessageCount = %d, want 2", s.MessageCount)
 	}
 }
 
