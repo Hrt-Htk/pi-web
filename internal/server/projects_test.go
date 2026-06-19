@@ -344,32 +344,48 @@ Run npm install.
 			want: "This is a short description of the project. It spans multiple lines.",
 		},
 		{
-			name: "first heading fallback",
-			content: `# My Project
+			name: "tagline before screenshots with images",
+			content: `# pi-web (Remote Control Your Pi)
 
-Welcome!
+Drive your [pi](https://pi.dev) coding agent from any browser on your network — laptop, phone, or tablet.
 
-## Installation
+## Screenshots
 
-Run npm install.
-
-## Usage
-
-Run the app.
+<div align="center">
+  <img src="desktop-dark.png" alt="Desktop — dark mode" />
+</div>
 `,
-			want: "Run npm install.",
+			want: "Drive your pi coding agent from any browser on your network — laptop, phone, or tablet.",
 		},
 		{
-			name: "no headings",
+			name: "explicit short description section",
 			content: `# My Project
 
-Just some text.
+## Short Description
+
+This is the short description.
+
+## Other Section
+
+Some other content.
+`,
+			want: "This is the short description.",
+		},
+		{
+			name: "only html under first h2",
+			content: `# My Project
+
+## Screenshots
+
+<div align="center">
+  <img src="screenshot.png" alt="Screenshot" />
+</div>
 `,
 			want: "",
 		},
 		{
-			name:    "empty",
-			content: "",
+			name:    "no readme",
+			content: "", // signals: don't write README file
 			want:    "",
 		},
 	}

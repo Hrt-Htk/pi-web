@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -239,9 +240,15 @@ func detectGithubRepo(dir string) string {
 	return slug
 }
 
-// extractReadmeDescription reads the README in dir and extracts the text
-// under `## Short Description` or the first `##` heading.
-// Returns "" if no README is found or parsing fails.
+var (
+	htmlTagRe    = regexp.MustCompile(`<[^>]*>`)
+	whitespaceRe = regexp.MustCompile(`[ \t]+`)
+)
+
+// extractReadmeDescription reads the README in dir and extracts a clean
+// prose description. Priority: (1) any heading containing "short description"
+// or exactly "description", (2) first clean prose paragraph in the document,
+// (3) "" if nothing clean is found.
 func extractReadmeDescription(dir string) string {
 	var content string
 	for _, name := range []string{"README.md", "README.rst"} {
@@ -255,20 +262,157 @@ func extractReadmeDescription(dir string) string {
 		return ""
 	}
 	lines := strings.Split(content, "\n")
-	// First pass: look for ## Short Description
+
+	// Priority 1: heading containing "short description" or exactly "description"
+	headingIdx := -1
 	for i, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "##") &&
-			strings.Contains(strings.ToLower(line), "short description") {
-			return extractHeadingText(lines, i+1)
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		headingText := strings.TrimSpace(strings.TrimLeft(trimmed, "# "))
+		lower := strings.ToLower(headingText)
+		if strings.Contains(lower, "short description") || lower == "description" {
+			headingIdx = i
+			break
 		}
 	}
-	// Second pass: first ## heading
-	for i, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "##") {
-			return extractHeadingText(lines, i+1)
+	if headingIdx >= 0 {
+		var buf strings.Builder
+		for i := headingIdx + 1; i < len(lines); i++ {
+			l := strings.TrimSpace(lines[i])
+			if l == "" {
+				continue
+			}
+			if strings.HasPrefix(l, "#") {
+				break
+			}
+			if buf.Len() > 0 {
+				buf.WriteString(" ")
+			}
+			buf.WriteString(l)
+		}
+		if result := cleanText(buf.String()); result != "" {
+			return result
+		}
+		return ""
+	}
+
+	// Priority 2: first clean prose paragraph
+	for i := 0; i < len(lines); {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || isHTMLLine(trimmed) || isImageLine(trimmed) {
+			i++
+			continue
+		}
+		// collect paragraph
+		var buf strings.Builder
+		for i < len(lines) {
+			l := strings.TrimSpace(lines[i])
+			if l == "" || strings.HasPrefix(l, "#") {
+				break
+			}
+			if isHTMLLine(l) || isImageLine(l) {
+				i++
+				continue
+			}
+			if buf.Len() > 0 {
+				buf.WriteString(" ")
+			}
+			buf.WriteString(l)
+			i++
+		}
+		if result := cleanText(buf.String()); result != "" {
+			return result
 		}
 	}
 	return ""
+}
+
+// isHTMLLine reports whether a trimmed line is an HTML tag.
+func isHTMLLine(trimmed string) bool {
+	return len(trimmed) > 0 && trimmed[0] == '<'
+}
+
+// isImageLine reports whether a trimmed line is a markdown image or a link
+// wrapping only an image file.
+func isImageLine(trimmed string) bool {
+	if strings.HasPrefix(trimmed, "![") {
+		return true
+	}
+	// check for [text](image.png) pattern
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != '[' {
+			continue
+		}
+		closeBracket := -1
+		for j := i + 1; j < len(trimmed); j++ {
+			if trimmed[j] == ']' {
+				closeBracket = j
+				break
+			}
+		}
+		if closeBracket < 0 || closeBracket+1 >= len(trimmed) || trimmed[closeBracket+1] != '(' {
+			continue
+		}
+		parenStart := closeBracket + 2
+		for j := parenStart; j < len(trimmed); j++ {
+			if trimmed[j] == ')' {
+				url := trimmed[parenStart:j]
+				lower := strings.ToLower(url)
+				if strings.HasSuffix(lower, ".png") || strings.HasSuffix(lower, ".jpg") ||
+					strings.HasSuffix(lower, ".jpeg") || strings.HasSuffix(lower, ".gif") ||
+					strings.HasSuffix(lower, ".webp") || strings.HasSuffix(lower, ".svg") ||
+					strings.HasSuffix(lower, ".ico") || strings.HasSuffix(lower, ".bmp") {
+					return true
+				}
+				break
+			}
+		}
+	}
+	return false
+}
+
+// cleanText strips HTML tags, reduces markdown links to text, collapses
+// whitespace, and trims.
+func cleanText(s string) string {
+	s = htmlTagRe.ReplaceAllString(s, "")
+	// replace [text](url) with text
+	for i := 0; i < len(s); {
+		if s[i] != '[' {
+			i++
+			continue
+		}
+		closeBracket := -1
+		for j := i + 1; j < len(s); j++ {
+			if s[j] == '[' {
+				continue
+			}
+			if s[j] == ']' {
+				closeBracket = j
+				break
+			}
+		}
+		if closeBracket < 0 {
+			i++
+			continue
+		}
+		if closeBracket+1 >= len(s) || s[closeBracket+1] != '(' {
+			i = closeBracket + 1
+			continue
+		}
+		parenStart := closeBracket + 2
+		for j := parenStart; j < len(s); j++ {
+			if s[j] == ')' && (j == parenStart || s[j-1] != '\\') {
+				linkText := s[i+1 : closeBracket]
+				s = s[:i] + linkText + s[j+1:]
+				i = i + 1 + len(linkText)
+				break
+			}
+		}
+	}
+	s = whitespaceRe.ReplaceAllString(s, " ")
+	return strings.TrimSpace(s)
 }
 
 // extractHeadingText collects lines after a heading until the next heading or EOF.
