@@ -5,6 +5,7 @@
   import IndexHeader from '../components/index/IndexHeader.svelte';
   import NewSessionModal from '../components/index/NewSessionModal.svelte';
   import ProjectsModal from '../components/index/ProjectsModal.svelte';
+  import ProjectPanel from '../components/index/ProjectPanel.svelte';
   import SessionsList from '../components/index/SessionsList.svelte';
   import { createStatusEvents } from '../shared/status-events.js';
   import { openSessionPalette, refreshSessionPalette } from '../shared/command-palette-runtime.js';
@@ -48,6 +49,8 @@
   let projectsFilterEnabled = $state(false);
   let projectsBusy = $state(false);
   let projectsError = $state('');
+  let projectPanelOpen = $state(false);
+  let selectedProjectPath = $state('');
   let refreshInflight = false;
 
   const totalSessionsLabel = $derived(
@@ -338,6 +341,10 @@
   {layoutReady}
   onArchive={archiveSession}
   onNewSession={createSessionForProject}
+  onViewProject={(path) => {
+    selectedProjectPath = path;
+    projectPanelOpen = true;
+  }}
 />
 
 <NewSessionModal
@@ -363,3 +370,5 @@
   onRegister={(path) => updateProject(path, 'register')}
   onRemove={(path) => updateProject(path, 'remove')}
 />
+
+<ProjectPanel bind:open={projectPanelOpen} projectPath={selectedProjectPath} />

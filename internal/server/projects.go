@@ -1,14 +1,19 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"pi-web/internal/git"
 	"pi-web/internal/sessions"
 )
 
@@ -34,6 +39,17 @@ const projectPrefsSchema = `CREATE TABLE IF NOT EXISTS project_prefs (
 const appSettingsSchema = `CREATE TABLE IF NOT EXISTS app_settings (
 	key TEXT PRIMARY KEY,
 	value TEXT
+)`
+
+// projectsSchema stores project-level metadata: display name, GitHub repo slug,
+// and a short description extracted from the README or GitHub API.
+const projectsSchema = `CREATE TABLE IF NOT EXISTS projects (
+	project_path TEXT PRIMARY KEY,
+	name TEXT NOT NULL DEFAULT '',
+	repo TEXT,
+	readme_description TEXT,
+	created_at DATETIME,
+	updated_at DATETIME
 )`
 
 const settingProjectFilterEnabled = "project_filter_enabled"
@@ -169,6 +185,109 @@ func (s *Server) syncProjectPrefs(discovered []string) {
 			VALUES (?, ?, 'discovered', ?)
 			ON CONFLICT(project_path) DO NOTHING`, p, defaultEnabled, now)
 	}
+	// Keep the projects metadata table in sync with discovered paths.
+	s.syncProjectMetadata(discovered)
+}
+
+// syncProjectMetadata scans discovered project paths and populates the
+// projects table with repo detection, README description, and default name.
+// Called from syncProjectPrefs so both tables are kept in sync.
+func (s *Server) syncProjectMetadata(discovered []string) {
+	if s.db == nil || len(discovered) == 0 {
+		return
+	}
+	now := s.now()
+	for _, p := range discovered {
+		if p == "" {
+			continue
+		}
+		name := filepath.Base(p)
+		repo := ""
+		if _, err := os.Stat(filepath.Join(p, ".git", "config")); err == nil {
+			repo = detectGithubRepo(p)
+		}
+		readmeDesc := extractReadmeDescription(p)
+		if readmeDesc == "" {
+			readmeDesc = git.RepoDescription(p)
+		}
+		_, _ = s.db.Exec(`INSERT INTO projects (project_path, name, repo, readme_description, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(project_path) DO UPDATE SET
+				name=excluded.name,
+				repo=excluded.repo,
+				readme_description=excluded.readme_description,
+				updated_at=excluded.updated_at`,
+			p, name, repo, readmeDesc, now, now)
+	}
+}
+
+// detectGithubRepo runs `git remote get-url origin` and extracts the
+// owner/repo slug. Returns "" on any error.
+func detectGithubRepo(dir string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	slug, ok := git.GithubSlug(strings.TrimSpace(string(out)))
+	if !ok {
+		return ""
+	}
+	return slug
+}
+
+// extractReadmeDescription reads the README in dir and extracts the text
+// under `## Short Description` or the first `##` heading.
+// Returns "" if no README is found or parsing fails.
+func extractReadmeDescription(dir string) string {
+	var content string
+	for _, name := range []string{"README.md", "README.rst"} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err == nil {
+			content = string(data)
+			break
+		}
+	}
+	if content == "" {
+		return ""
+	}
+	lines := strings.Split(content, "\n")
+	// First pass: look for ## Short Description
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "##") &&
+			strings.Contains(strings.ToLower(line), "short description") {
+			return extractHeadingText(lines, i+1)
+		}
+	}
+	// Second pass: first ## heading
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "##") {
+			return extractHeadingText(lines, i+1)
+		}
+	}
+	return ""
+}
+
+// extractHeadingText collects lines after a heading until the next heading or EOF.
+func extractHeadingText(lines []string, start int) string {
+	var buf strings.Builder
+	for i := start; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "##") {
+			break
+		}
+		if buf.Len() > 0 {
+			buf.WriteString(" ")
+		}
+		buf.WriteString(trimmed)
+	}
+	return strings.TrimSpace(buf.String())
 }
 
 // enabledProjectSet returns the set of enabled project paths. The second return
@@ -400,4 +519,115 @@ func normalizeProjectPath(path string) (string, error) {
 		return "", errRelativePath
 	}
 	return sessions.CanonicalProject(path), nil
+}
+
+// handleGetProject returns project metadata, live git info, open issues/PRs
+// for a single project. Route: GET /api/project/<path>
+func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	path := strings.TrimPrefix(r.URL.Path, "/api/project/")
+	path = pathValue(path)
+	if strings.TrimSpace(path) == "" {
+		writeJSONError(w, http.StatusBadRequest, "project path required")
+		return
+	}
+	if s.db == nil {
+		writeJSONError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	var name, repo, readmeDesc string
+	if err := s.db.QueryRow(
+		"SELECT name, repo, readme_description FROM projects WHERE project_path = ?",
+		path,).Scan(&name, &repo, &readmeDesc); err != nil {
+		// Project not in table yet — generate defaults on the fly.
+		name = filepath.Base(path)
+		if _, err := os.Stat(filepath.Join(path, ".git", "config")); err == nil {
+			repo = detectGithubRepo(path)
+		}
+		readmeDesc = extractReadmeDescription(path)
+		if readmeDesc == "" {
+			readmeDesc = git.RepoDescription(path)
+		}
+	}
+
+	summaries, err := s.loadSummaries()
+	var sessionCount int
+	if err == nil {
+		for _, sum := range summaries {
+			if sum.Project == path {
+				sessionCount++
+			}
+		}
+	}
+
+	gitInfo, _ := git.Describe(path)
+	issues := git.OpenIssues(path)
+	prs := git.OpenPRs(path)
+
+	writeJSON(w, 0, map[string]any{
+		"project": map[string]any{
+			"path":             path,
+			"name":             name,
+			"repo":             repo,
+			"readmeDescription": readmeDesc,
+		},
+		"gitInfo":      gitInfo,
+		"openIssues":   issues,
+		"openPRs":      prs,
+		"sessionCount": sessionCount,
+	})
+}
+
+// handleUpdateProjectName updates the display name for a project.
+// Route: POST /api/project/update with body {"path": "...", "name": "..."}
+func (s *Server) handleUpdateProjectName(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		Path string `json:"path"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if s.db == nil {
+		writeJSONError(w, http.StatusInternalServerError, "preferences are unavailable")
+		return
+	}
+	path := strings.TrimSpace(body.Path)
+	name := strings.TrimSpace(body.Name)
+	if path == "" {
+		writeJSONError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	if name == "" {
+		writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	now := s.now()
+	_, err := s.db.Exec(`INSERT INTO projects (project_path, name, updated_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(project_path) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at`,
+		path, name, now)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to update project name: "+err.Error())
+		return
+	}
+	writeJSON(w, 0, map[string]any{"ok": true, "name": name, "path": path})
+}
+
+// pathValue URL-decodes a path segment.
+func pathValue(p string) string {
+	v, err := url.PathUnescape(p)
+	if err != nil {
+		return p
+	}
+	return v
 }

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { icon, ChevronDown } from '../../shared/icons.js';
+  import { icon, ChevronDown, Info } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
     activityMs,
@@ -22,6 +22,7 @@
     layoutReady = false,
     onArchive = null,
     onNewSession = null,
+    onViewProject = null,
   } = $props();
 
   let now = $state(Date.now());
@@ -237,6 +238,16 @@
                 : sessionsCountLabel(cards.length)}
             </span>
           </button>
+          {#if onViewProject}
+            <button
+              type="button"
+              class="project-view-btn"
+              aria-label={t('index.viewProject')}
+              title={t('index.viewProject')}
+              onclick={() => onViewProject(group.project)}
+            >{@html icon(Info, { size: 14 })}</button
+            >
+          {/if}
           <button
             class="project-new-btn"
             type="button"

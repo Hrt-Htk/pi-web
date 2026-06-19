@@ -215,6 +215,7 @@ func initDB(agentDir string) (*sql.DB, error) {
 		)`},
 		{"project_prefs table", projectPrefsSchema},
 		{"app_settings table", appSettingsSchema},
+		{"projects table", projectsSchema},
 		{"btw_sessions table", btwSessionsSchema},
 		{"annotations table", annotationsSchema},
 		{"annotations index", annotationsIndex},
@@ -266,6 +267,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/label-session", s.auth.Wrap(s.handleLabelSessionEntry))
 	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
 	mux.HandleFunc("/api/projects", s.getPostHandler(s.handleApiProjects, s.handleUpdateProject))
+	mux.HandleFunc("/api/project/", s.auth.Wrap(s.handleGetProject))
+	mux.HandleFunc("/api/project/update", s.auth.Wrap(s.handleUpdateProjectName))
 	mux.HandleFunc("/api/files", s.auth.Wrap(s.handleApiFiles))
 	mux.HandleFunc("/api/git/info", s.auth.Wrap(s.handleGitInfo))
 	mux.HandleFunc("/api/git/dirty-files", s.auth.Wrap(s.handleGitDirtyFiles))

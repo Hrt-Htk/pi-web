@@ -58,6 +58,20 @@ type Info struct {
 	PRURL string `json:"prUrl"`
 }
 
+// IssueInfo describes a single open GitHub issue.
+type IssueInfo struct {
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+}
+
+// PRInfo describes a single open GitHub pull request.
+type PRInfo struct {
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+}
+
 func run(dir string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
@@ -200,6 +214,77 @@ func existingOpenPRURL(dir string) string {
 	return ""
 }
 
+// OpenIssues returns the list of open GitHub issues for the repository in dir,
+// using the gh CLI when available. It is best-effort: a missing/unauthenticated
+// gh, non-repo dir, or network error all yield nil.
+func OpenIssues(dir string) []IssueInfo {
+	gh, err := exec.LookPath("gh")
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, gh, "issue", "list", "--state", "open", "--json", "number,title,url")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var issues []IssueInfo
+	if err := json.Unmarshal(out, &issues); err != nil {
+		return nil
+	}
+	return issues
+}
+
+// OpenPRs returns the list of open GitHub pull requests for the repository in
+// dir, using the gh CLI when available. It is best-effort: a missing/
+// unauthenticated gh, non-repo dir, or network error all yield nil.
+func OpenPRs(dir string) []PRInfo {
+	gh, err := exec.LookPath("gh")
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, gh, "pr", "list", "--state", "open", "--json", "number,title,url")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var prs []PRInfo
+	if err := json.Unmarshal(out, &prs); err != nil {
+		return nil
+	}
+	return prs
+}
+
+// RepoDescription returns the GitHub repository description for the repository
+// in dir, using the gh CLI when available. It is best-effort: a missing/
+// unauthenticated gh, non-repo dir, or network error all yield "".
+func RepoDescription(dir string) string {
+	gh, err := exec.LookPath("gh")
+	if err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, gh, "repo", "view", "--json", "description")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	var rv struct {
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal(out, &rv); err != nil {
+		return ""
+	}
+	return rv.Description
+}
+
 // DefaultBranch reports the repository's default branch. It prefers the
 // remote's published HEAD (origin/HEAD) and falls back to a local main/master
 // when that isn't configured. Returns "" when it can't be determined.
@@ -263,7 +348,7 @@ func pullRequestURL(dir, branch string) (string, error) {
 	if err != nil || remote == "" {
 		return "", ErrNoRemote
 	}
-	slug, ok := githubSlug(remote)
+	slug, ok := GithubSlug(remote)
 	if !ok {
 		return "", ErrNoRemote
 	}
@@ -310,8 +395,8 @@ func DirtyFiles(dir string) ([]DirtyFile, error) {
 	return parsePorcelain(out), nil
 }
 
-// githubSlug extracts "owner/repo" from a github remote URL, or returns false.
-func githubSlug(remote string) (string, bool) {
+// GithubSlug extracts "owner/repo" from a github remote URL, or returns false.
+func GithubSlug(remote string) (string, bool) {
 	remote = strings.TrimSpace(remote)
 	remote = strings.TrimSuffix(remote, ".git")
 
