@@ -1,0 +1,20 @@
+# Normalize line endings: store text as LF in the repo and check out as LF in
+# every working tree, regardless of a contributor's core.autocrlf setting.
+# This stops the recurring phantom CRLF/LF churn on Windows checkouts.
+* text=auto eol=lf
+
+# Binary assets — never normalize or diff as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.svg  text eol=lf
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.exe   binary
+*.gz    binary
+*.zip   binary
