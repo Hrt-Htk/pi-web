@@ -28,6 +28,9 @@ func newProjectPrefsDB(t *testing.T) *sql.DB {
 	if _, err := db.Exec(appSettingsSchema); err != nil {
 		t.Fatalf("create app_settings: %v", err)
 	}
+	if _, err := db.Exec(projectsSchema); err != nil {
+		t.Fatalf("create projects: %v", err)
+	}
 	t.Cleanup(func() { db.Close() })
 	return db
 }
@@ -314,5 +317,180 @@ func TestNormalizeProjectPath(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("normalizeProjectPath(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestExtractReadmeDescription(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name: "short description heading",
+			content: `# My Project
+
+Welcome!
+
+## Short Description
+
+This is a short description of the project.
+It spans multiple lines.
+
+## Installation
+
+Run npm install.
+`,
+			want: "This is a short description of the project. It spans multiple lines.",
+		},
+		{
+			name: "tagline before screenshots with images",
+			content: `# pi-web (Remote Control Your Pi)
+
+Drive your [pi](https://pi.dev) coding agent from any browser on your network — laptop, phone, or tablet.
+
+## Screenshots
+
+<div align="center">
+  <img src="desktop-dark.png" alt="Desktop — dark mode" />
+</div>
+`,
+			want: "Drive your pi coding agent from any browser on your network — laptop, phone, or tablet.",
+		},
+		{
+			name: "explicit short description section",
+			content: `# My Project
+
+## Short Description
+
+This is the short description.
+
+## Other Section
+
+Some other content.
+`,
+			want: "This is the short description.",
+		},
+		{
+			name: "only html under first h2",
+			content: `# My Project
+
+## Screenshots
+
+<div align="center">
+  <img src="screenshot.png" alt="Screenshot" />
+</div>
+`,
+			want: "",
+		},
+		{
+			name:    "no readme",
+			content: "", // signals: don't write README file
+			want:    "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.content != "" {
+				if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(tc.content), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got := extractReadmeDescription(dir)
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHandleGetProject(t *testing.T) {
+	sessionsDir := t.TempDir()
+	writeSessionWithCWD(t, filepath.Join(sessionsDir, "sub1"), "a.jsonl", "/home/user/project-a")
+
+	s := &Server{db: newProjectPrefsDB(t), sessionsDir: sessionsDir, cache: sessions.NewCache(), now: time.Now}
+	// Seed the projects table
+	s.syncProjectPrefs([]string{"/home/user/project-a"})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/project/%2Fhome%2Fuser%2Fproject-a", nil)
+	w := httptest.NewRecorder()
+	s.handleGetProject(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	proj, ok := payload["project"].(map[string]any)
+	if !ok {
+		t.Fatal("missing project key")
+	}
+	if proj["name"] != "project-a" {
+		t.Errorf("name = %v, want project-a", proj["name"])
+	}
+	if payload["sessionCount"].(float64) != 1 {
+		t.Errorf("sessionCount = %v, want 1", payload["sessionCount"])
+	}
+}
+
+func TestHandleGetProject_NotFound(t *testing.T) {
+	s := &Server{db: newProjectPrefsDB(t), now: time.Now}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/project/%2Fnonexistent", nil)
+	w := httptest.NewRecorder()
+	s.handleGetProject(w, req)
+	// Returns 200 with defaults even if not in table (generates on the fly)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+}
+
+func TestHandleUpdateProjectName(t *testing.T) {
+	s := &Server{db: newProjectPrefsDB(t), now: time.Now}
+
+	body, _ := json.Marshal(map[string]string{
+		"path": "/home/user/project-a",
+		"name": "My Cool Project",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project/update", strings.NewReader(string(body)))
+	w := httptest.NewRecorder()
+	s.handleUpdateProjectName(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["name"] != "My Cool Project" {
+		t.Errorf("name = %v, want My Cool Project", resp["name"])
+	}
+
+	// Verify persisted
+	var name string
+	if err := s.db.QueryRow("SELECT name FROM projects WHERE project_path = ?", "/home/user/project-a").Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+	if name != "My Cool Project" {
+		t.Errorf("persisted name = %q, want My Cool Project", name)
+	}
+}
+
+func TestHandleUpdateProjectName_MissingName(t *testing.T) {
+	s := &Server{db: newProjectPrefsDB(t), now: time.Now}
+
+	body, _ := json.Marshal(map[string]string{
+		"path": "/home/user/project-a",
+		"name": "",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project/update", strings.NewReader(string(body)))
+	w := httptest.NewRecorder()
+	s.handleUpdateProjectName(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
 	}
 }

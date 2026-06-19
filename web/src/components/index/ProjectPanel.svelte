@@ -1,0 +1,216 @@
+<script>
+  // Project detail panel — opens as a FullScreenSheet from the index page.
+  // Shows project metadata, git status, open issues, and open PRs.
+  import { t } from '../../shared/i18n.js';
+  import FullScreenSheet from '../session/FullScreenSheet.svelte';
+  import { icon, ExternalLink, FolderOpen, Pencil } from '../../shared/icons.js';
+  import { fetchProjectData, updateProjectName } from '../../project/project-page-data.js';
+
+  let { open = $bindable(false), projectPath = '' } = $props();
+
+  let loading = $state(false);
+  let error = $state('');
+  let project = $state(null);
+  let gitInfo = $state(null);
+  let openIssues = $state([]);
+  let openPRs = $state([]);
+  let sessionCount = $state(0);
+  let editingName = $state(false);
+  let editName = $state('');
+
+  $effect(() => {
+    if (open && projectPath && !project) {
+      loadData();
+    } else if (!open) {
+      project = null;
+      gitInfo = null;
+      openIssues = [];
+      openPRs = [];
+      sessionCount = 0;
+      error = '';
+      editingName = false;
+    }
+  });
+
+  async function loadData() {
+    loading = true;
+    error = '';
+    try {
+      const data = await fetchProjectData(projectPath);
+      project = data.project;
+      gitInfo = data.gitInfo;
+      openIssues = data.openIssues || [];
+      openPRs = data.openPRs || [];
+      sessionCount = data.sessionCount || 0;
+      editName = data.project?.name || '';
+    } catch (e) {
+      error = e.message || t('project.loadFailed');
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function saveName() {
+    const name = editName.trim();
+    if (!name) return;
+    try {
+      await updateProjectName(projectPath, name);
+      project = { ...project, name };
+      editingName = false;
+    } catch (e) {
+      error = t('project.nameSaveFailed');
+    }
+  }
+</script>
+
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG -->
+<FullScreenSheet
+  bind:open
+  title={t('project.pageTitle')}
+  backdropClass="project-sheet-backdrop"
+  panelClass="project-sheet-panel"
+  bodyClass="project-sheet-body"
+>
+  <div class="project-palette">
+    {#if loading}
+      <div class="project-loading">{t('project.loading')}</div>
+    {:else if error && !project}
+      <div class="project-empty">{error}</div>
+    {:else if project}
+      <div class="project-content">
+        <div class="project-head">
+          {#if editingName}
+            <div class="project-name-edit">
+              <input
+                type="text"
+                bind:value={editName}
+                class="project-name-input"
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') saveName();
+                  if (e.key === 'Escape') editingName = false;
+                }}
+              />
+              <button class="project-btn" onclick={saveName}>{t('project.saveName')}</button>
+              <button class="project-btn-secondary" onclick={() => (editingName = false)}
+                >{t('project.cancelEdit')}</button
+              >
+            </div>
+          {:else}
+            <div class="project-name">
+              <span title={project.projectPath}>{project.name}</span>
+              <button
+                class="project-edit-btn"
+                type="button"
+                aria-label={t('project.editName')}
+                onclick={() => {
+                  editName = project?.name || '';
+                  editingName = true;
+                }}>{@html icon(Pencil, { size: 14 })}</button
+              >
+            </div>
+          {/if}
+          {#if project.repo}
+            <a
+              class="project-repo-link"
+              href={'https://github.com/' + project.repo}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {@html icon(ExternalLink, { size: 14 })}
+              <span>{project.repo}</span>
+            </a>
+          {/if}
+          <div class="project-meta">
+            <span>
+              {@html icon(FolderOpen, { size: 14 })}
+              {sessionCount} session{sessionCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+
+        {#if project.readmeDescription}
+          <div class="project-group">
+            <div class="project-group-title">{t('project.description')}</div>
+            <div class="project-group-body">{project.readmeDescription}</div>
+          </div>
+        {/if}
+
+        {#if gitInfo?.isRepo}
+          <div class="project-group">
+            <div class="project-group-title">{t('project.gitStatus')}</div>
+            <div class="project-git-row">
+              <span class="project-git-branch">{gitInfo.branch}</span>
+              {#if gitInfo.dirty}
+                <span class="project-badge is-dirty">{t('project.gitDirty')}</span>
+              {:else}
+                <span class="project-badge is-clean">{t('project.gitClean')}</span>
+              {/if}
+              {#if gitInfo.ahead > 0}
+                <span class="project-badge is-ahead"
+                  >{t('project.gitAhead', { n: gitInfo.ahead })}</span
+                >
+              {/if}
+              {#if gitInfo.behind > 0}
+                <span class="project-badge is-behind"
+                  >{t('project.gitBehind', { n: gitInfo.behind })}</span
+                >
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <div class="project-group">
+          <div class="project-group-title">
+            {t('project.openIssues')}
+            <span class="project-group-count">{openIssues.length}</span>
+          </div>
+          {#if openIssues.length === 0}
+            <div class="project-empty">{t('project.noIssues')}</div>
+          {:else}
+            <div class="project-list">
+              {#each openIssues as issue (issue.number)}
+                <div class="project-item">
+                  <a
+                    class="project-item-link"
+                    href={issue.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span class="project-item-number">#{issue.number}</span>
+                    <span>{issue.title}</span>
+                  </a>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <div class="project-group">
+          <div class="project-group-title">
+            {t('project.openPRs')}
+            <span class="project-group-count">{openPRs.length}</span>
+          </div>
+          {#if openPRs.length === 0}
+            <div class="project-empty">{t('project.noPRs')}</div>
+          {:else}
+            <div class="project-list">
+              {#each openPRs as pr (pr.number)}
+                <div class="project-item">
+                  <a
+                    class="project-item-link"
+                    href={pr.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span class="project-item-number">#{pr.number}</span>
+                    <span>{pr.title}</span>
+                  </a>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
+  </div>
+</FullScreenSheet>
