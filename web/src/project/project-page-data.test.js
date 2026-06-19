@@ -37,8 +37,9 @@ describe('fetchProjectData', () => {
   it('throws on non-ok response', async () => {
     const mockFetch = async () => createMockResponse(false, 500, null);
 
-    await expect(fetchProjectData('some-path', { fetch: mockFetch }))
-      .rejects.toThrow('Failed to load project: 500');
+    await expect(fetchProjectData('some-path', { fetch: mockFetch })).rejects.toThrow(
+      'Failed to load project: 500',
+    );
   });
 });
 
@@ -66,8 +67,8 @@ describe('updateProjectName', () => {
   it('throws on non-ok response', async () => {
     const mockFetch = async () => createMockResponse(false, 400, null);
 
-    await expect(
-      updateProjectName('some-path', 'New Name', { fetch: mockFetch })
-    ).rejects.toThrow('Failed to update project name: 400');
+    await expect(updateProjectName('some-path', 'New Name', { fetch: mockFetch })).rejects.toThrow(
+      'Failed to update project name: 400',
+    );
   });
 });

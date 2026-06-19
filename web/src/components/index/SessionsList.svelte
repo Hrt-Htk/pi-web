@@ -244,8 +244,7 @@
               class="project-view-btn"
               aria-label={t('index.viewProject')}
               title={t('index.viewProject')}
-              onclick={() => onViewProject(group.project)}
-            >{@html icon(Info, { size: 14 })}</button
+              onclick={() => onViewProject(group.project)}>{@html icon(Info, { size: 14 })}</button
             >
           {/if}
           <button

@@ -91,7 +91,9 @@
                 }}
               />
               <button class="project-btn" onclick={saveName}>{t('project.saveName')}</button>
-              <button class="project-btn-secondary" onclick={() => (editingName = false)}>{t('project.cancelEdit')}</button>
+              <button class="project-btn-secondary" onclick={() => (editingName = false)}
+                >{t('project.cancelEdit')}</button
+              >
             </div>
           {:else}
             <div class="project-name">
@@ -103,8 +105,8 @@
                 onclick={() => {
                   editName = project?.name || '';
                   editingName = true;
-                }}
-              >{@html icon(Pencil, { size: 14 })}</button>
+                }}>{@html icon(Pencil, { size: 14 })}</button
+              >
             </div>
           {/if}
           {#if project.repo}
@@ -144,10 +146,14 @@
                 <span class="project-badge is-clean">{t('project.gitClean')}</span>
               {/if}
               {#if gitInfo.ahead > 0}
-                <span class="project-badge is-ahead">{t('project.gitAhead', { n: gitInfo.ahead })}</span>
+                <span class="project-badge is-ahead"
+                  >{t('project.gitAhead', { n: gitInfo.ahead })}</span
+                >
               {/if}
               {#if gitInfo.behind > 0}
-                <span class="project-badge is-behind">{t('project.gitBehind', { n: gitInfo.behind })}</span>
+                <span class="project-badge is-behind"
+                  >{t('project.gitBehind', { n: gitInfo.behind })}</span
+                >
               {/if}
             </div>
           </div>
@@ -164,7 +170,12 @@
             <div class="project-list">
               {#each openIssues as issue (issue.number)}
                 <div class="project-item">
-                  <a class="project-item-link" href={issue.url} target="_blank" rel="noopener noreferrer">
+                  <a
+                    class="project-item-link"
+                    href={issue.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <span class="project-item-number">#{issue.number}</span>
                     <span>{issue.title}</span>
                   </a>
@@ -185,7 +196,12 @@
             <div class="project-list">
               {#each openPRs as pr (pr.number)}
                 <div class="project-item">
-                  <a class="project-item-link" href={pr.url} target="_blank" rel="noopener noreferrer">
+                  <a
+                    class="project-item-link"
+                    href={pr.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <span class="project-item-number">#{pr.number}</span>
                     <span>{pr.title}</span>
                   </a>
