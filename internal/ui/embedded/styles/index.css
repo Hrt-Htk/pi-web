@@ -351,7 +351,7 @@ a { color: inherit; }
     cursor: pointer;
     color: var(--text-secondary);
     padding: 2px;
-    opacity: 0;
+    opacity: 0.55;
     transition: opacity 0.15s;
     display: inline-flex;
     align-items: center;
