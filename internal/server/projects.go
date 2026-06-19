@@ -186,40 +186,6 @@ func (s *Server) syncProjectPrefs(discovered []string) {
 			VALUES (?, ?, 'discovered', ?)
 			ON CONFLICT(project_path) DO NOTHING`, p, defaultEnabled, now)
 	}
-	// Keep the projects metadata table in sync with discovered paths.
-	s.syncProjectMetadata(discovered)
-}
-
-// syncProjectMetadata scans discovered project paths and populates the
-// projects table with repo detection, README description, and default name.
-// Called from syncProjectPrefs so both tables are kept in sync.
-func (s *Server) syncProjectMetadata(discovered []string) {
-	if s.db == nil || len(discovered) == 0 {
-		return
-	}
-	now := s.now()
-	for _, p := range discovered {
-		if p == "" {
-			continue
-		}
-		name := filepath.Base(p)
-		repo := ""
-		if _, err := os.Stat(filepath.Join(p, ".git", "config")); err == nil {
-			repo = detectGithubRepo(p)
-		}
-		readmeDesc := extractReadmeDescription(p)
-		if readmeDesc == "" {
-			readmeDesc = git.RepoDescription(p)
-		}
-		_, _ = s.db.Exec(`INSERT INTO projects (project_path, name, repo, readme_description, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-			ON CONFLICT(project_path) DO UPDATE SET
-				name=excluded.name,
-				repo=excluded.repo,
-				readme_description=excluded.readme_description,
-				updated_at=excluded.updated_at`,
-			p, name, repo, readmeDesc, now, now)
-	}
 }
 
 // detectGithubRepo runs `git remote get-url origin` and extracts the
