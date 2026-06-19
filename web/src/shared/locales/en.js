@@ -69,6 +69,11 @@ export default {
   'index.filterOnDesc': 'Only checked projects appear on the homepage.',
   'index.filterOffDesc': 'All projects are shown. Turn on to show only the checked ones.',
   'index.viewProject': 'View project',
+  'index.browsePlaceholder': 'Search folders…',
+  'index.chooseFolder': 'Choose',
+  'index.selectedPath': 'Selected path',
+  'index.loadingFolders': 'Loading…',
+  'index.folderNotFound': 'Folder not found',
 
   // ── Project page ──
   'project.pageTitle': 'Project',

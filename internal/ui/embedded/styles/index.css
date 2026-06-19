@@ -616,6 +616,28 @@ body.modal-sheet-open { overflow: hidden; }
     border-color: var(--muted);
     background: var(--surface-2);
 }
+.modal-path-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    margin-bottom: 14px;
+    background: var(--body-bg);
+    border: 1px solid var(--dim);
+    border-radius: 6px;
+    font-size: 12px;
+}
+.path-label {
+    color: var(--muted);
+    flex-shrink: 0;
+}
+.path-value {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--code-font, monospace);
+}
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .btn-primary {
     border: 1px solid var(--accent);

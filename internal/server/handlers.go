@@ -459,6 +459,114 @@ func (s *Server) handleRecentLocations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{"locations": locations})
 }
 
+// skipDirs are heavy directories never exposed to the directory browser.
+var skipDirs = map[string]bool{
+	".git":          true,
+	"node_modules":  true,
+	"vendor":        true,
+	"dist":          true,
+	"build":         true,
+	".next":         true,
+	".nuxt":         true,
+	"target":        true,
+	".venv":         true,
+	"venv":          true,
+	"__pycache__":   true,
+	".mypy_cache":   true,
+	".pytest_cache": true,
+	".gradle":       true,
+	".idea":         true,
+	".cache":        true,
+	".terraform":    true,
+}
+
+// browseEntry is a single file or directory returned by /api/browse.
+type browseEntry struct {
+	Path  string `json:"path"`
+	Name  string `json:"name"`
+	IsDir bool   `json:"isDir"`
+}
+
+func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	q := r.URL.Query().Get("q")
+
+	if path == "" {
+		var err error
+		path, err = os.UserHomeDir()
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "unable to determine home directory")
+			return
+		}
+	}
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	result := []browseEntry{}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() && skipDirs[name] {
+			continue
+		}
+		if q != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(q)) {
+			continue
+		}
+		result = append(result, browseEntry{
+			Path:  filepath.Join(path, name),
+			Name:  name,
+			IsDir: e.IsDir(),
+		})
+	}
+
+	// Sort: directories first, then files, both alphabetically.
+	sortEntries(result)
+
+	writeJSON(w, 0, map[string]any{
+		"path":    path,
+		"entries": result,
+	})
+}
+
+func sortEntries(entries []browseEntry) {
+	dirs := []browseEntry{}
+	files := []browseEntry{}
+	for _, e := range entries {
+		if e.IsDir {
+			dirs = append(dirs, e)
+		} else {
+			files = append(files, e)
+		}
+	}
+	sortSlice(dirs, false)
+	sortSlice(files, false)
+	merged := append(dirs, files...)
+	for i := range entries {
+		entries[i] = merged[i]
+	}
+}
+
+func sortSlice(entries []browseEntry, _ bool) {
+	for i := 1; i < len(entries); i++ {
+		for j := i; j > 0; j-- {
+			a := strings.ToLower(entries[j-1].Name)
+			b := strings.ToLower(entries[j].Name)
+			if a <= b {
+				break
+			}
+			entries[j-1], entries[j] = entries[j], entries[j-1]
+		}
+	}
+}
+
 func (s *Server) handleAvailableModels(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")

@@ -136,7 +136,6 @@
       recentLocations = [];
     }
     await tick();
-    document.getElementById('sessionPath')?.focus();
   }
 
   function closeNewSessionModal() {
