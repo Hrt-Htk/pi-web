@@ -3081,9 +3081,30 @@
 
       #content {
         min-height: 0;
-        padding: calc(52px + env(safe-area-inset-top) + 8px) 16px var(--line-height);
+        padding: calc(52px + env(safe-area-inset-top) + 8px) 14px var(--line-height);
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+      }
+
+      .user-message {
+        padding: 8px;
+      }
+
+      .assistant-text {
+        padding: 8px 0 0;
+      }
+
+      .thinking-text {
+        padding: 8px 0;
+      }
+
+      .markdown-content blockquote {
+        padding-left: 8px;
+      }
+
+      .markdown-content ul,
+      .markdown-content ol {
+        padding-left: var(--line-height);
       }
 
       #content > * {
