@@ -198,15 +198,19 @@ export function getGroupedPath(path) {
       const isInternal = hasToolCalls || !hasTextContent(msg.content);
 
       if (isInternal) {
-        // Collect thinking + text + toolCalls in document order
+        // Collect thinking + text + toolCalls in document order, carrying source timestamp
         if (Array.isArray(msg.content)) {
           for (const block of msg.content) {
             if (block.type === 'thinking' && block.thinking?.trim()) {
-              pendingBlocks.push({ type: 'thinking', thinking: block.thinking });
+              pendingBlocks.push({
+                type: 'thinking',
+                thinking: block.thinking,
+                timestamp: entry.timestamp,
+              });
             } else if (block.type === 'text' && block.text?.trim()) {
-              pendingBlocks.push({ type: 'text', text: block.text });
+              pendingBlocks.push({ type: 'text', text: block.text, timestamp: entry.timestamp });
             } else if (block.type === 'toolCall') {
-              pendingBlocks.push(block);
+              pendingBlocks.push({ ...block, timestamp: entry.timestamp });
             }
           }
         }

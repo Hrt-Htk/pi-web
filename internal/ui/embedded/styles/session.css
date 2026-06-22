@@ -2157,7 +2157,7 @@
       }
     }
 
-    .assistant-message > .message-timestamp {
+    .assistant-message .message-timestamp {
       padding-left: var(--line-height);
     }
 
@@ -2169,7 +2169,8 @@
     }
 
     .message-timestamp + .assistant-text,
-    .message-timestamp + .thinking-block {
+    .message-timestamp + .thinking-block,
+    .message-timestamp + .actions-group {
       padding-top: 0;
     }
 

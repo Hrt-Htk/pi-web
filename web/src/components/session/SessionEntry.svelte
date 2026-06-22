@@ -44,20 +44,25 @@
     let run = null;
     const flush = () => {
       if (run && run.length > 0) {
-        segments.push({ kind: 'actions', items: run });
+        const seg = { kind: 'actions', items: run, timestamp: run[0].timestamp ?? entry.timestamp };
+        segments.push(seg);
         run = null;
       }
     };
     for (const block of msg.content) {
       if (block.type === 'text' && block.text?.trim()) {
         flush();
-        segments.push({ kind: 'text', text: block.text });
+        segments.push({
+          kind: 'text',
+          text: block.text,
+          timestamp: block.timestamp ?? entry.timestamp,
+        });
       } else if (block.type === 'thinking' && block.thinking?.trim()) {
         if (!run) run = [];
-        run.push({ type: 'thinking', text: block.thinking });
+        run.push({ type: 'thinking', text: block.thinking, timestamp: block.timestamp });
       } else if (block.type === 'toolCall') {
         if (!run) run = [];
-        run.push({ type: 'toolCall', block });
+        run.push({ type: 'toolCall', block, timestamp: block.timestamp });
       }
     }
     flush();
@@ -86,6 +91,9 @@
   >
 {/snippet}
 {#snippet timestamp()}{#if ts}<div class="message-timestamp">{ts}</div>{/if}{/snippet}
+{#snippet tsFor(rawTs)}{#if rawTs}<div class="message-timestamp">
+      {formatTimestamp(rawTs)}
+    </div>{/if}{/snippet}
 
 {#if msg && msg.role === 'user'}
   <div class="user-message" id={`entry-${entry.id}`}>
@@ -101,8 +109,10 @@
   </div>
 {:else if msg && msg.role === 'assistant'}
   <div class="assistant-message" id={`entry-${entry.id}`}>
-    {@render actions(entry.id)}{@render timestamp()}
+    {@render actions(entry.id)}
+    {#if assistantSegments.length === 0}{@render tsFor(entry.timestamp)}{/if}
     {#each assistantSegments as seg, segIndex (segIndex)}
+      {@render tsFor(seg.timestamp)}
       {#if seg.kind === 'text'}
         <div class="assistant-text markdown-content">{@html md(seg.text)}</div>
       {:else}
