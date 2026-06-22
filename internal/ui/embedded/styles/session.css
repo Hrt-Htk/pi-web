@@ -3086,6 +3086,27 @@
         overscroll-behavior: contain;
       }
 
+      .user-message {
+        padding: 8px;
+      }
+
+      .assistant-text {
+        padding: 8px 8px 0;
+      }
+
+      .thinking-text {
+        padding: 8px;
+      }
+
+      .markdown-content blockquote {
+        padding-left: 8px;
+      }
+
+      .markdown-content ul,
+      .markdown-content ol {
+        padding-left: var(--line-height);
+      }
+
       #content > * {
         max-width: 100%;
       }
