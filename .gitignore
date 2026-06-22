@@ -1,7 +1,5 @@
-pi-sessions-viewer
 *.exe
 .DS_Store
-.superpowers/
 .worktrees/
 /pi-web
 web/node_modules/
@@ -9,16 +7,14 @@ web/dist/
 web/dist-export/
 internal/ui/embedded/export/export.js
 .pi/extensions/node_modules/
-.pi/APPEND_SYSTEM.md
 
 node_modules/
-tmp/
-
-.requirements/
 
 # Scratch / transient — keep `git status` meaningful
 .tmp/
 .pi/tasks/
+context.md
+progress.md
 /_*.md
 /*.jsonl
 *.exe~
