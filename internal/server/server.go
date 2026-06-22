@@ -267,6 +267,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/label-session", s.auth.Wrap(s.handleLabelSessionEntry))
 	mux.HandleFunc("/api/recent-locations", s.auth.Wrap(s.handleRecentLocations))
 	mux.HandleFunc("/api/browse", s.auth.Wrap(s.handleBrowse))
+	mux.HandleFunc("/api/drives", s.auth.Wrap(s.handleDrives))
 	mux.HandleFunc("/api/projects", s.getPostHandler(s.handleApiProjects, s.handleUpdateProject))
 	mux.HandleFunc("/api/project/", s.auth.Wrap(s.handleGetProject))
 	mux.HandleFunc("/api/project/update", s.auth.Wrap(s.handleUpdateProjectName))

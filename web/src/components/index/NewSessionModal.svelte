@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from 'svelte';
   import { t } from '../../shared/i18n.js';
   import DirectoryBrowser from './DirectoryBrowser.svelte';
 
@@ -13,21 +12,7 @@
     onCreate = () => {},
   } = $props();
 
-  let browserPath = $state('');
-
-  // Keep browserPath in sync with the bindable path prop
-  $effect(() => {
-    browserPath = path;
-  });
-
-  $effect(() => {
-    if (browserPath) {
-      path = browserPath;
-    }
-  });
-
   function chooseRecent(loc) {
-    browserPath = loc;
     path = loc;
   }
 
@@ -39,12 +24,6 @@
       onCreate();
     }
   }
-
-  onMount(() => {
-    if (open && !browserPath) {
-      // DirectoryBrowser will auto-load home directory
-    }
-  });
 </script>
 
 <div
@@ -77,11 +56,11 @@
         <button type="button" class="recent-chip" onclick={() => chooseRecent(loc)}>{loc}</button>
       {/each}
     </div>
-    <DirectoryBrowser bind:selectedPath={browserPath} />
+    <DirectoryBrowser bind:selectedPath={path} />
     <div class="modal-path-display" id="selectedPath">
-      {#if browserPath}
+      {#if path}
         <span class="path-label">{t('index.selectedPath')}:</span>
-        <span class="path-value" title={browserPath}>{browserPath}</span>
+        <span class="path-value" title={path}>{path}</span>
       {/if}
     </div>
     <div class="modal-actions">
@@ -92,7 +71,7 @@
         class="btn-primary"
         id="createBtn"
         type="button"
-        disabled={creating || !browserPath}
+        disabled={creating || !path}
         onclick={onCreate}>{t('common.create')}</button
       >
     </div>

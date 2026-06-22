@@ -1021,3 +1021,142 @@ body.modal-sheet-open { overflow: hidden; }
         -webkit-backdrop-filter: none;
     }
 }
+
+/* Directory browser — new-session modal (Issue 56) */
+.directory-browser {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    margin-bottom: 14px;
+}
+.browser-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--dim);
+    border-radius: 6px;
+    background: var(--surface-2);
+}
+.search-icon {
+    flex-shrink: 0;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+}
+.search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+}
+.search-input::placeholder { color: var(--muted); }
+.browser-breadcrumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+.breadcrumb-item {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+}
+.breadcrumb-item:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+.breadcrumb-sep {
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    padding: 0 1px;
+    opacity: 0.6;
+}
+.browser-list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--dim);
+    border-radius: 6px;
+    min-height: 120px;
+    max-height: 240px;
+    background: var(--surface-2);
+}
+.browser-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid color-mix(in srgb, var(--dim) 60%, transparent);
+}
+.browser-entry:last-child { border-bottom: none; }
+.browser-entry:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.browser-entry.highlighted { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.browser-entry.selected {
+    background: var(--selected-bg);
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+.browser-entry.dir { font-weight: 500; }
+.entry-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    color: var(--accent);
+}
+.entry-icon--file { color: var(--muted); }
+.entry-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.browser-loading,
+.browser-empty,
+.browser-error {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+.browser-error { color: var(--danger); }
+
+/* Directory browser — drive switcher (Issue 56) */
+.browser-drives {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.drive-chip {
+    border: 1px solid var(--dim);
+    background: var(--surface-2);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.drive-chip:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+.drive-chip.active {
+    color: var(--text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+

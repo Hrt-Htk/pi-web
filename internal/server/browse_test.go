@@ -136,3 +136,41 @@ func TestHandleBrowse_RejectsNonGet(t *testing.T) {
 		t.Fatalf("expected 405, got %d", w.Code)
 	}
 }
+
+func TestHandleDrives_ReturnsDrives(t *testing.T) {
+	s := &Server{}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/drives", nil)
+	w := httptest.NewRecorder()
+	s.handleDrives(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	drives, ok := resp["drives"].([]any)
+	if !ok {
+		t.Fatal("drives not found")
+	}
+
+	if len(drives) == 0 {
+		t.Fatal("expected non-empty drives list")
+	}
+}
+
+func TestHandleDrives_RejectsNonGet(t *testing.T) {
+	s := &Server{}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/drives", nil)
+	w := httptest.NewRecorder()
+	s.handleDrives(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", w.Code)
+	}
+}

@@ -81,6 +81,12 @@ var skipDirs = map[string]bool{
 	".terraform":    true,
 }
 
+// ShouldSkipDir reports whether a directory name is a heavy, machine-generated,
+// or VCS-internal directory that should never be listed or descended into.
+func ShouldSkipDir(name string) bool {
+	return skipDirs[name]
+}
+
 var errBudgetExhausted = errors.New("scan budget exhausted")
 
 func (o Options) withDefaults() Options {

@@ -107,6 +107,9 @@ export function defaultBrowseDirectory(path, query) {
   if (query) params.set('q', query);
   return getJSON('/api/browse?' + params.toString());
 }
+export function defaultFetchDrives() {
+  return getJSON('/api/drives');
+}
 export function defaultCreateSession(path) {
   return postJSON('/api/new-session', { path });
 }

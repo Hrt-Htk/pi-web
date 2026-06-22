@@ -1,7 +1,8 @@
 <script>
+  import { onMount } from 'svelte';
   import { t } from '../../shared/i18n.js';
   import { icon, Folder, FileText, ChevronRight, Search } from '../../shared/icons.js';
-  import { defaultBrowseDirectory } from '../../index/sessions.js';
+  import { defaultBrowseDirectory, defaultFetchDrives } from '../../index/sessions.js';
 
   let { selectedPath = $bindable('') } = $props();
 
@@ -11,16 +12,34 @@
   let error = $state('');
   let query = $state('');
   let highlightedIndex = $state(-1);
+  let drives = $state([]);
 
-  const filteredEntries = $derived(entries);
-
-  $effect(() => {
-    if (currentPath) {
-      loadDirectory(currentPath);
-    }
+  const filteredEntries = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter((entry) => entry.name.toLowerCase().includes(q));
   });
 
+  onMount(() => {
+    loadDrives();
+    loadDirectory(currentPath);
+  });
+
+  async function loadDrives() {
+    try {
+      const response = await defaultFetchDrives();
+      drives = response.drives || [];
+    } catch {
+      drives = [];
+    }
+  }
+
+  function isActiveDrive(d) {
+    return currentPath.toLowerCase().startsWith(d.toLowerCase());
+  }
+
   async function loadDirectory(path) {
+    if (loading) return;
     loading = true;
     error = '';
     query = '';
@@ -42,7 +61,7 @@
   }
 
   function navigateTo(path) {
-    currentPath = path;
+    loadDirectory(path);
   }
 
   function selectEntry(entry) {
@@ -57,19 +76,29 @@
     }
   }
 
+  function getPathSep(path) {
+    return path.includes('\\') ? '\\' : '/';
+  }
+
   function getParentPath(path) {
-    const parts = path.split('/').filter(Boolean);
-    parts.pop();
-    return parts.length > 0 ? parts.join('/') : path;
+    const sep = getPathSep(path);
+    const trimmed = path.replace(/[\\/]+$/, '');
+    const idx = trimmed.lastIndexOf(sep);
+    if (idx < 0) return path;
+    const parent = trimmed.slice(0, idx);
+    return parent || sep;
   }
 
   function getBreadcrumbParts() {
     if (!currentPath) return [];
-    const parts = currentPath.split('/').filter(Boolean);
-    return parts.map((part, i) => ({
-      label: part,
-      path: parts.slice(0, i + 1).join('/'),
-    }));
+    const sep = getPathSep(currentPath);
+    const isUnixAbsolute = currentPath.startsWith('/');
+    const parts = currentPath.split(/[\\/]+/).filter(Boolean);
+    return parts.map((part, i) => {
+      let path = parts.slice(0, i + 1).join(sep);
+      if (isUnixAbsolute) path = '/' + path;
+      return { label: part, path };
+    });
   }
 
   function handleKeydown(e) {
@@ -79,7 +108,11 @@
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       highlightedIndex = Math.max(highlightedIndex - 1, 0);
-    } else if (e.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < filteredEntries.length) {
+    } else if (
+      e.key === 'Enter' &&
+      highlightedIndex >= 0 &&
+      highlightedIndex < filteredEntries.length
+    ) {
       e.preventDefault();
       enterEntry(filteredEntries[highlightedIndex]);
     }
@@ -91,10 +124,23 @@
   }
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG -->
 <div class="directory-browser" role="listbox" tabindex="0" onkeydown={handleKeydown}>
   {#if error}
     <div class="browser-error">{error}</div>
   {:else}
+    {#if drives.length > 1}
+      <div class="browser-drives">
+        {#each drives as d (d)}
+          <button
+            type="button"
+            class="drive-chip"
+            class:active={isActiveDrive(d)}
+            onclick={() => navigateTo(d)}>{d}</button
+          >
+        {/each}
+      </div>
+    {/if}
     <div class="browser-search">
       <span class="search-icon">{@html icon(Search, { size: 14 })}</span>
       <input
@@ -109,11 +155,7 @@
     {#if currentPath}
       <div class="browser-breadcrumbs">
         {#each getBreadcrumbParts() as part (part.path)}
-          <button
-            type="button"
-            class="breadcrumb-item"
-            onclick={() => navigateTo(part.path)}
-          >
+          <button type="button" class="breadcrumb-item" onclick={() => navigateTo(part.path)}>
             {part.label}
           </button>
           <span class="breadcrumb-sep">{@html icon(ChevronRight, { size: 10 })}</span>
@@ -157,146 +199,3 @@
     {/if}
   {/if}
 </div>
-
-<style>
-  .directory-browser {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 320px;
-  }
-
-  .browser-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border: 1px solid var(--border-color, #444);
-    border-radius: 6px;
-    background: var(--surface-secondary, #1a1a2e);
-  }
-
-  .search-icon {
-    flex-shrink: 0;
-    color: var(--text-secondary, #888);
-    display: flex;
-    align-items: center;
-  }
-
-  .search-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font-size: 13px;
-    color: var(--text-primary, #e0e0e0);
-    outline: none;
-    font-family: inherit;
-  }
-
-  .search-input::placeholder {
-    color: var(--text-secondary, #666);
-  }
-
-  .browser-breadcrumbs {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 2px;
-    padding: 4px 0;
-    font-size: 12px;
-  }
-
-  .breadcrumb-item {
-    background: none;
-    border: none;
-    color: var(--text-secondary, #aaa);
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 12px;
-    font-family: inherit;
-  }
-
-  .breadcrumb-item:hover {
-    background: var(--surface-tertiary, #2a2a3e);
-    color: var(--text-primary, #e0e0e0);
-  }
-
-  .breadcrumb-sep {
-    color: var(--text-secondary, #555);
-    display: flex;
-    align-items: center;
-    padding: 0 1px;
-  }
-
-  .browser-list {
-    flex: 1;
-    overflow-y: auto;
-    border: 1px solid var(--border-color, #333);
-    border-radius: 6px;
-    min-height: 120px;
-    max-height: 240px;
-  }
-
-  .browser-entry {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text-primary, #e0e0e0);
-    border-bottom: 1px solid var(--border-color, #222);
-  }
-
-  .browser-entry:last-child {
-    border-bottom: none;
-  }
-
-  .browser-entry:hover {
-    background: var(--surface-tertiary, #2a2a3e);
-  }
-
-  .browser-entry.highlighted {
-    background: var(--accent-bg, #1a3a5a);
-  }
-
-  .browser-entry.selected {
-    background: var(--accent-bg, #1a3a5a);
-    outline: 1px solid var(--accent-color, #4a9eff);
-  }
-
-  .browser-entry.dir {
-    font-weight: 500;
-  }
-
-  .entry-icon {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    color: var(--accent-color, #4a9eff);
-  }
-
-  .entry-icon--file {
-    color: var(--text-secondary, #888);
-  }
-
-  .entry-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .browser-loading,
-  .browser-empty,
-  .browser-error {
-    padding: 20px;
-    text-align: center;
-    color: var(--text-secondary, #888);
-    font-size: 13px;
-  }
-
-  .browser-error {
-    color: var(--error-color, #ff6b6b);
-  }
-</style>

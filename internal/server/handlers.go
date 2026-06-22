@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"pi-web/internal/agentdir"
+	"pi-web/internal/files"
 	"pi-web/internal/sessions"
 	"pi-web/internal/ui"
 )
@@ -459,27 +461,6 @@ func (s *Server) handleRecentLocations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{"locations": locations})
 }
 
-// skipDirs are heavy directories never exposed to the directory browser.
-var skipDirs = map[string]bool{
-	".git":          true,
-	"node_modules":  true,
-	"vendor":        true,
-	"dist":          true,
-	"build":         true,
-	".next":         true,
-	".nuxt":         true,
-	"target":        true,
-	".venv":         true,
-	"venv":          true,
-	"__pycache__":   true,
-	".mypy_cache":   true,
-	".pytest_cache": true,
-	".gradle":       true,
-	".idea":         true,
-	".cache":        true,
-	".terraform":    true,
-}
-
 // browseEntry is a single file or directory returned by /api/browse.
 type browseEntry struct {
 	Path  string `json:"path"`
@@ -514,7 +495,7 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	result := []browseEntry{}
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() && skipDirs[name] {
+		if e.IsDir() && files.ShouldSkipDir(name) {
 			continue
 		}
 		if q != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(q)) {
@@ -552,6 +533,32 @@ func sortEntries(entries []browseEntry) {
 	for i := range entries {
 		entries[i] = merged[i]
 	}
+}
+
+// handleDrives lists the filesystem roots available on the host: drive letters
+// on Windows (C:\, D:\, ...) or "/" elsewhere. The directory browser uses this
+// so users can switch drives, which aren't reachable by walking up from home.
+func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, 0, map[string]any{"drives": listDrives()})
+}
+
+// listDrives returns the available filesystem roots on the host.
+func listDrives() []string {
+	if runtime.GOOS != "windows" {
+		return []string{"/"}
+	}
+	drives := []string{}
+	for c := 'A'; c <= 'Z'; c++ {
+		root := string(c) + ":\\"
+		if _, err := os.Stat(root); err == nil {
+			drives = append(drives, root)
+		}
+	}
+	return drives
 }
 
 func sortSlice(entries []browseEntry, _ bool) {
