@@ -125,6 +125,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'do something' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -141,6 +142,7 @@ describe('getGroupedPath', () => {
       },
       {
         id: 'a2',
+        timestamp: '2026-01-01T09:02:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -157,6 +159,7 @@ describe('getGroupedPath', () => {
       },
       {
         id: 'a3',
+        timestamp: '2026-01-01T09:03:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -188,6 +191,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'go' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -204,6 +208,7 @@ describe('getGroupedPath', () => {
       },
       {
         id: 'a2',
+        timestamp: '2026-01-01T09:02:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -220,6 +225,7 @@ describe('getGroupedPath', () => {
       },
       {
         id: 'a3',
+        timestamp: '2026-01-01T09:03:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -231,13 +237,23 @@ describe('getGroupedPath', () => {
     expect(grouped.map((e) => e.id)).toEqual(['u1', 'a3']);
     // Must be think1, tool1, think2, tool2, text — NOT think1,think2,tool1,tool2,text
     const merged = grouped[1].message.content;
-    expect(merged).toEqual([
-      { type: 'thinking', thinking: 'think1' },
-      { type: 'toolCall', id: 'tc1', name: 'f1' },
-      { type: 'thinking', thinking: 'think2' },
-      { type: 'toolCall', id: 'tc2', name: 'f2' },
-      { type: 'text', text: 'done' },
+    expect(merged.map((b) => b.type)).toEqual([
+      'thinking',
+      'toolCall',
+      'thinking',
+      'toolCall',
+      'text',
     ]);
+    expect(merged[0].thinking).toBe('think1');
+    expect(merged[0].timestamp).toBe('2026-01-01T09:01:00Z');
+    expect(merged[1].id).toBe('tc1');
+    expect(merged[1].timestamp).toBe('2026-01-01T09:01:00Z');
+    expect(merged[2].thinking).toBe('think2');
+    expect(merged[2].timestamp).toBe('2026-01-01T09:02:00Z');
+    expect(merged[3].id).toBe('tc2');
+    expect(merged[3].timestamp).toBe('2026-01-01T09:02:00Z');
+    expect(merged[4].text).toBe('done');
+    expect(merged[4].timestamp).toBeUndefined();
   });
 
   it('skips tool results between internal entries', () => {
@@ -245,6 +261,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'go' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -276,6 +293,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'start' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -295,6 +313,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'search something' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -312,6 +331,7 @@ describe('getGroupedPath', () => {
       },
       {
         id: 'a2',
+        timestamp: '2026-01-01T09:02:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -338,6 +358,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'start' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -347,6 +368,7 @@ describe('getGroupedPath', () => {
       { id: 'mc1', type: 'model_change', modelId: 'gpt-4', implicit: false },
       {
         id: 'a2',
+        timestamp: '2026-01-01T09:02:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -372,6 +394,7 @@ describe('getGroupedPath', () => {
       { id: 'u1', type: 'message', message: { role: 'user', content: 'go' } },
       {
         id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
         type: 'message',
         message: {
           role: 'assistant',
@@ -384,5 +407,64 @@ describe('getGroupedPath', () => {
     expect(grouped.length).toBe(2);
     expect(grouped[1].id).toBe('a1');
     expect(grouped[1].message.content[0].type).toBe('thinking');
+  });
+
+  it('preserves source-entry timestamps on merged internal blocks', () => {
+    const path = [
+      { id: 'u1', type: 'message', message: { role: 'user', content: 'go' } },
+      {
+        id: 'a1',
+        timestamp: '2026-01-01T09:01:00Z',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'think1' },
+            { type: 'toolCall', id: 'tc1', name: 'f1' },
+          ],
+        },
+      },
+      {
+        id: 'tr1',
+        type: 'message',
+        message: { role: 'toolResult', content: [{ type: 'text', text: 'r1' }] },
+      },
+      {
+        id: 'a2',
+        timestamp: '2026-01-01T09:02:00Z',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'think2' },
+            { type: 'toolCall', id: 'tc2', name: 'f2' },
+          ],
+        },
+      },
+      {
+        id: 'tr2',
+        type: 'message',
+        message: { role: 'toolResult', content: [{ type: 'text', text: 'r2' }] },
+      },
+      {
+        id: 'a3',
+        timestamp: '2026-01-01T09:03:00Z',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'final answer' }],
+        },
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a3']);
+    const merged = grouped[1].message.content;
+    // Internal blocks carry their source entry's timestamp
+    expect(merged[0].timestamp).toBe('2026-01-01T09:01:00Z'); // think1 from a1
+    expect(merged[1].timestamp).toBe('2026-01-01T09:01:00Z'); // tc1 from a1
+    expect(merged[2].timestamp).toBe('2026-01-01T09:02:00Z'); // think2 from a2
+    expect(merged[3].timestamp).toBe('2026-01-01T09:02:00Z'); // tc2 from a2
+    // Terminal text block has no timestamp (falls back to entry.timestamp at render)
+    expect(merged[4].timestamp).toBeUndefined();
   });
 });
