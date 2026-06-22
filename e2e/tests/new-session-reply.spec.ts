@@ -22,14 +22,13 @@ test.describe("new session assistant reply (real pi)", () => {
       "live pi-web server not reachable — skip pi-dependent specs",
     );
 
-    const cwd = realWorkingDir();
-
     await page.goto("/");
     await page.locator("[data-sessions-content].index-layout-ready").waitFor();
 
     await page.locator("#newSessionBtn").click();
     await expect(page.locator("#modalOverlay")).toBeVisible({ timeout: 5000 });
-    await page.locator("#sessionPath").fill(cwd);
+    // The directory browser auto-selects the current directory, enabling Create.
+    await expect(page.locator("#createBtn")).toBeEnabled({ timeout: 10000 });
     await page.locator("#createBtn").click();
     await expect(page).toHaveURL(/\/session\?id=/, { timeout: 15000 });
 
@@ -44,12 +43,15 @@ test.describe("new session assistant reply (real pi)", () => {
     await page.locator("#pi-chat-message").fill(prompt);
     await page.locator("#pi-chat-send").click();
 
-    await expect(page.locator("#messages")).toContainText(prompt, { timeout: 15_000 });
+    await expect(page.locator("#messages")).toContainText(prompt, {
+      timeout: 15_000,
+    });
 
-    await expect.poll(
-      () => page.locator(".assistant-message").count(),
-      { timeout: 100_000 },
-    ).toBeGreaterThan(assistantBefore);
+    await expect
+      .poll(() => page.locator(".assistant-message").count(), {
+        timeout: 100_000,
+      })
+      .toBeGreaterThan(assistantBefore);
 
     // Wait for the PERSISTED reply (not the streaming preview) before reloading.
     await expect(
@@ -108,12 +110,15 @@ test.describe("new session assistant reply (real pi)", () => {
       await page.locator("#pi-chat-message").fill(prompt);
       await page.locator("#pi-chat-send").click();
 
-      await expect(page.locator("#messages")).toContainText(prompt, { timeout: 15_000 });
+      await expect(page.locator("#messages")).toContainText(prompt, {
+        timeout: 15_000,
+      });
 
-      await expect.poll(
-        () => page.locator(".assistant-message").count(),
-        { timeout: 100_000 },
-      ).toBeGreaterThan(assistantBefore);
+      await expect
+        .poll(() => page.locator(".assistant-message").count(), {
+          timeout: 100_000,
+        })
+        .toBeGreaterThan(assistantBefore);
 
       deleteLiveSession(sessionsDir, id!);
     } finally {

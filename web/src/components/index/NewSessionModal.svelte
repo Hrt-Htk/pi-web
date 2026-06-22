@@ -1,5 +1,6 @@
 <script>
   import { t } from '../../shared/i18n.js';
+  import DirectoryBrowser from './DirectoryBrowser.svelte';
 
   let {
     open = false,
@@ -13,11 +14,12 @@
 
   function chooseRecent(loc) {
     path = loc;
-    requestAnimationFrame(() => document.getElementById('sessionPath')?.focus());
   }
 
   function handleKeydown(e) {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // Don't intercept if focus is on the search input inside the browser
+      if (e.target.tagName === 'INPUT') return;
       e.preventDefault();
       onCreate();
     }
@@ -33,6 +35,7 @@
   onclick={(e) => {
     if (e.currentTarget === e.target) onClose();
   }}
+  onkeydown={handleKeydown}
 >
   <div class="modal">
     <div class="modal-sheet-header">
@@ -53,13 +56,13 @@
         <button type="button" class="recent-chip" onclick={() => chooseRecent(loc)}>{loc}</button>
       {/each}
     </div>
-    <input
-      type="text"
-      id="sessionPath"
-      placeholder={t('index.sessionPathPlaceholder')}
-      bind:value={path}
-      onkeydown={handleKeydown}
-    />
+    <DirectoryBrowser bind:selectedPath={path} />
+    <div class="modal-path-display" id="selectedPath">
+      {#if path}
+        <span class="path-label">{t('index.selectedPath')}:</span>
+        <span class="path-value" title={path}>{path}</span>
+      {/if}
+    </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelBtn" type="button" onclick={onClose}
         >{t('common.cancel')}</button
@@ -68,7 +71,7 @@
         class="btn-primary"
         id="createBtn"
         type="button"
-        disabled={creating}
+        disabled={creating || !path}
         onclick={onCreate}>{t('common.create')}</button
       >
     </div>

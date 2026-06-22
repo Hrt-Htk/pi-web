@@ -3,13 +3,14 @@
 // the pi-worker-done CustomEvent. See issue #26 follow-up.
 
 import { test, expect, collapseScratchpad } from "../lib/test";
-import { realWorkingDir } from "../lib/sessions";
 
 test.describe("new session notification", () => {
-  test("fresh session must not fire pi-worker-done", async ({ page }, testInfo) => {
+  test("fresh session must not fire pi-worker-done", async ({
+    page,
+  }, testInfo) => {
     test.skip(
       testInfo.project.name !== "Desktop Chrome",
-      "single-project repro to avoid racing new-session creation across projects"
+      "single-project repro to avoid racing new-session creation across projects",
     );
 
     await collapseScratchpad(page);
@@ -22,15 +23,17 @@ test.describe("new session notification", () => {
       });
     });
 
-    const cwd = realWorkingDir();
-
     await page.goto("/");
 
     // Open the new-session modal and create a session.
     await page.locator("#web-menu-btn").click();
-    await expect(page.locator("#web-menu [data-new-session-btn]")).toBeVisible();
+    await expect(
+      page.locator("#web-menu [data-new-session-btn]"),
+    ).toBeVisible();
     await page.locator("#web-menu [data-new-session-btn]").click();
-    await page.locator("#sessionPath").fill(cwd);
+    // The directory browser auto-selects the current directory, so the create
+    // button becomes enabled without typing a path.
+    await expect(page.locator("#createBtn")).toBeEnabled({ timeout: 10000 });
     await page.locator("#createBtn").click();
 
     // Wait for SPA navigation to the session page.
@@ -41,9 +44,12 @@ test.describe("new session notification", () => {
     // have already fired.
     await page.waitForTimeout(5000);
 
-    const doneCount = await page.evaluate(() =>
-      ((window as any).__doneEvents || []).length
+    const doneCount = await page.evaluate(
+      () => ((window as any).__doneEvents || []).length,
     );
-    expect(doneCount, "a freshly created session must not fire pi-worker-done").toBe(0);
+    expect(
+      doneCount,
+      "a freshly created session must not fire pi-worker-done",
+    ).toBe(0);
   });
 });

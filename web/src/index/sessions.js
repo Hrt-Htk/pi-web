@@ -101,6 +101,15 @@ export function defaultFetchSessions() {
 export function defaultFetchRecent() {
   return getJSON('/api/recent-locations');
 }
+export function defaultBrowseDirectory(path, query) {
+  const params = new URLSearchParams();
+  if (path) params.set('path', path);
+  if (query) params.set('q', query);
+  return getJSON('/api/browse?' + params.toString());
+}
+export function defaultFetchDrives() {
+  return getJSON('/api/drives');
+}
 export function defaultCreateSession(path) {
   return postJSON('/api/new-session', { path });
 }
