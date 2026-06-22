@@ -6,6 +6,7 @@ import {
   buildTreeNodeMap,
   findNewestLeaf,
   flattenTree,
+  getGroupedPath,
   getPath,
 } from './session-tree.js';
 
@@ -119,5 +120,204 @@ describe('session tree helpers', () => {
     const flat = flattenTree(roots, buildActivePathIds('leaf', byId()));
     expect(flat.map((f) => f.node.entry.id)).toEqual(['root', 'new', 'leaf', 'old', 'orphan']);
     expect(buildTreePrefix(flat[1])).toContain('├');
+  });
+});
+
+describe('getGroupedPath memberIds', () => {
+  it('attaches memberIds with internal + terminal ids for grouped assistant', () => {
+    const path = [
+      {
+        id: 'think1',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'reasoning' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'tool1',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', name: 'read', input: {} }],
+        },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+      {
+        id: 'result1',
+        type: 'message',
+        message: { role: 'toolResult', content: 'ok' },
+        timestamp: '2026-01-01T00:02:00Z',
+      },
+      {
+        id: 'final',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+        timestamp: '2026-01-01T00:03:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped.length).toBe(1);
+    expect(grouped[0].id).toBe('think1');
+    expect(grouped[0].memberIds).toEqual(['think1', 'tool1', 'final']);
+  });
+
+  it('passes through a plain user entry with memberIds [id]', () => {
+    const path = [
+      {
+        id: 'user1',
+        type: 'message',
+        message: { role: 'user', content: 'hello' },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped.length).toBe(1);
+    expect(grouped[0].id).toBe('user1');
+    expect(grouped[0].memberIds).toEqual(['user1']);
+  });
+
+  it('builds orphan group with memberIds covering internal ids', () => {
+    const path = [
+      {
+        id: 'think2',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'working' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'tool2',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', name: 'write', input: {} }],
+        },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped.length).toBe(1);
+    expect(grouped[0].id).toBe('think2');
+    expect(grouped[0].memberIds).toEqual(['think2', 'tool2']);
+  });
+
+  it('terminal assistant with no pending blocks gets memberIds [self]', () => {
+    const path = [
+      {
+        id: 'solo',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hi' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped[0].id).toBe('solo');
+    expect(grouped[0].memberIds).toEqual(['solo']);
+  });
+
+  it('grouped turn id equals memberIds[0] (first source entry)', () => {
+    const path = [
+      {
+        id: 'a1',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'x' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'a2',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'toolCall', name: 'f', input: {} }] },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+      {
+        id: 'r1',
+        type: 'message',
+        message: { role: 'toolResult', content: 'ok' },
+        timestamp: '2026-01-01T00:02:00Z',
+      },
+      {
+        id: 'a3',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'result' }] },
+        timestamp: '2026-01-01T00:03:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped[0].id).toBe(grouped[0].memberIds[0]);
+    expect(grouped[0].id).toBe('a1');
+  });
+
+  it('orphan group id equals pendingIds[0]', () => {
+    const path = [
+      {
+        id: 'o1',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'y' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'o2',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'toolCall', name: 'g', input: {} }] },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+      {
+        id: 'u1',
+        type: 'message',
+        message: { role: 'user', content: 'hi' },
+        timestamp: '2026-01-01T00:02:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped[0].id).toBe('o1');
+    expect(grouped[0].memberIds).toEqual(['o1', 'o2']);
+  });
+
+  it('single-entry turn keeps its own id', () => {
+    const path = [
+      {
+        id: 'solo',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hi' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped[0].id).toBe('solo');
+  });
+
+  it('merged content blocks carry sourceId equal to originating entry id', () => {
+    const path = [
+      {
+        id: 'think3',
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'thinking', thinking: 'internal thought' }],
+        },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'final2',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'final answer' }] },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    const blocks = grouped[0].message.content;
+    expect(blocks[0].sourceId).toBe('think3');
+    expect(blocks[1].sourceId).toBe('final2');
+  });
+
+  it('terminal-only turn tags blocks with terminal sourceId', () => {
+    const path = [
+      {
+        id: 'term1',
+        type: 'message',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hello' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const grouped = getGroupedPath(path);
+    expect(grouped[0].message.content[0].sourceId).toBe('term1');
   });
 });

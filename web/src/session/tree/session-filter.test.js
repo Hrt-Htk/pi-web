@@ -117,7 +117,10 @@ describe('getGroupedPath', () => {
     ];
     const grouped = getGroupedPath(path);
     expect(grouped.map((e) => e.id)).toEqual(['u1', 'a1']);
-    expect(grouped[1].message.content).toEqual(path[1].message.content);
+    // content blocks now carry sourceId — check the meaningful fields
+    expect(grouped[1].message.content.map((b) => ({ type: b.type, text: b.text }))).toEqual(
+      path[1].message.content.map((b) => ({ type: b.type, text: b.text })),
+    );
   });
 
   it('merges consecutive internal assistant entries into the terminal', () => {
@@ -168,8 +171,9 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a3']);
-    // a3 should have collected thinking + toolCalls from a1 and a2
+    // grouped turn id is memberIds[0] (first internal), not terminal id
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a1']);
+    // a1 (stable turn) should have collected thinking + toolCalls from a1 and a2
     const merged = grouped[1].message.content;
     // Verify document order: think1, tool1, think2, tool2, text
     expect(merged.map((b) => b.type)).toEqual([
@@ -234,7 +238,7 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a3']);
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a1']);
     // Must be think1, tool1, think2, tool2, text — NOT think1,think2,tool1,tool2,text
     const merged = grouped[1].message.content;
     expect(merged.map((b) => b.type)).toEqual([
@@ -283,7 +287,7 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a2']);
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a1']);
     // toolResult tr1 should NOT appear in grouped path
     expect(grouped.find((e) => e.id === 'tr1')).toBeUndefined();
   });
@@ -343,8 +347,8 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    // custom entry passes through; a1 merges into a2 — one actions group
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'custom1', 'a2']);
+    // custom entry passes through; a1 merges into a2 — stable id is a1 (first source)
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'custom1', 'a1']);
     const merged = grouped[2].message.content;
     expect(merged.map((b) => b.type)).toEqual(['thinking', 'toolCall', 'thinking', 'text']);
     expect(merged[0].thinking).toBe('plan search');
@@ -377,8 +381,8 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    // model_change passes through — a1 merges into a2, NOT an orphan
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'mc1', 'a2']);
+    // model_change passes through — a1 merges into a2, stable id is a1 (first source)
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'mc1', 'a1']);
     const merged = grouped[2].message.content;
     expect(merged.map((b) => b.type)).toEqual(['thinking', 'text']);
     expect(merged[0].thinking).toBe('thinking...');
@@ -457,7 +461,7 @@ describe('getGroupedPath', () => {
       },
     ];
     const grouped = getGroupedPath(path);
-    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a3']);
+    expect(grouped.map((e) => e.id)).toEqual(['u1', 'a1']);
     const merged = grouped[1].message.content;
     // Internal blocks carry their source entry's timestamp
     expect(merged[0].timestamp).toBe('2026-01-01T09:01:00Z'); // think1 from a1

@@ -23,8 +23,10 @@
     stopRunningSpinner,
   } from '../../session/live/chat-preview.js';
   import { getSessionIdFromLocation, handleSessionReload } from '../../session/live/live-events.js';
+
   import { setupSessionLiveConnection } from '../../session/live/live-connection.js';
   import { createFollowScrollController } from '../../session/live/live-follow.js';
+  import { findNewEntryHighlightTargets } from '../../session/live/new-entry-highlight.js';
   import { updateStatsDom } from '../../session/live/live-stats.js';
   import { sessionRuntime } from '../../session/session-runtime.js';
   import { getSessionRuntime } from '../../session/session-runtime-context.js';
@@ -68,10 +70,7 @@
     }
     function highlightNewEntries(newIds) {
       requestAnimationFrame(() => {
-        newIds.forEach((id) => {
-          const el = documentImpl.getElementById('entry-' + id);
-          if (el) highlightNewEntry(el);
-        });
+        findNewEntryHighlightTargets(newIds, documentImpl).forEach(highlightNewEntry);
       });
     }
 

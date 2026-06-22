@@ -1944,6 +1944,11 @@
       position: relative;
     }
 
+    .assistant-group {
+      position: relative;
+      border-radius: 4px;
+    }
+
     .chat-pending-user {
       opacity: 0.88;
       border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
