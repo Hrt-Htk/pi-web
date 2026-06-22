@@ -147,9 +147,11 @@
             .join(' · ')}
           <details class="actions-group">
             <summary class="actions-summary"
-              ><span class="actions-connector">└─</span>{@html icon(ChevronRight, { size: 13 })}<span
-                class="actions-label">{t('session.actionsGroup')}</span
-              >{#if metaText}<span class="actions-meta">· {metaText}</span>{/if}</summary
+              ><span class="actions-connector">└─</span>{@html icon(ChevronRight, {
+                size: 13,
+              })}<span class="actions-label">{t('session.actionsGroup')}</span>{#if metaText}<span
+                  class="actions-meta">· {metaText}</span
+                >{/if}</summary
             >
             <div class="actions-items">
               {#each seg.items as item, i (i)}
