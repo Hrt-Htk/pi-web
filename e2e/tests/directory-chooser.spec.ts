@@ -91,18 +91,22 @@ test.describe("directory chooser", () => {
     const dirCount = await dirEntries.count();
 
     if (dirCount > 0) {
-      const firstDirName = await dirEntries
-        .first()
-        .locator(".entry-name").textContent();
+      const firstDirName = (
+        await dirEntries.first().locator(".entry-name").textContent()
+      )?.trim();
       await dirEntries.first().dblclick();
 
-      // Wait for new entries to load
-      await page.waitForTimeout(500);
-
-      // Breadcrumbs should now include the subdirectory
-      const breadcrumbs = page.locator(".breadcrumb-item");
-      const breadcrumbTexts = await breadcrumbs.allTextContents();
-      expect(breadcrumbTexts).toContain(firstDirName);
+      // Breadcrumbs should eventually include the subdirectory (the reload is
+      // async; poll instead of a fixed wait so slower engines pass too).
+      await expect
+        .poll(
+          async () =>
+            (await page.locator(".breadcrumb-item").allTextContents()).map(
+              (s) => s.trim(),
+            ),
+          { timeout: 10000 },
+        )
+        .toContain(firstDirName);
     }
   });
 
@@ -113,8 +117,10 @@ test.describe("directory chooser", () => {
     await page.locator("#newSessionBtn").click();
     await expect(page.locator("#modalOverlay")).toBeVisible();
 
-    // Recent locations container should be present
-    await expect(page.locator("#recentLocations")).toBeVisible();
+    // Recent location chips load asynchronously; wait for the first one.
+    await expect(page.locator(".recent-chip").first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test("clicking a recent chip sets the path", async ({ page }) => {
@@ -210,7 +216,9 @@ test.describe("directory chooser", () => {
     });
 
     // Verify session page elements are visible
-    await expect(page.locator("#pi-chat-composer")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#pi-chat-composer")).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test("keyboard navigation: arrow keys highlight entries", async ({
