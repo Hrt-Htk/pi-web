@@ -20,6 +20,14 @@
     return entries.filter((entry) => entry.name.toLowerCase().includes(q));
   });
 
+  // Default the selection to the directory currently shown whenever nothing is
+  // selected — e.g. when the modal reopens and the parent resets the bound path.
+  $effect(() => {
+    if (!selectedPath && currentPath) {
+      selectedPath = currentPath;
+    }
+  });
+
   onMount(() => {
     loadDrives();
     loadDirectory(currentPath);

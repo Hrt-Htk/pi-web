@@ -210,7 +210,7 @@ test.describe("directory chooser", () => {
     });
 
     // Verify session page elements are visible
-    await expect(page.locator(".session-view")).toBeVisible();
+    await expect(page.locator("#pi-chat-composer")).toBeVisible({ timeout: 15000 });
   });
 
   test("keyboard navigation: arrow keys highlight entries", async ({
