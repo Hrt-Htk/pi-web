@@ -180,6 +180,7 @@ export function flattenTree(roots, activePathIds) {
 export function getGroupedPath(path) {
   const grouped = [];
   let pendingBlocks = [];
+  let pendingIds = [];
   let lastAssistantEntry = null;
 
   for (let i = 0; i < path.length; i += 1) {
@@ -198,7 +199,7 @@ export function getGroupedPath(path) {
       const isInternal = hasToolCalls || !hasTextContent(msg.content);
 
       if (isInternal) {
-        // Collect thinking + text + toolCalls in document order, carrying source timestamp
+        // Collect thinking + text + toolCalls in document order, carrying source timestamp and sourceId
         if (Array.isArray(msg.content)) {
           for (const block of msg.content) {
             if (block.type === 'thinking' && block.thinking?.trim()) {
@@ -206,22 +207,42 @@ export function getGroupedPath(path) {
                 type: 'thinking',
                 thinking: block.thinking,
                 timestamp: entry.timestamp,
+                sourceId: entry.id,
               });
             } else if (block.type === 'text' && block.text?.trim()) {
-              pendingBlocks.push({ type: 'text', text: block.text, timestamp: entry.timestamp });
+              pendingBlocks.push({
+                type: 'text',
+                text: block.text,
+                timestamp: entry.timestamp,
+                sourceId: entry.id,
+              });
             } else if (block.type === 'toolCall') {
-              pendingBlocks.push({ ...block, timestamp: entry.timestamp });
+              pendingBlocks.push({ ...block, timestamp: entry.timestamp, sourceId: entry.id });
             }
           }
         }
+        pendingIds.push(entry.id);
       } else {
         // Terminal assistant — merge collected internal content into it
+        const memberIds = [...pendingIds, entry.id];
         if (pendingBlocks.length > 0) {
-          const mergedContent = mergeAssistantContent(msg.content, pendingBlocks);
-          grouped.push({ ...entry, message: { ...msg, content: mergedContent } });
+          const mergedContent = mergeAssistantContent(msg.content, pendingBlocks, entry.id);
+          grouped.push({
+            ...entry,
+            id: memberIds[0],
+            message: { ...msg, content: mergedContent },
+            memberIds,
+          });
           pendingBlocks = [];
+          pendingIds = [];
         } else {
-          grouped.push(entry);
+          const terminalContent = tagTerminalContent(msg.content, entry.id);
+          grouped.push({
+            ...entry,
+            id: memberIds[0],
+            message: { ...msg, content: terminalContent },
+            memberIds,
+          });
         }
       }
     } else if (msg?.role === 'toolResult') {
@@ -229,24 +250,25 @@ export function getGroupedPath(path) {
       if (pendingBlocks.length > 0) {
         continue;
       }
-      grouped.push(entry);
+      grouped.push({ ...entry, memberIds: [entry.id] });
     } else if (msg?.role === 'user') {
       // New human turn — flush any internal blocks that never reached a terminal, then the user msg
       if (pendingBlocks.length > 0) {
-        grouped.push(buildOrphanGroupEntry(lastAssistantEntry, pendingBlocks));
+        grouped.push(buildOrphanGroupEntry(lastAssistantEntry, pendingBlocks, pendingIds));
         pendingBlocks = [];
+        pendingIds = [];
       }
-      grouped.push(entry);
+      grouped.push({ ...entry, memberIds: [entry.id] });
     } else {
       // Any other entry mid-turn (custom hook, model_change, compaction, etc.) must NOT split the
       // group — pass it through and keep pendingBlocks alive for the upcoming terminal assistant.
-      grouped.push(entry);
+      grouped.push({ ...entry, memberIds: [entry.id] });
     }
   }
 
   // Flush remaining internal entries (no terminal found — e.g. session ended mid-tool-use)
   if (pendingBlocks.length > 0) {
-    grouped.push(buildOrphanGroupEntry(lastAssistantEntry, pendingBlocks));
+    grouped.push(buildOrphanGroupEntry(lastAssistantEntry, pendingBlocks, pendingIds));
   }
 
   return grouped;
@@ -256,31 +278,44 @@ export function getGroupedPath(path) {
  * Merge collected blocks from internal entries into a terminal assistant's
  * content, preserving document order.
  */
-function mergeAssistantContent(content, pendingBlocks) {
+function mergeAssistantContent(content, pendingBlocks, terminalEntryId) {
   const merged = [...pendingBlocks];
 
   if (typeof content === 'string') {
-    merged.push({ type: 'text', text: content });
+    merged.push({ type: 'text', text: content, sourceId: terminalEntryId });
   } else if (Array.isArray(content)) {
-    merged.push(...content);
+    for (const block of content) {
+      merged.push({ ...block, sourceId: terminalEntryId });
+    }
   }
 
   return merged;
+}
+
+function tagTerminalContent(content, terminalEntryId) {
+  if (typeof content === 'string') {
+    return [{ type: 'text', text: content, sourceId: terminalEntryId }];
+  }
+  if (Array.isArray(content)) {
+    return content.map((block) => ({ ...block, sourceId: terminalEntryId }));
+  }
+  return content;
 }
 
 /**
  * Build a synthetic assistant entry when internal entries have no terminal
  * to merge into (e.g. session ended mid-tool-use or non-assistant follows).
  */
-function buildOrphanGroupEntry(referenceEntry, pendingBlocks) {
+function buildOrphanGroupEntry(referenceEntry, pendingBlocks, pendingIds) {
   return {
-    id: referenceEntry?.id || 'grouped-orphan',
+    id: pendingIds[0] || referenceEntry?.id || 'grouped-orphan',
     type: 'message',
     message: {
       role: 'assistant',
       content: [...pendingBlocks],
     },
     timestamp: referenceEntry?.timestamp || '',
+    memberIds: [...pendingIds],
   };
 }
 

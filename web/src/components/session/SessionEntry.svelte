@@ -37,14 +37,21 @@
   );
 
   // Group non-text assistant blocks (thinking + toolCalls) into collapsible actions
-  // segments, interleaved with text segments, preserving document order.
+  // segments, interleaved with text segments, preserving document order. Each segment
+  // carries sourceIds (which raw entries its blocks came from) for data-entry-ids.
   const assistantSegments = $derived.by(() => {
     if (!msg || msg.role !== 'assistant') return [];
     const segments = [];
     let run = null;
     const flush = () => {
       if (run && run.length > 0) {
-        const seg = { kind: 'actions', items: run, timestamp: run[0].timestamp ?? entry.timestamp };
+        const sourceIds = [...new Set(run.map((item) => item.sourceId).filter(Boolean))];
+        const seg = {
+          kind: 'actions',
+          items: run,
+          timestamp: run[0].timestamp ?? entry.timestamp,
+          sourceIds,
+        };
         segments.push(seg);
         run = null;
       }
@@ -52,17 +59,24 @@
     for (const block of msg.content) {
       if (block.type === 'text' && block.text?.trim()) {
         flush();
+        const sourceId = block.sourceId ?? entry.id;
         segments.push({
           kind: 'text',
           text: block.text,
           timestamp: block.timestamp ?? entry.timestamp,
+          sourceIds: [sourceId],
         });
       } else if (block.type === 'thinking' && block.thinking?.trim()) {
         if (!run) run = [];
-        run.push({ type: 'thinking', text: block.thinking, timestamp: block.timestamp });
+        run.push({
+          type: 'thinking',
+          text: block.thinking,
+          timestamp: block.timestamp,
+          sourceId: block.sourceId,
+        });
       } else if (block.type === 'toolCall') {
         if (!run) run = [];
-        run.push({ type: 'toolCall', block, timestamp: block.timestamp });
+        run.push({ type: 'toolCall', block, timestamp: block.timestamp, sourceId: block.sourceId });
       }
     }
     flush();
@@ -112,48 +126,54 @@
     {@render actions(entry.id)}
     {#if assistantSegments.length === 0}{@render tsFor(entry.timestamp)}{/if}
     {#each assistantSegments as seg, segIndex (segIndex)}
-      {@render tsFor(seg.timestamp)}
-      {#if seg.kind === 'text'}
-        <div class="assistant-text markdown-content">{@html md(seg.text)}</div>
-      {:else}
-        {@const thinkingTokens = seg.items
-          .filter((i) => i.type === 'thinking')
-          .reduce((s, i) => s + Math.round(i.text.length / 4), 0)}
-        {@const toolCount = seg.items.filter((i) => i.type === 'toolCall').length}
-        {@const metaText = [
-          thinkingTokens > 0
-            ? `${formatCount(thinkingTokens)} ${t('session.actionsThinking')}`
-            : null,
-          toolCount > 0 ? `${toolCount} ${t('session.actionsTools')}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-        <details class="actions-group">
-          <summary class="actions-summary"
-            ><span class="actions-connector">└─</span>{@html icon(ChevronRight, { size: 13 })}<span
-              class="actions-label">{t('session.actionsGroup')}</span
-            >{#if metaText}<span class="actions-meta">· {metaText}</span>{/if}</summary
-          >
-          <div class="actions-items">
-            {#each seg.items as item, i (i)}
-              {@const conn = i === seg.items.length - 1 ? '└─' : '├─'}
-              <div class="actions-item">
-                <span class="actions-item-connector">{conn}</span>
-                <div class="actions-item-body">
-                  {#if item.type === 'thinking'}
-                    <div class="thinking-block">
-                      <div class="thinking-text">{item.text}</div>
-                      <div class="thinking-collapsed">Thinking ...</div>
-                    </div>
-                  {:else if item.type === 'toolCall'}
-                    <ToolCall call={item.block} {model} />
-                  {/if}
-                </div>
-              </div>
-            {/each}
+      <div class="assistant-group" data-entry-ids={seg.sourceIds.join(' ')}>
+        {@render tsFor(seg.timestamp)}
+        {#if seg.kind === 'text'}
+          <div class="assistant-text markdown-content">
+            {@html md(seg.text)}
           </div>
-        </details>
-      {/if}
+        {:else}
+          {@const thinkingTokens = seg.items
+            .filter((i) => i.type === 'thinking')
+            .reduce((s, i) => s + Math.round(i.text.length / 4), 0)}
+          {@const toolCount = seg.items.filter((i) => i.type === 'toolCall').length}
+          {@const metaText = [
+            thinkingTokens > 0
+              ? `${formatCount(thinkingTokens)} ${t('session.actionsThinking')}`
+              : null,
+            toolCount > 0 ? `${toolCount} ${t('session.actionsTools')}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          <details class="actions-group">
+            <summary class="actions-summary"
+              ><span class="actions-connector">└─</span>{@html icon(ChevronRight, {
+                size: 13,
+              })}<span class="actions-label">{t('session.actionsGroup')}</span>{#if metaText}<span
+                  class="actions-meta">· {metaText}</span
+                >{/if}</summary
+            >
+            <div class="actions-items">
+              {#each seg.items as item, i (i)}
+                {@const conn = i === seg.items.length - 1 ? '└─' : '├─'}
+                <div class="actions-item">
+                  <span class="actions-item-connector">{conn}</span>
+                  <div class="actions-item-body">
+                    {#if item.type === 'thinking'}
+                      <div class="thinking-block">
+                        <div class="thinking-text">{item.text}</div>
+                        <div class="thinking-collapsed">Thinking ...</div>
+                      </div>
+                    {:else if item.type === 'toolCall'}
+                      <ToolCall call={item.block} {model} />
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </details>
+        {/if}
+      </div>
     {/each}
     {#if msg.stopReason === 'aborted'}<div class="error-text">
         Aborted

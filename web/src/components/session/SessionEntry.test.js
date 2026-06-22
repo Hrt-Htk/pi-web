@@ -18,7 +18,7 @@ describe('SessionEntry', () => {
     expect(node.textContent).toContain('hello');
   });
 
-  it('renders an assistant message', () => {
+  it('renders an assistant message wrapped in assistant-group', () => {
     const entry = {
       id: 'a',
       type: 'message',
@@ -28,6 +28,37 @@ describe('SessionEntry', () => {
     const node = container.querySelector('#entry-a');
     expect(node).toHaveClass('assistant-message');
     expect(node.textContent).toContain('hi');
+
+    const group = container.querySelector('.assistant-group');
+    expect(group).not.toBeNull();
+    expect(group.getAttribute('data-entry-ids')).toBe('a');
+
+    const textEl = group.querySelector('.assistant-text');
+    expect(textEl).not.toBeNull();
+    expect(textEl.getAttribute('data-entry-ids')).toBeNull();
+  });
+
+  it('renders actions segments inside assistant-group without data-entry-ids on details', () => {
+    const entry = {
+      id: 'a',
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'thinking...', sourceId: 'a' },
+          { type: 'toolCall', toolCallId: 'tc1', name: 'test', input: {}, sourceId: 'a' },
+        ],
+      },
+    };
+    const { container } = render(SessionEntry, { props: { entry, model: model([entry]) } });
+
+    const group = container.querySelector('.assistant-group');
+    expect(group).not.toBeNull();
+    expect(group.getAttribute('data-entry-ids')).toBe('a');
+
+    const details = group.querySelector('.actions-group');
+    expect(details).not.toBeNull();
+    expect(details.getAttribute('data-entry-ids')).toBeNull();
   });
 
   it('renders nothing for tool-result entries', () => {

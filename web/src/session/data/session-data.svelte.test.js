@@ -216,7 +216,8 @@ describe('SessionDataModel', () => {
     // activePath has all 4 entries
     expect(m.activePath.map((e) => e.id)).toEqual(['u1', 'a1', 'tr1', 'a2']);
     // groupedPath collapses a1 (internal) + tr1 (toolResult) into a2 (terminal)
-    expect(m.groupedPath.map((e) => e.id)).toEqual(['u1', 'a2']);
+    // stable id is a1 (first source entry)
+    expect(m.groupedPath.map((e) => e.id)).toEqual(['u1', 'a1']);
     // a2 should have the collected thinking from a1
     const merged = m.groupedPath[1].message.content;
     expect(merged.some((b) => b.type === 'thinking')).toBe(true);
