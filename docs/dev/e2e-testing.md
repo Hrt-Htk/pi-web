@@ -8,6 +8,20 @@ and chat — across desktop, mobile, and iPad viewports.
 It is intentionally **not** part of `make test` / `make check`: it needs browser
 binaries and a running server, so it runs as its own target and CI job.
 
+## For Issue Resolution
+
+When resolving an issue, follow the [Issue Resolution Guide](issue-resolution.md)
+for the full step-by-step process. Key E2E requirements:
+
+- **Every UI-visible change** gets an E2E spec + screenshots
+- **Spec naming:** `e2e/tests/issueN-short-name.spec.ts`
+- **Screenshot naming:** `e2e/.shots/issueN-{desktop|mobile}-{state}.png`
+- **Minimum coverage:** Desktop (Chrome) + Mobile (Pixel 5) for layout-sensitive changes
+- **Screenshot helper pattern:** see [Screenshot Rules](issue-resolution.md#screenshot-rules)
+
+See `e2e/tests/issue11-autoexpand.spec.ts` and `e2e/tests/git-status-project-header.spec.ts`
+for concrete examples.
+
 ## Quick start
 
 ```bash
