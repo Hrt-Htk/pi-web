@@ -47,4 +47,13 @@ If this PR touches session rendering, remember pi-web has two render paths
 - [ ] `make check` passes (test + build + vet)
 - [ ] Frontend tests (`vitest`) cover the change
 - [ ] Go tests (`go test ./...`) cover the change
-- [ ] UI changes verified in a browser
+
+## E2E Testing
+
+<!-- See [Issue Resolution Guide](docs/dev/issue-resolution.md) for requirements. -->
+
+- [ ] `make e2e` passes
+- [ ] New E2E spec added (if UI-visible change) — path: `e2e/tests/issueN-*.spec.ts`
+- [ ] Screenshots captured in `e2e/.shots/issueN-*.png`
+- [ ] Screenshots reviewed for visual correctness (headed mode)
+- [ ] Screenshots pasted in PR body (if UI-visible change)
