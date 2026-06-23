@@ -20,14 +20,25 @@
 <script>
   import { splitOutputLines } from '../../session/render/entry-format.js';
 
-  let { text = '', maxLines = 10, lang = null } = $props();
+  let { text = '', maxLines = 10, lang = null, full = false } = $props();
 
   const split = $derived(splitOutputLines(text, maxLines));
   const expandable = $derived(split.remaining > 0);
   const collapsedRemaining = $derived(split.lines.length - 1);
 </script>
 
-{#if lang}
+{#if full}
+  {#if lang}
+    <div class="tool-output">
+      <pre><code class="hljs" data-highlight-pending data-lang={lang}>{split.lines.join('\n')}</code
+        ></pre>
+    </div>
+  {:else}
+    <div class="tool-output">
+      {#each split.lines as line, lineIndex (lineIndex)}<div>{line}</div>{/each}
+    </div>
+  {/if}
+{:else if lang}
   {#if expandable}
     <div
       class="tool-output expandable"

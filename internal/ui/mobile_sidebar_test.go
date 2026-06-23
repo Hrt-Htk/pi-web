@@ -69,18 +69,3 @@ func TestMobileSessionActionsStayAtTopAndHideBehindSidebar(t *testing.T) {
 		t.Fatalf("mobile header bar should use top positioning, not bottom, to avoid overlapping chat composer")
 	}
 }
-
-func TestMobileSessionActionsDoNotCoverHeaderToggleButtons(t *testing.T) {
-	checks := []string{
-		"padding: calc(52px + env(safe-area-inset-top) + 8px)",
-		".header-toggle-btn",
-		"data-action=\"toggle-thinking\"",
-		"data-action=\"toggle-tools\"",
-	}
-	combined := liveSessionCss + exportJs
-	for _, check := range checks {
-		if !strings.Contains(combined, check) {
-			t.Fatalf("mobile session header controls missing %q; fixed session actions can cover toggle buttons", check)
-		}
-	}
-}

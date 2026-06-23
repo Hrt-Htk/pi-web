@@ -28,12 +28,9 @@ function mount(overrides = {}) {
 }
 
 describe('SessionInfoHeader', () => {
-  it('renders session id, stats and the toggle/download buttons', () => {
+  it('renders session id, stats and the download button', () => {
     const { container } = mount();
     expect(screen.getByText('Session: sid-123')).toBeInTheDocument();
-    expect(container.querySelector('[data-action="toggle-thinking"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-action="toggle-tools"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-action="toggle-tool-output"]')).toBeInTheDocument();
     expect(container.querySelector('.download-json-btn')).toBeInTheDocument();
     // messages summary reflects the entries
     expect(container.textContent).toContain('1 user, 1 assistant');

@@ -5,12 +5,13 @@
   // keeps its `entry-<id>` anchor so annotation offsets + scroll/toggle survive.
   // Shared by the live app and the static export (model passed as a prop).
   import { marked } from 'marked';
-  import { icon, ChevronRight, GitFork, Link2, Tag } from '../../shared/icons.js';
+  import { icon, GitFork, Link2, Tag } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { formatTimestamp } from '../../session/render/entry-format.js';
-  import ToolCall from './ToolCall.svelte';
+  import { chipsFromItems } from '../../session/render/tool-summary.js';
   import ToolOutput from './ToolOutput.svelte';
+  import ToolChip from './ToolChip.svelte';
 
   // `live` (passed from <SessionContent>) gates the fork/label buttons, which
   // need the chat composer; copy-link is always shown. The static export passes
@@ -82,10 +83,6 @@
     flush();
     return segments;
   });
-
-  function formatCount(n) {
-    return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
-  }
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG and rendered session markdown -->
@@ -133,45 +130,9 @@
             {@html md(seg.text)}
           </div>
         {:else}
-          {@const thinkingTokens = seg.items
-            .filter((i) => i.type === 'thinking')
-            .reduce((s, i) => s + Math.round(i.text.length / 4), 0)}
-          {@const toolCount = seg.items.filter((i) => i.type === 'toolCall').length}
-          {@const metaText = [
-            thinkingTokens > 0
-              ? `${formatCount(thinkingTokens)} ${t('session.actionsThinking')}`
-              : null,
-            toolCount > 0 ? `${toolCount} ${t('session.actionsTools')}` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-          <details class="actions-group">
-            <summary class="actions-summary"
-              ><span class="actions-connector">└─</span>{@html icon(ChevronRight, {
-                size: 13,
-              })}<span class="actions-label">{t('session.actionsGroup')}</span>{#if metaText}<span
-                  class="actions-meta">· {metaText}</span
-                >{/if}</summary
-            >
-            <div class="actions-items">
-              {#each seg.items as item, i (i)}
-                {@const conn = i === seg.items.length - 1 ? '└─' : '├─'}
-                <div class="actions-item">
-                  <span class="actions-item-connector">{conn}</span>
-                  <div class="actions-item-body">
-                    {#if item.type === 'thinking'}
-                      <div class="thinking-block">
-                        <div class="thinking-text">{item.text}</div>
-                        <div class="thinking-collapsed">Thinking ...</div>
-                      </div>
-                    {:else if item.type === 'toolCall'}
-                      <ToolCall call={item.block} {model} />
-                    {/if}
-                  </div>
-                </div>
-              {/each}
-            </div>
-          </details>
+          {#each chipsFromItems(seg.items) as chip (chip.sourceIds.join(' '))}
+            <ToolChip {chip} {model} />
+          {/each}
         {/if}
       </div>
     {/each}
