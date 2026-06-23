@@ -47,15 +47,18 @@
 <div class="tool-execution {statusClass}" id={resultEntry ? `entry-${resultEntry.id}` : undefined}>
   {#if call.name === 'bash'}
     {@const command = str(args.command)}
+    {#if fullOutput}
+      <div class="bash-section-label">Command</div>
+    {/if}
     <div class="tool-command">
-      $ {#if command === null}<span class="tool-error">[invalid arg]</span>{:else}{command ||
+      {#if fullOutput}{:else}$
+      {/if}{#if command === null}<span class="tool-error">[invalid arg]</span>{:else}{command ||
           '...'}{/if}
     </div>
-    {#if result && resultText.trim()}<ToolOutput
-        text={resultText.trim()}
-        maxLines={5}
-        full={fullOutput}
-      />{/if}
+    {#if result && resultText.trim()}
+      {#if fullOutput}<div class="bash-section-label">Output</div>{/if}
+      <ToolOutput text={resultText.trim()} maxLines={5} full={fullOutput} />
+    {/if}
   {:else if call.name === 'read'}
     <div class="tool-header">
       <span class="tool-name">read</span>
@@ -117,16 +120,36 @@
       >
     </div>
     {#if result?.details?.diff}
+      {@const diffLines = result.details.diff.split('\n')}
       <div class="tool-diff">
-        {#each result.details.diff.split('\n') as line, lineIndex (lineIndex)}<div
-            class={line.match(/^\+/)
-              ? 'diff-added'
-              : line.match(/^-/)
-                ? 'diff-removed'
-                : 'diff-context'}
-          >
-            {line.replace(/\t/g, '   ')}
-          </div>{/each}
+        {#if fullOutput}
+          <div class="code-with-gutter">
+            <div class="code-gutter">
+              {#each diffLines as _line, i (i)}<span>{i + 1}</span>{/each}
+            </div>
+            <div class="tool-diff-lines">
+              {#each diffLines as line, lineIndex (lineIndex)}<div
+                  class={line.match(/^\+/)
+                    ? 'diff-added'
+                    : line.match(/^-/)
+                      ? 'diff-removed'
+                      : 'diff-context'}
+                >
+                  {line.replace(/\t/g, '   ')}
+                </div>{/each}
+            </div>
+          </div>
+        {:else}
+          {#each diffLines as line, lineIndex (lineIndex)}<div
+              class={line.match(/^\+/)
+                ? 'diff-added'
+                : line.match(/^-/)
+                  ? 'diff-removed'
+                  : 'diff-context'}
+            >
+              {line.replace(/\t/g, '   ')}
+            </div>{/each}
+        {/if}
       </div>
     {:else if result && resultText.trim()}<div class="tool-output">
         <pre>{resultText.trim()}</pre>

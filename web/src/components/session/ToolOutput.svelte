@@ -30,8 +30,14 @@
 {#if full}
   {#if lang}
     <div class="tool-output">
-      <pre><code class="hljs" data-highlight-pending data-lang={lang}>{split.lines.join('\n')}</code
-        ></pre>
+      <div class="code-with-gutter">
+        <div class="code-gutter">
+          {#each split.lines as _line, i (i)}<span>{i + 1}</span>{/each}
+        </div>
+        <pre><code class="hljs" data-highlight-pending data-lang={lang}
+            >{split.lines.join('\n')}</code
+          ></pre>
+      </div>
     </div>
   {:else}
     <div class="tool-output">
