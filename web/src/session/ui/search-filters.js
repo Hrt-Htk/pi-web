@@ -50,10 +50,6 @@ export function isEditableTarget(element) {
 export function setupSessionKeyboardShortcuts({
   documentImpl = document,
   clearSearch,
-  toggleActionsGrouped,
-  toggleThinking,
-  toggleToolsVisibility,
-  toggleToolOutputs,
   isEditableTargetImpl = isEditableTarget,
 } = {}) {
   documentImpl.addEventListener('keydown', (e) => {
@@ -63,25 +59,6 @@ export function setupSessionKeyboardShortcuts({
         return;
       }
       clearSearch();
-    }
-
-    if (isEditableTargetImpl(documentImpl.activeElement)) {
-      return;
-    }
-
-    const key = e.key.toLowerCase();
-    if (key === 'g') {
-      e.preventDefault();
-      toggleActionsGrouped();
-    } else if (key === 't') {
-      e.preventDefault();
-      toggleThinking();
-    } else if (key === 'o') {
-      e.preventDefault();
-      toggleToolsVisibility();
-    } else if (key === 'p') {
-      e.preventDefault();
-      toggleToolOutputs();
     }
   });
 }

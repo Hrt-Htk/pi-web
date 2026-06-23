@@ -128,9 +128,9 @@ describe('findNewEntryHighlightTargets', () => {
       if (innerText) {
         expect(innerText.getAttribute('data-entry-ids')).toBeNull();
       }
-      const innerActions = group.querySelector('.actions-group');
-      if (innerActions) {
-        expect(innerActions.getAttribute('data-entry-ids')).toBeNull();
+      const innerChip = group.querySelector('.tool-chip');
+      if (innerChip) {
+        expect(innerChip.getAttribute('data-entry-ids')).toBeNull();
       }
     }
   });

@@ -38,7 +38,7 @@ describe('SessionEntry', () => {
     expect(textEl.getAttribute('data-entry-ids')).toBeNull();
   });
 
-  it('renders actions segments inside assistant-group without data-entry-ids on details', () => {
+  it('renders tool chips inside assistant-group without data-entry-ids on chip', () => {
     const entry = {
       id: 'a',
       type: 'message',
@@ -46,7 +46,7 @@ describe('SessionEntry', () => {
         role: 'assistant',
         content: [
           { type: 'thinking', thinking: 'thinking...', sourceId: 'a' },
-          { type: 'toolCall', toolCallId: 'tc1', name: 'test', input: {}, sourceId: 'a' },
+          { type: 'toolCall', id: 'tc1', name: 'read', arguments: {}, sourceId: 'a' },
         ],
       },
     };
@@ -56,9 +56,10 @@ describe('SessionEntry', () => {
     expect(group).not.toBeNull();
     expect(group.getAttribute('data-entry-ids')).toBe('a');
 
-    const details = group.querySelector('.actions-group');
-    expect(details).not.toBeNull();
-    expect(details.getAttribute('data-entry-ids')).toBeNull();
+    const chip = group.querySelector('.tool-chip');
+    expect(chip).not.toBeNull();
+    expect(chip.tagName).toBe('BUTTON');
+    expect(chip.getAttribute('data-entry-ids')).toBeNull();
   });
 
   it('renders nothing for tool-result entries', () => {

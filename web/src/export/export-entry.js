@@ -28,11 +28,9 @@ import SessionContent from '../components/session/SessionContent.svelte';
 import ImageModal from '../components/session/ImageModal.svelte';
 import { SessionDataModel } from '../session/data/session-data.svelte.js';
 import { createSessionNavigator } from '../session/navigation/session-navigation.js';
-import * as toggleStateApi from '../session/ui/toggle-state.js';
 import * as sidebarApi from '../session/ui/sidebar.js';
 import * as searchFiltersApi from '../session/ui/search-filters.js';
 import { setupSessionUi } from '../session/ui/session-ui-runner.js';
-import { sessionRuntime } from '../session/session-runtime.js';
 import { setupKeyboardNav } from '../shared/keyboard-nav.js';
 
 // In a sandboxed iframe (e.g. a srcdoc preview without `allow-same-origin`),
@@ -153,7 +151,6 @@ export function runExportApp({ target = window } = {}) {
     markdownApi: { configureSessionMarkdown, safeMarkedParse },
     searchFiltersApi,
     sidebarApi,
-    toggleStateApi,
     getLeafId: () => dataModel.leafId,
     setSearchQuery: (value) => {
       searchQuery = value;
@@ -192,7 +189,6 @@ export function runExportApp({ target = window } = {}) {
       props: {
         model: treeModel,
         afterRender: (container) => {
-          sessionRuntime.toggleState?.applyToNode(container);
           highlightPending(container);
         },
       },
@@ -223,8 +219,6 @@ export function runExportApp({ target = window } = {}) {
   if (headerEl) {
     mount(SessionInfoHeader, { target: headerEl, props: { model: treeModel } });
   }
-  ui.attachHeaderHandlers();
-
   setupKeyboardNav({ windowImpl: target, documentImpl });
   const imageModalHost = documentImpl.getElementById('image-modal-host');
   if (imageModalHost) mount(ImageModal, { target: imageModalHost });

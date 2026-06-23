@@ -6,7 +6,6 @@ import { configureSessionMarkdown, safeMarkedParse } from '../render/markdown.js
 import { setupSessionUi } from '../ui/session-ui-runner.js';
 import * as sidebarApi from '../ui/sidebar.js';
 import * as searchFiltersApi from '../ui/search-filters.js';
-import * as toggleStateApi from '../ui/toggle-state.js';
 import { configureSettingsSync, hydrateSettings } from '../../shared/settings-store.js';
 import { getSessionRuntime } from '../session-runtime-context.js';
 
@@ -46,7 +45,6 @@ export function startSessionPageRuntime({
     markdownApi: { configureSessionMarkdown, safeMarkedParse },
     searchFiltersApi,
     sidebarApi,
-    toggleStateApi,
     getLeafId: () => model.leafId,
     setSearchQuery: (value) => {
       model.searchQuery = value;
@@ -59,7 +57,6 @@ export function startSessionPageRuntime({
   });
 
   sessionRuntime.layout = { isMobileLayout: ui.isMobileLayout, closeSidebar: ui.closeSidebar };
-  ui.attachHeaderHandlers();
   navigateTo(
     model.currentLeafId,
     model.urlTargetId ? 'target' : 'bottom',

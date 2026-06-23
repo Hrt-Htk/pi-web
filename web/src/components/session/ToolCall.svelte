@@ -6,10 +6,11 @@
   // the `entry-<resultId>` anchor so annotations + scroll still work.
   import { shortenPath } from '../../session/render/session-format.js';
   import { getLanguageFromPath, str } from '../../session/render/entry-format.js';
+  import { resolveToolStatus } from '../../session/render/tool-summary.js';
   import ToolOutput, { toggleExpanded } from './ToolOutput.svelte';
   import AskQuestion from './AskQuestion.svelte';
 
-  let { call, model } = $props();
+  let { call, model, fullOutput = false } = $props();
 
   const resultEntry = $derived.by(() => {
     for (const entry of model?.entries || []) {
@@ -23,7 +24,7 @@
     return null;
   });
   const result = $derived(resultEntry?.message || null);
-  const statusClass = $derived(result ? (result.isError ? 'error' : 'success') : 'pending');
+  const statusClass = $derived(resolveToolStatus(model, call.id));
   const args = $derived(call.arguments || {});
 
   const resultText = $derived(
@@ -50,7 +51,11 @@
       $ {#if command === null}<span class="tool-error">[invalid arg]</span>{:else}{command ||
           '...'}{/if}
     </div>
-    {#if result && resultText.trim()}<ToolOutput text={resultText.trim()} maxLines={5} />{/if}
+    {#if result && resultText.trim()}<ToolOutput
+        text={resultText.trim()}
+        maxLines={5}
+        full={fullOutput}
+      />{/if}
   {:else if call.name === 'read'}
     <div class="tool-header">
       <span class="tool-name">read</span>
@@ -76,6 +81,7 @@
           text={resultText}
           maxLines={10}
           lang={filePath ? getLanguageFromPath(filePath) : null}
+          full={fullOutput}
         />{/if}
     {/if}
   {:else if call.name === 'write'}
@@ -96,6 +102,7 @@
         text={content}
         maxLines={10}
         lang={filePath ? getLanguageFromPath(filePath) : null}
+        full={fullOutput}
       />{/if}
     {#if result && resultText.trim()}<div class="tool-output">
         <div>{resultText.trim()}</div>
@@ -133,7 +140,11 @@
           <span class="line-count">(limit {args.limit})</span>{/if}</span
       >
     </div>
-    {#if result && resultText.trim()}<ToolOutput text={resultText.trim()} maxLines={20} />{/if}
+    {#if result && resultText.trim()}<ToolOutput
+        text={resultText.trim()}
+        maxLines={20}
+        full={fullOutput}
+      />{/if}
   {:else if call.name === 'ask_user_question' || call.name === 'pi_web_ask_user_question'}
     <AskQuestion {args} {result} />
   {:else if rendered && (rendered.callHtml || rendered.resultHtmlCollapsed || rendered.resultHtmlExpanded)}
@@ -151,10 +162,14 @@
       </div>
     {:else if rendered.resultHtmlExpanded}
       <div class="tool-output ansi-rendered">{@html rendered.resultHtmlExpanded}</div>
-    {:else if result && resultText}<ToolOutput text={resultText} maxLines={10} />{/if}
+    {:else if result && resultText}<ToolOutput
+        text={resultText}
+        maxLines={10}
+        full={fullOutput}
+      />{/if}
   {:else}
     <div class="tool-header"><span class="tool-name">{call.name}</span></div>
     <div class="tool-output"><pre>{JSON.stringify(args, null, 2)}</pre></div>
-    {#if result && resultText}<ToolOutput text={resultText} maxLines={10} />{/if}
+    {#if result && resultText}<ToolOutput text={resultText} maxLines={10} full={fullOutput} />{/if}
   {/if}
 </div>

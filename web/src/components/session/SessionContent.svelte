@@ -7,6 +7,7 @@
   // imperative layer still owns. Shared by the live app + the static export.
   import { getSessionModel } from '../../session/session-context.js';
   import SessionEntry from './SessionEntry.svelte';
+  import ToolDetail from './ToolDetail.svelte';
 
   let { model = getSessionModel(), afterRender = null, live = false } = $props();
 
@@ -26,3 +27,4 @@
     <SessionEntry {entry} {model} {live} />
   {/each}
 </div>
+<ToolDetail />
