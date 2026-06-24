@@ -8,6 +8,7 @@
     resolveToolStatus,
     resolveToolResult,
     diffStat,
+    aggregateStatus,
   } from '../../session/render/tool-summary.js';
   import { str } from '../../session/render/entry-format.js';
   import { shortenPath } from '../../session/render/session-format.js';
@@ -150,7 +151,18 @@
     >
       <div class="tool-sheet-handle" role="presentation"></div>
       <div class="tool-sheet-header">
-        <div class="tool-sheet-title">{sheet.summary}</div>
+        <div class="tool-sheet-header-center">
+          <div class="tool-sheet-title">{sheet.summary}</div>
+          <div class="tool-sheet-subtitle">
+            {#if aggregateStatus(sheet.chip.tools, sheet.model) === 'success'}
+              Completed
+            {:else if aggregateStatus(sheet.chip.tools, sheet.model) === 'pending'}
+              Running
+            {:else}
+              Failed
+            {/if}
+          </div>
+        </div>
         <button
           class="tool-sheet-close"
           aria-label={t('session.toolSheetClose')}
