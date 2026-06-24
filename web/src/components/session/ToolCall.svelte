@@ -159,9 +159,7 @@
           <span class="line-count">(limit {args.limit})</span>{/if}</span
       >
     </div>
-    {#if result && resultText.trim()}<ToolOutput
-        text={resultText.trim()}
-      />{/if}
+    {#if result && resultText.trim()}<ToolOutput text={resultText.trim()} />{/if}
   {:else if call.name === 'ask_user_question' || call.name === 'pi_web_ask_user_question'}
     <AskQuestion {args} {result} />
   {:else if rendered && (rendered.callHtml || rendered.resultHtmlCollapsed || rendered.resultHtmlExpanded)}
@@ -179,9 +177,7 @@
       </div>
     {:else if rendered.resultHtmlExpanded}
       <div class="tool-output ansi-rendered">{@html rendered.resultHtmlExpanded}</div>
-    {:else if result && resultText}<ToolOutput
-        text={resultText}
-      />{/if}
+    {:else if result && resultText}<ToolOutput text={resultText} />{/if}
   {:else}
     <div class="tool-header"><span class="tool-name">{call.name}</span></div>
     <div class="tool-output"><pre>{JSON.stringify(args, null, 2)}</pre></div>
