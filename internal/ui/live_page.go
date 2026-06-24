@@ -122,7 +122,7 @@ func renderLiveDocumentStart(data liveDocumentData) string {
 		b.WriteByte('\n')
 	}
 	b.WriteString("<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icon.svg\">\n")
-	b.WriteString("<link rel=\"apple-touch-icon\" href=\"/icon.svg\">\n")
+	b.WriteString("<link rel=\"apple-touch-icon\" href=\"/icon-192.png\">\n")
 	b.WriteString("<link rel=\"manifest\" href=\"/manifest.webmanifest\">\n")
 	b.WriteString("<meta name=\"theme-color\" content=\"#0e0e13\">\n")
 	b.WriteString("<meta name=\"mobile-web-app-capable\" content=\"yes\">\n")

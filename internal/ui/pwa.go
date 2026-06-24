@@ -16,8 +16,17 @@ var swJS string
 //go:embed embedded/assets/icon.svg
 var iconSVG string
 
-//go:embed embedded/assets/icon-maskable.svg
-var iconMaskableSVG string
+//go:embed embedded/assets/icon-192.png
+var icon192PNG []byte
+
+//go:embed embedded/assets/icon-512.png
+var icon512PNG []byte
+
+//go:embed embedded/assets/icon-maskable-192.png
+var iconMaskable192PNG []byte
+
+//go:embed embedded/assets/icon-maskable-512.png
+var iconMaskable512PNG []byte
 
 //go:embed embedded/assets/pi-logo.svg
 var piLogoSVG string
@@ -61,10 +70,25 @@ func RegisterPWAHandlers(mux *http.ServeMux) {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		_, _ = w.Write([]byte(iconSVG))
 	})
-	mux.HandleFunc("/icon-maskable.svg", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/svg+xml")
+	mux.HandleFunc("/icon-192.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
 		w.Header().Set("Cache-Control", "public, max-age=86400")
-		_, _ = w.Write([]byte(iconMaskableSVG))
+		_, _ = w.Write(icon192PNG)
+	})
+	mux.HandleFunc("/icon-512.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		_, _ = w.Write(icon512PNG)
+	})
+	mux.HandleFunc("/icon-maskable-192.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		_, _ = w.Write(iconMaskable192PNG)
+	})
+	mux.HandleFunc("/icon-maskable-512.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		_, _ = w.Write(iconMaskable512PNG)
 	})
 	mux.HandleFunc("/pi-logo.svg", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")
