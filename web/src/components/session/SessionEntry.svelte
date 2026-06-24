@@ -151,7 +151,7 @@
   >
     {@render timestamp()}
     <div class="tool-command">$ {msg.command}</div>
-    {#if msg.output}<ToolOutput text={msg.output} maxLines={10} />{/if}
+    {#if msg.output}<ToolOutput text={msg.output} />{/if}
     {#if msg.cancelled}<div style="color: var(--warning)">
         (cancelled)
       </div>{:else if msg.exitCode !== 0 && msg.exitCode !== null}<div style="color: var(--error)">

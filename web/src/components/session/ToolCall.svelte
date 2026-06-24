@@ -57,7 +57,7 @@
     </div>
     {#if result && resultText.trim()}
       {#if fullOutput}<div class="bash-section-label">Output</div>{/if}
-      <ToolOutput text={resultText.trim()} maxLines={5} full={fullOutput} />
+      <ToolOutput text={resultText.trim()} />
     {/if}
   {:else if call.name === 'read'}
     <div class="tool-header">
@@ -82,9 +82,7 @@
         </div>{/if}
       {#if resultText}<ToolOutput
           text={resultText}
-          maxLines={10}
           lang={filePath ? getLanguageFromPath(filePath) : null}
-          full={fullOutput}
         />{/if}
     {/if}
   {:else if call.name === 'write'}
@@ -103,9 +101,7 @@
         [invalid content arg - expected string]
       </div>{:else if content}<ToolOutput
         text={content}
-        maxLines={10}
         lang={filePath ? getLanguageFromPath(filePath) : null}
-        full={fullOutput}
       />{/if}
     {#if result && resultText.trim()}<div class="tool-output">
         <div>{resultText.trim()}</div>
@@ -165,8 +161,6 @@
     </div>
     {#if result && resultText.trim()}<ToolOutput
         text={resultText.trim()}
-        maxLines={20}
-        full={fullOutput}
       />{/if}
   {:else if call.name === 'ask_user_question' || call.name === 'pi_web_ask_user_question'}
     <AskQuestion {args} {result} />
@@ -187,12 +181,10 @@
       <div class="tool-output ansi-rendered">{@html rendered.resultHtmlExpanded}</div>
     {:else if result && resultText}<ToolOutput
         text={resultText}
-        maxLines={10}
-        full={fullOutput}
       />{/if}
   {:else}
     <div class="tool-header"><span class="tool-name">{call.name}</span></div>
     <div class="tool-output"><pre>{JSON.stringify(args, null, 2)}</pre></div>
-    {#if result && resultText}<ToolOutput text={resultText} maxLines={10} full={fullOutput} />{/if}
+    {#if result && resultText}<ToolOutput text={resultText} />{/if}
   {/if}
 </div>

@@ -2,25 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { splitOutputLines } from './entry-format.js';
 
 describe('splitOutputLines', () => {
-  it('returns collapsed length 1, preview length 10, remaining 2, lines length 12 for 12-line input with maxLines=10', () => {
+  it('splits multi-line text into an array of lines', () => {
     const text = Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n');
-    const result = splitOutputLines(text, 10);
-    expect(result.collapsed.length).toBe(1);
-    expect(result.preview.length).toBe(10);
-    expect(result.remaining).toBe(2);
+    const result = splitOutputLines(text);
     expect(result.lines.length).toBe(12);
   });
 
-  it('collapsed[0] equals the first line text', () => {
-    const text = 'first line\nsecond line\nthird line';
-    const result = splitOutputLines(text, 10);
-    expect(result.collapsed[0]).toBe('first line');
+  it('replaces tabs with spaces', () => {
+    const text = 'hello\tworld';
+    const result = splitOutputLines(text);
+    expect(result.lines[0]).toBe('hello   world');
   });
 
-  it('returns remaining = -7 and collapsed length 1 for 3-line input with maxLines=10', () => {
-    const text = 'a\nb\nc';
-    const result = splitOutputLines(text, 10);
-    expect(result.remaining).toBe(-7);
-    expect(result.collapsed.length).toBe(1);
+  it('handles single-line input', () => {
+    const text = 'single line';
+    const result = splitOutputLines(text);
+    expect(result.lines).toEqual(['single line']);
   });
 });

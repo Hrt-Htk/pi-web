@@ -67,13 +67,10 @@ export function getLanguageFromPath(filePath) {
 }
 
 // Split text into the first `maxLines` preview lines + the remaining count.
-export function splitOutputLines(text, maxLines) {
+export function splitOutputLines(text) {
   const replaced = replaceTabs(text);
   const lines = replaced.split('\n');
   return {
     lines,
-    collapsed: lines.slice(0, 1),
-    preview: lines.slice(0, maxLines),
-    remaining: lines.length - maxLines,
   };
 }
