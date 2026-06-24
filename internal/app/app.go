@@ -54,7 +54,7 @@ func Main(version string) {
 	}
 
 	bindHost := chooseBindHost(*hostOverride)
-	token := os.Getenv(tokenEnvVar)
+	token := tokenFromEnv()
 	tokenRequired := token == "" && !isLoopbackHost(bindHost) && !*insecure
 	if tokenRequired {
 		fmt.Fprintf(os.Stderr,
