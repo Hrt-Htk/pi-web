@@ -2245,7 +2245,6 @@
     }
 
     .tool-output > div,
-    .output-collapsed,
     .output-preview,
     .output-full {
       margin: 0;
@@ -2287,23 +2286,6 @@
     }
 
     .tool-output.expandable.expanded .output-full {
-      display: block;
-    }
-
-    .tool-output.expandable[data-state] .output-collapsed,
-    .tool-output.expandable[data-state] .output-preview {
-      display: none;
-    }
-
-    .tool-output.expandable[data-state='collapsed'] .output-collapsed {
-      display: block;
-    }
-
-    .tool-output.expandable[data-state='preview'] .output-preview {
-      display: block;
-    }
-
-    .tool-output.expandable[data-state='expanded'] .output-full {
       display: block;
     }
 
@@ -2439,10 +2421,6 @@
       max-height: 500px;
       border-radius: 4px;
       margin: var(--line-height) 0;
-    }
-
-    .expand-hint {
-      color: var(--toolOutput);
     }
 
     /* Diff */
