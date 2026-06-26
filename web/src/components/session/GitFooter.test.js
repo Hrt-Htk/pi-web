@@ -13,11 +13,13 @@ const id = (x) => document.getElementById(x);
 // <ChatComposer>, not in GitFooter itself — provide one for the prompt-insert
 // assertions.
 let textarea;
-function renderFooter(gitApi) {
+function renderFooter(gitApi, extras) {
   textarea = document.createElement('textarea');
   textarea.id = 'pi-chat-message';
   document.body.appendChild(textarea);
-  render(GitFooter, { props: { sessionId: 's', gitApi } });
+  return render(GitFooter, {
+    props: { sessionId: 's', gitApi, windowImpl: window, ...extras },
+  });
 }
 
 afterEach(() => {
@@ -26,6 +28,22 @@ afterEach(() => {
   textarea = undefined;
   vi.restoreAllMocks();
 });
+
+function makeFakeWindow() {
+  const handlers = new Map();
+  return {
+    addEventListener(type, handler) {
+      handlers.set(type, handler);
+    },
+    removeEventListener(type) {
+      handlers.delete(type);
+    },
+    dispatchEvent(event) {
+      const handler = handlers.get(event.type);
+      if (handler) handler(event);
+    },
+  };
+}
 
 describe('GitFooter', () => {
   it('hides the git controls but keeps the bar visible (for btw) when the cwd is not a git repo', async () => {
@@ -135,5 +153,86 @@ describe('GitFooter', () => {
     await flush();
     id('pi-git-pr-merge').click();
     expect(id('pi-chat-message').value).toBe(MERGE_PR_PROMPT);
+  });
+
+  describe('refresh polling', () => {
+    it('starts a periodic poll that re-fetches git info', async () => {
+      const getGitInfo = vi.fn().mockResolvedValue({
+        isRepo: true,
+        branch: 'main',
+        isDefault: true,
+        hasChanges: false,
+      });
+      let intervalFn = null;
+      const intervalId = Symbol('interval');
+      renderFooter({ getGitInfo }, {
+        setIntervalImpl: (fn, _ms) => { intervalFn = fn; return intervalId; },
+        clearIntervalImpl: vi.fn(),
+      });
+      await flush();
+
+      // Initial fetch on mount.
+      expect(getGitInfo).toHaveBeenCalledTimes(1);
+
+      // Trigger the poll callback.
+      intervalFn();
+      await flush();
+      expect(getGitInfo).toHaveBeenCalledTimes(2);
+    });
+
+    it('refreshes on pi-session-reload event', async () => {
+      const fakeWindow = makeFakeWindow();
+      const getGitInfo = vi.fn().mockResolvedValue({
+        isRepo: true,
+        branch: 'main',
+        isDefault: true,
+        hasChanges: false,
+      });
+      renderFooter({ getGitInfo }, {
+        windowImpl: fakeWindow,
+        setIntervalImpl: () => 0,
+        clearIntervalImpl: vi.fn(),
+      });
+      await flush();
+      expect(getGitInfo).toHaveBeenCalledTimes(1);
+
+      // Fire session reload.
+      fakeWindow.dispatchEvent({ type: 'pi-session-reload' });
+      await flush();
+      expect(getGitInfo).toHaveBeenCalledTimes(2);
+    });
+
+    it('cleanup disposes the interval and removes the reload listener', async () => {
+      const fakeWindow = makeFakeWindow();
+      const clearIntervalMock = vi.fn();
+      const getGitInfo = vi.fn().mockResolvedValue({
+        isRepo: true,
+        branch: 'main',
+        isDefault: true,
+        hasChanges: false,
+      });
+      const { unmount } = renderFooter({ getGitInfo }, {
+        windowImpl: fakeWindow,
+        setIntervalImpl: (_fn, _ms) => { return 42; },
+        clearIntervalImpl: clearIntervalMock,
+      });
+      await flush();
+
+      // Confirm reload listener is active.
+      fakeWindow.dispatchEvent({ type: 'pi-session-reload' });
+      await flush();
+      expect(getGitInfo).toHaveBeenCalledTimes(2);
+
+      // Unmount.
+      unmount();
+
+      // Interval should be cleared.
+      expect(clearIntervalMock).toHaveBeenCalledWith(42);
+
+      // Reload listener should be removed — dispatching again should not trigger.
+      fakeWindow.dispatchEvent({ type: 'pi-session-reload' });
+      await flush();
+      expect(getGitInfo).toHaveBeenCalledTimes(2);
+    });
   });
 });
