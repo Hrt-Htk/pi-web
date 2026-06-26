@@ -28,11 +28,20 @@
   // The branch indicator + smart git action control beneath the chat composer.
   // The bar stays visible (even outside a git repo) because it also hosts the
   // always-available btw button. gitApi is injectable for tests.
-  let { sessionId = '', gitApi = defaultGitApi } = $props();
+  const GIT_REFRESH_MS = 15_000;
+  let {
+    sessionId = '',
+    gitApi = defaultGitApi,
+    windowImpl,
+    setIntervalImpl,
+    clearIntervalImpl,
+  } = $props();
 
   onMount(() => {
     const documentImpl = document;
-    const windowImpl = window;
+    const wi = windowImpl ?? window;
+    const si = setIntervalImpl ?? wi.setInterval.bind(wi);
+    const ci = clearIntervalImpl ?? wi.clearInterval.bind(wi);
     const bar = documentImpl.getElementById('pi-git-bar');
     if (!bar || !gitApi) return;
 
@@ -255,10 +264,21 @@
       });
     }
 
+    // ── Periodic poll + session-reload listener ──
+    let intervalId = undefined;
+    if (si) intervalId = si(refresh, GIT_REFRESH_MS);
+
+    const onSessionReload = () => {
+      void refresh();
+    };
+    wi.addEventListener?.('pi-session-reload', onSessionReload);
+
     refresh();
 
     return () => {
       for (const fn of cleanups) fn();
+      if (intervalId !== undefined) ci(intervalId);
+      wi.removeEventListener?.('pi-session-reload', onSessionReload);
     };
   });
 </script>
