@@ -9,9 +9,10 @@
   import { t } from '../../shared/i18n.js';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { formatTimestamp } from '../../session/render/entry-format.js';
-  import { chipsFromItems } from '../../session/render/tool-summary.js';
+  import { chipsFromItems, resolveToolResult } from '../../session/render/tool-summary.js';
   import ToolOutput from './ToolOutput.svelte';
   import ToolChip from './ToolChip.svelte';
+  import AskQuestion from './AskQuestion.svelte';
 
   // `live` (passed from <SessionContent>) gates the fork/label buttons, which
   // need the chat composer; copy-link is always shown. The static export passes
@@ -76,8 +77,23 @@
           sourceId: block.sourceId,
         });
       } else if (block.type === 'toolCall') {
-        if (!run) run = [];
-        run.push({ type: 'toolCall', block, timestamp: block.timestamp, sourceId: block.sourceId });
+        if (block.name === 'ask_user_question' || block.name === 'pi_web_ask_user_question') {
+          flush();
+          segments.push({
+            kind: 'ask_question',
+            block,
+            timestamp: block.timestamp ?? entry.timestamp,
+            sourceIds: [block.sourceId ?? entry.id].filter(Boolean),
+          });
+        } else {
+          if (!run) run = [];
+          run.push({
+            type: 'toolCall',
+            block,
+            timestamp: block.timestamp,
+            sourceId: block.sourceId,
+          });
+        }
       }
     }
     flush();
@@ -129,6 +145,11 @@
           <div class="assistant-text markdown-content">
             {@html md(seg.text)}
           </div>
+        {:else if seg.kind === 'ask_question'}
+          <AskQuestion
+            args={seg.block.arguments || {}}
+            result={resolveToolResult(model, seg.block.id)}
+          />
         {:else}
           {#each chipsFromItems(seg.items) as chip (chip.sourceIds.join(' '))}
             <ToolChip {chip} {model} />
