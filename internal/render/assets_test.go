@@ -4,7 +4,7 @@ import "testing"
 
 func TestAssetManifestScriptPath(t *testing.T) {
 	manifest := Manifest{
-		"src/index/index.js": ManifestEntry{File: "assets/index-abc123.js"},
+		"src/index/index.js": ManifestEntry{File: "static/assets/index-abc123.js"},
 	}
 	got, ok := manifest.ScriptPath("src/index/index.js")
 	if !ok {
