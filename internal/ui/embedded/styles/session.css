@@ -6448,3 +6448,7 @@
         border-bottom: 1px solid var(--dim);
       }
     }
+
+.chat-preview-stream .chat-preview-thought {
+  margin-bottom: 0.4em;
+}
