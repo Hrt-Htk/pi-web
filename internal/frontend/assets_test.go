@@ -8,9 +8,9 @@ import (
 func TestLoadFrontendScriptsSingleEntrypoint(t *testing.T) {
 	fsys := fstest.MapFS{
 		".vite/manifest.json": &fstest.MapFile{
-			Data: []byte(`{"src/main.js":{"file":"assets/app-abc123.js"}}`),
+			Data: []byte(`{"src/main.js":{"file":"static/assets/app-abc123.js"}}`),
 		},
-		"assets/app-abc123.js": &fstest.MapFile{Data: []byte("console.log('hello')")},
+		"static/assets/app-abc123.js": &fstest.MapFile{Data: []byte("console.log('hello')")},
 	}
 	scripts, err := loadFrontendScripts(fsys, appEntry)
 	if err != nil {
@@ -30,10 +30,10 @@ func TestLoadFrontendScriptsSingleEntrypoint(t *testing.T) {
 func TestLoadFrontendScriptsLoadsMultipleEntrypoints(t *testing.T) {
 	fsys := fstest.MapFS{
 		".vite/manifest.json": &fstest.MapFile{
-			Data: []byte(`{"src/main.js":{"file":"assets/app-000111.js"},"src/other.js":{"file":"assets/other-222333.js"}}`),
+			Data: []byte(`{"src/main.js":{"file":"static/assets/app-000111.js"},"src/other.js":{"file":"static/assets/other-222333.js"}}`),
 		},
-		"assets/app-000111.js":   &fstest.MapFile{Data: []byte("app")},
-		"assets/other-222333.js": &fstest.MapFile{Data: []byte("other")},
+		"static/assets/app-000111.js":   &fstest.MapFile{Data: []byte("app")},
+		"static/assets/other-222333.js": &fstest.MapFile{Data: []byte("other")},
 	}
 	scripts, err := loadFrontendScripts(fsys, appEntry, "src/other.js")
 	if err != nil {

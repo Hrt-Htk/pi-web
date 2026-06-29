@@ -13,5 +13,5 @@ func (m Manifest) ScriptPath(entry string) (string, bool) {
 	if !ok || item.File == "" {
 		return "", false
 	}
-	return "/static/" + strings.TrimPrefix(item.File, "/"), true
+	return "/" + strings.TrimPrefix(item.File, "/"), true
 }

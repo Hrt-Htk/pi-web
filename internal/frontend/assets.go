@@ -114,12 +114,12 @@ type staticAsset struct {
 func ServeStaticAssets(dfs fs.FS) http.HandlerFunc {
 	// Pre-load and compress all assets at startup.
 	cache := make(map[string]staticAsset)
-	entries, _ := fs.ReadDir(dfs, "assets")
+	entries, _ := fs.ReadDir(dfs, "static/assets")
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
-		raw, err := fs.ReadFile(dfs, "assets/"+e.Name())
+		raw, err := fs.ReadFile(dfs, "static/assets/"+e.Name())
 		if err != nil {
 			continue
 		}

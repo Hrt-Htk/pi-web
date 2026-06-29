@@ -8,6 +8,7 @@ export default defineConfig({
     manifest: true,
     outDir: 'dist',
     emptyOutDir: true,
+    assetsDir: 'static/assets',
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       input: {
