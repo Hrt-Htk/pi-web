@@ -1,3 +1,5 @@
+import { icon, ChevronRight } from '../../shared/icons.js';
+
 export function getSpinnerConfig(windowImpl = typeof window !== 'undefined' ? window : null) {
   let style = 'runcat';
   try {
@@ -204,6 +206,13 @@ function createAssistantPreview(documentImpl, { waiting = false, windowImpl = nu
   const el = documentImpl.createElement('div');
   el.id = 'chat-preview-stream';
   el.className = 'assistant-message chat-preview-stream' + (waiting ? ' chat-preview-waiting' : '');
+  const thought = documentImpl.createElement('div');
+  thought.className = 'tool-chip chat-preview-thought';
+  thought.style.display = 'none';
+  thought.innerHTML =
+    '<span class="tool-chip-label">Thought</span>' +
+    icon(ChevronRight, { size: 12, class: 'tool-chip-chevron' });
+  el.append(thought);
   el.append(createMarkdownBlock(documentImpl, 'message-content assistant-text markdown-content'));
   return el;
 }
@@ -277,7 +286,9 @@ export function renderChatPreviewState(
     container.appendChild(state.chatPreviewEl);
   }
 
-  const activeMsg = getActiveMessage(payload.content);
+  const thinkingText = typeof payload.thinking === 'string' ? payload.thinking : '';
+  const activeMsg =
+    getActiveMessage(payload.content) || (thinkingText.trim() ? 'Thinking...' : null);
   if (activeMsg) {
     state.activePreviewMessage = activeMsg;
     const textEl = state.runningSpinnerEl && state.runningSpinnerEl.querySelector('.preview-text');
@@ -285,6 +296,10 @@ export function renderChatPreviewState(
   }
 
   state.chatPreviewEl.classList.remove('chat-preview-waiting');
+  const thoughtChip = state.chatPreviewEl.querySelector('.chat-preview-thought');
+  if (thoughtChip) {
+    thoughtChip.style.display = thinkingText.trim() ? '' : 'none';
+  }
   const content = state.chatPreviewEl.querySelector('.message-content');
   setMarkdownContent(content, renderMarkdown(payload.content));
   if (payload.done) finishChatPreviewState(state);
