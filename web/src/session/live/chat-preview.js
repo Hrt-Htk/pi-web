@@ -132,7 +132,6 @@ export function startRunningSpinner(
   if (!state.runningSpinnerEl) {
     const container =
       documentImpl.getElementById('chat-preview-host') ||
-      documentImpl.getElementById('messages') ||
       documentImpl.getElementById('content') ||
       documentImpl.body;
     const config = getSpinnerConfig(windowImpl);
