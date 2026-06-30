@@ -9,6 +9,16 @@
 - **Before starting work on any issue:** create a properly named branch (`type/issueN-description`). Never work on `main` directly. Run `git status` first — it must be clean.
 - Never start new work on a dirty tree. Run `git status` first; commit, stash, or discard changes before beginning. Scratch (`.tmp/`, `.pi/tasks/`, screenshots, transcripts) is gitignored so it never counts as dirty.
 
+## Pre-flight (mandatory before any `edit` or `write` on source files)
+
+**Before calling `edit` or `write` on any file under `web/src/`, `internal/`, `cmd/`, `e2e/`, or `docs/`, you MUST run these checks in order. If any check fails, STOP — do not proceed with the edit.**
+
+1. **`git status`** — working tree must be clean. If dirty, tell the user and stop.
+2. **`git branch --show-current`** — must match `type/issueN-description` (e.g. `feat/issue42-project-panel`). If on `main` or any other branch, tell the user and stop.
+3. **Issue exists** — verify an open GitHub issue covers this work. If none exists, tell the user and stop (do not create the issue yourself — ask the user).
+
+**This is not a suggestion. Run these three checks every time, before every code change.**
+
 ## Docs
 
 Read the relevant doc in `@docs/` before structural changes, and update the matching doc whenever your change makes it out of date.
