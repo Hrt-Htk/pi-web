@@ -30,6 +30,10 @@ type TitleInputs struct {
 	// UserMsgCount is the number of user messages seen, used to detect new turns
 	// for re-titling.
 	UserMsgCount int
+	// LastEntryType is the type of the last entry in the JSONL file (e.g.
+	// "message", "archive", "rename", "session_info"). Used to skip
+	// auto-titling when the file change was a metadata-only operation.
+	LastEntryType string
 }
 
 // ReadTitleInputs scans a session JSONL file for the auto-titler's inputs. It
@@ -57,6 +61,7 @@ func ReadTitleInputs(path string) (TitleInputs, error) {
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			continue
 		}
+		out.LastEntryType = raw.Type
 		switch raw.Type {
 		case "session":
 			if raw.Name != "" {

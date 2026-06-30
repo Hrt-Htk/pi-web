@@ -72,6 +72,13 @@ func (s *Server) maybeAutoTitle(sessID string) {
 		return
 	}
 
+	// Skip auto-titling when the last file change was a metadata-only
+	// operation (archive, rename, auto_title) — no new user content to title.
+	switch inputs.LastEntryType {
+	case "archive", "rename", "auto_title":
+		return
+	}
+
 	s.autoTitle.mu.Lock()
 	// An explicit name pi-web didn't write (a manual rename or a header name)
 	// means the user owns the title — back off for good.
