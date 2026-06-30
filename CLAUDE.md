@@ -1,5 +1,6 @@
 # Development Rules
 
+- **Do not write, edit, or build any code until the user explicitly says to proceed.** Investigate, propose a plan, and wait for approval before touching files.
 - Only create an abstraction if it's actually needed
 - Prefer clear function/variable names over inline comments
 - Avoid helper functions when a simple inline expression would suffice
