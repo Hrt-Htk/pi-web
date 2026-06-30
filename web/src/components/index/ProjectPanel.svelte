@@ -3,7 +3,7 @@
   // Shows project metadata, git status, open issues, and open PRs.
   import { t } from '../../shared/i18n.js';
   import FullScreenSheet from '../session/FullScreenSheet.svelte';
-  import { icon, ExternalLink, FolderOpen, Pencil } from '../../shared/icons.js';
+  import { icon, ExternalLink, FolderOpen, Pencil, FolderGit2, ListTree, GitFork, CircleHelp, CircleAlert, FileText, Loader } from '../../shared/icons.js';
   import { fetchProjectData, updateProjectName } from '../../project/project-page-data.js';
 
   let { open = $bindable(false), projectPath = '' } = $props();
@@ -61,6 +61,10 @@
       error = t('project.nameSaveFailed');
     }
   }
+
+  function formatSessionCount(n) {
+    return n === 1 ? '1 session' : `${n} sessions`;
+  }
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG -->
@@ -73,11 +77,18 @@
 >
   <div class="project-palette">
     {#if loading}
-      <div class="project-loading">{t('project.loading')}</div>
+      <div class="project-loading">
+        {@html icon(Loader, { size: 20 })}
+        <span>{t('project.loading')}</span>
+      </div>
     {:else if error && !project}
-      <div class="project-empty">{error}</div>
+      <div class="project-empty">
+        {@html icon(CircleAlert, { size: 20 })}
+        <span>{error}</span>
+      </div>
     {:else if project}
       <div class="project-content">
+        <!-- Project Identity Header -->
         <div class="project-head">
           {#if editingName}
             <div class="project-name-edit">
@@ -96,8 +107,10 @@
               >
             </div>
           {:else}
-            <div class="project-name">
-              <span title={project.projectPath}>{project.name}</span>
+            <div class="project-name-row">
+              <div class="project-name" title={project.projectPath}>
+                {project.name}
+              </div>
               <button
                 class="project-edit-btn"
                 type="button"
@@ -109,103 +122,127 @@
               >
             </div>
           {/if}
-          {#if project.repo}
-            <a
-              class="project-repo-link"
-              href={'https://github.com/' + project.repo}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {@html icon(ExternalLink, { size: 14 })}
-              <span>{project.repo}</span>
-            </a>
-          {/if}
-          <div class="project-meta">
-            <span>
-              {@html icon(FolderOpen, { size: 14 })}
-              {sessionCount} session{sessionCount !== 1 ? 's' : ''}
+          <div class="project-meta-row">
+            {#if project.repo}
+              <a
+                class="project-repo-link"
+                href={'https://github.com/' + project.repo}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {@html icon(ExternalLink, { size: 13 })}
+                <span>{project.repo}</span>
+              </a>
+            {/if}
+            <span class="project-meta-sep">·</span>
+            <span class="project-meta-sessions">
+              {@html icon(FolderOpen, { size: 13 })}
+              {formatSessionCount(sessionCount)}
             </span>
+          </div>
+          <div class="project-path-row">
+            {@html icon(FolderOpen, { size: 12 })}
+            <span>{project.path}</span>
           </div>
         </div>
 
         {#if project.readmeDescription}
+          <div class="project-divider"></div>
           <div class="project-group">
-            <div class="project-group-title">{t('project.description')}</div>
-            <div class="project-group-body">{project.readmeDescription}</div>
+            <div class="project-group-header">
+              {@html icon(FileText, { size: 13 })}
+              <span>{t('project.description')}</span>
+            </div>
+            <div class="project-description-card">{project.readmeDescription}</div>
           </div>
         {/if}
 
         {#if gitInfo?.isRepo}
+          <div class="project-divider"></div>
           <div class="project-group">
-            <div class="project-group-title">{t('project.gitStatus')}</div>
+            <div class="project-group-header">
+              {@html icon(FolderGit2, { size: 13 })}
+              <span>{t('project.gitStatus')}</span>
+            </div>
             <div class="project-git-row">
-              <span class="project-git-branch">{gitInfo.branch}</span>
-              {#if gitInfo.dirty}
-                <span class="project-badge is-dirty">{t('project.gitDirty')}</span>
-              {:else}
-                <span class="project-badge is-clean">{t('project.gitClean')}</span>
-              {/if}
-              {#if gitInfo.ahead > 0}
-                <span class="project-badge is-ahead"
-                  >{t('project.gitAhead', { n: gitInfo.ahead })}</span
-                >
-              {/if}
-              {#if gitInfo.behind > 0}
-                <span class="project-badge is-behind"
-                  >{t('project.gitBehind', { n: gitInfo.behind })}</span
-                >
-              {/if}
+              <span class="project-git-branch">
+                {@html icon(ListTree, { size: 13 })}
+                {gitInfo.branch}
+              </span>
+              <div class="project-git-badges">
+                {#if gitInfo.dirty}
+                  <span class="project-badge is-dirty">{t('project.gitDirty')}</span>
+                {:else}
+                  <span class="project-badge is-clean">{t('project.gitClean')}</span>
+                {/if}
+                {#if gitInfo.ahead > 0}
+                  <span class="project-badge is-ahead"
+                    >{t('project.gitAhead', { n: gitInfo.ahead })}</span
+                  >
+                {/if}
+                {#if gitInfo.behind > 0}
+                  <span class="project-badge is-behind"
+                    >{t('project.gitBehind', { n: gitInfo.behind })}</span
+                  >
+                {/if}
+              </div>
             </div>
           </div>
         {/if}
 
+        <div class="project-divider"></div>
         <div class="project-group">
-          <div class="project-group-title">
-            {t('project.openIssues')}
+          <div class="project-group-header">
+            {@html icon(CircleHelp, { size: 13 })}
+            <span>{t('project.openIssues')}</span>
             <span class="project-group-count">{openIssues.length}</span>
           </div>
           {#if openIssues.length === 0}
-            <div class="project-empty">{t('project.noIssues')}</div>
+            <div class="project-empty-state">
+              {@html icon(CircleHelp, { size: 18 })}
+              <span>{t('project.noIssues')}</span>
+            </div>
           {:else}
             <div class="project-list">
               {#each openIssues as issue (issue.number)}
-                <div class="project-item">
-                  <a
-                    class="project-item-link"
-                    href={issue.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span class="project-item-number">#{issue.number}</span>
-                    <span>{issue.title}</span>
-                  </a>
-                </div>
+                <a
+                  class="project-item"
+                  href={issue.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span class="project-item-number">#{issue.number}</span>
+                  <span class="project-item-title">{issue.title}</span>
+                </a>
               {/each}
             </div>
           {/if}
         </div>
 
+        <div class="project-divider"></div>
         <div class="project-group">
-          <div class="project-group-title">
-            {t('project.openPRs')}
+          <div class="project-group-header">
+            {@html icon(GitFork, { size: 13 })}
+            <span>{t('project.openPRs')}</span>
             <span class="project-group-count">{openPRs.length}</span>
           </div>
           {#if openPRs.length === 0}
-            <div class="project-empty">{t('project.noPRs')}</div>
+            <div class="project-empty-state">
+              {@html icon(GitFork, { size: 18 })}
+              <span>{t('project.noPRs')}</span>
+            </div>
           {:else}
             <div class="project-list">
               {#each openPRs as pr (pr.number)}
-                <div class="project-item">
-                  <a
-                    class="project-item-link"
-                    href={pr.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span class="project-item-number">#{pr.number}</span>
-                    <span>{pr.title}</span>
-                  </a>
-                </div>
+                <a
+                  class="project-item"
+                  href={pr.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span class="project-item-number">#{pr.number}</span>
+                  <span class="project-item-title">{pr.title}</span>
+                </a>
               {/each}
             </div>
           {/if}

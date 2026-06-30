@@ -16,6 +16,7 @@
     sessions = [],
     layout = 'timeline',
     query = '',
+    projects = [],
     runningSessionIds = new Set(),
     runningStatuses = new Map(),
     loading = false,
@@ -37,6 +38,9 @@
   const visibleSessions = $derived(filterSessions(sessions, query));
   const isTimeline = $derived(layout === 'timeline');
   const searching = $derived(String(query || '').trim() !== '');
+  const projectNames = $derived(
+    Object.fromEntries(projects.map((p) => [p.path, p.name || ''])),
+  );
 
   const allGroups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
   const groups = $derived(
@@ -214,7 +218,7 @@
               >{@html icon(ChevronDown, { size: 12 })}</span
             >
             <span class="project-name-line">
-              <span class="project-name">{group.project}</span>
+              <span class="project-name">{projectNames[group.project] || group.project}</span>
               {#if gitInfos[group.project]?.isRepo}
                 {@const gitInfo = gitInfos[group.project]}
                 <span class="pi-git-status">
@@ -346,7 +350,7 @@
                   >{@html icon(ChevronDown, { size: 12 })}</span
                 >
                 <span class="project-name-line">
-                  <span class="project-name">{group.project}</span>
+                  <span class="project-name">{projectNames[group.project] || group.project}</span>
                 </span>
                 <span
                   class="project-count"
