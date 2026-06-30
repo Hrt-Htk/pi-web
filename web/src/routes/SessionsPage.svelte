@@ -112,7 +112,7 @@
     if (archived) next.add(project);
     else next.delete(project);
     archivedProjects = next;
-    try { localStorage.setItem('pi-sessions:archived-projects', JSON.stringify([...next])); } catch {}
+    writeSetting(archivedProjectsStorageKey, JSON.stringify([...next]), { storage: localStorage });
   }
 
   const RELOAD_DEBOUNCE_MS = 500;
@@ -258,6 +258,10 @@
         if (!settings) return;
         const serverLayout = settings[layoutStorageKey] === 'projects' ? 'projects' : 'timeline';
         if (serverLayout !== layout) setLayout(serverLayout);
+        try {
+          const raw = settings[archivedProjectsStorageKey];
+          if (raw) archivedProjects = new Set(JSON.parse(raw));
+        } catch {}
       })
       .catch(() => {});
 
