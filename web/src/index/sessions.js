@@ -123,4 +123,3 @@ export function defaultUpdateProject(path, action) {
 export function defaultArchiveSession(id, archived) {
   return postJSON('/api/archive-session?id=' + encodeURIComponent(id), { archived });
 }
-

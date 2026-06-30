@@ -24,3 +24,4 @@ e2e/scripts/check-inj.mjs
 e2e/scripts/shot-actions.mjs
 e2e/scripts/shot-clip.mjs
 .env
+__pycache__/

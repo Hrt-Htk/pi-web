@@ -165,10 +165,16 @@ describe('GitFooter', () => {
       });
       let intervalFn = null;
       const intervalId = Symbol('interval');
-      renderFooter({ getGitInfo }, {
-        setIntervalImpl: (fn, _ms) => { intervalFn = fn; return intervalId; },
-        clearIntervalImpl: vi.fn(),
-      });
+      renderFooter(
+        { getGitInfo },
+        {
+          setIntervalImpl: (fn, _ms) => {
+            intervalFn = fn;
+            return intervalId;
+          },
+          clearIntervalImpl: vi.fn(),
+        },
+      );
       await flush();
 
       // Initial fetch on mount.
@@ -188,11 +194,14 @@ describe('GitFooter', () => {
         isDefault: true,
         hasChanges: false,
       });
-      renderFooter({ getGitInfo }, {
-        windowImpl: fakeWindow,
-        setIntervalImpl: () => 0,
-        clearIntervalImpl: vi.fn(),
-      });
+      renderFooter(
+        { getGitInfo },
+        {
+          windowImpl: fakeWindow,
+          setIntervalImpl: () => 0,
+          clearIntervalImpl: vi.fn(),
+        },
+      );
       await flush();
       expect(getGitInfo).toHaveBeenCalledTimes(1);
 
@@ -211,11 +220,16 @@ describe('GitFooter', () => {
         isDefault: true,
         hasChanges: false,
       });
-      const { unmount } = renderFooter({ getGitInfo }, {
-        windowImpl: fakeWindow,
-        setIntervalImpl: (_fn, _ms) => { return 42; },
-        clearIntervalImpl: clearIntervalMock,
-      });
+      const { unmount } = renderFooter(
+        { getGitInfo },
+        {
+          windowImpl: fakeWindow,
+          setIntervalImpl: (_fn, _ms) => {
+            return 42;
+          },
+          clearIntervalImpl: clearIntervalMock,
+        },
+      );
       await flush();
 
       // Confirm reload listener is active.

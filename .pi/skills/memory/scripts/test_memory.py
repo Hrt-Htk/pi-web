@@ -2,8 +2,10 @@
 """Unit tests for memory.py CLI script."""
 
 import argparse
+import gc
 import io
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -13,6 +15,63 @@ from unittest.mock import patch
 # Add the scripts directory to sys.path so we can import memory
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memory
+
+
+class _ClosingConn:
+    """Wrapper that closes the connection after the context manager exits.
+
+    memory.py's conn() returns a raw sqlite3.Connection used with
+    `with conn() as c:` — the context manager commits/rollbacks but does NOT
+    close. On Windows SQLite file locks persist until the connection is
+    explicitly closed. This wrapper tracks all instances so tearDown can
+    close them before cleaning up the temp directory.
+    """
+
+    _all = []
+
+    def __init__(self, conn):
+        self._conn = conn
+        _ClosingConn._all.append(self)
+
+    def __enter__(self):
+        self._conn.__enter__()
+        return self._conn
+
+    def __exit__(self, *args):
+        self._conn.__exit__(*args)
+        self._conn.close()
+
+    @classmethod
+    def close_all(cls):
+        for w in cls._all:
+            try:
+                w._conn.close()
+            except Exception:
+                pass
+        cls._all.clear()
+
+    @classmethod
+    def track(cls, conn_func):
+        def wrapper(*a, **kw):
+            return _ClosingConn(conn_func(*a, **kw))
+        return wrapper
+
+
+def _patch_conn():
+    """Replace memory.conn with a tracking wrapper that closes connections."""
+    memory.conn = _ClosingConn.track(memory.conn)
+
+
+def _unpatch_conn():
+    """Restore original memory.conn."""
+    memory.conn = memory._original_conn
+
+
+def _cleanup_tempdir(tmpdir, db_path):
+    """Clean up a temp directory after closing all tracked connections."""
+    _ClosingConn.close_all()
+    gc.collect()  # release any lingering references so Windows file locks clear
+    tmpdir.cleanup()
 
 
 class TestMakeFtsQuery(unittest.TestCase):
@@ -47,9 +106,12 @@ class TestMemoryAutoInit(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.db_path = str(Path(self.tmpdir.name) / "new.sqlite")
         os.environ["PI_MEMORY_DB"] = self.db_path
+        memory._original_conn = memory.conn
+        _patch_conn()
 
     def tearDown(self):
-        self.tmpdir.cleanup()
+        _unpatch_conn()
+        _cleanup_tempdir(self.tmpdir, self.db_path)
         os.environ.pop("PI_MEMORY_DB", None)
 
     def test_add_memory_auto_initializes_new_database(self):
@@ -83,6 +145,8 @@ class TestMemoryDB(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.db_path = str(Path(self.tmpdir.name) / "test.sqlite")
         os.environ["PI_MEMORY_DB"] = self.db_path
+        memory._original_conn = memory.conn
+        _patch_conn()
         # Suppress CLI output noise during setup/teardown
         self._stdout_patcher = patch("sys.stdout", io.StringIO())
         self._stdout_patcher.start()
@@ -90,7 +154,8 @@ class TestMemoryDB(unittest.TestCase):
 
     def tearDown(self):
         self._stdout_patcher.stop()
-        self.tmpdir.cleanup()
+        _unpatch_conn()
+        _cleanup_tempdir(self.tmpdir, self.db_path)
         os.environ.pop("PI_MEMORY_DB", None)
 
     # --- helpers ---
