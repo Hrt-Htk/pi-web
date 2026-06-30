@@ -39,8 +39,12 @@
   const searching = $derived(String(query || '').trim() !== '');
 
   const allGroups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
-  const groups = $derived(searching ? allGroups : allGroups.filter(g => !archivedProjects.has(g.project)));
-  const archivedGroups = $derived(searching ? [] : allGroups.filter(g => archivedProjects.has(g.project)));
+  const groups = $derived(
+    searching ? allGroups : allGroups.filter((g) => !archivedProjects.has(g.project)),
+  );
+  const archivedGroups = $derived(
+    searching ? [] : allGroups.filter((g) => archivedProjects.has(g.project)),
+  );
 
   const timelineSorted = $derived(
     [...visibleSessions].sort((a, b) => activityMs(b) - activityMs(a)),
@@ -317,7 +321,7 @@
         class="archived-toggle"
         type="button"
         aria-expanded={String(archivedProjectsOpen)}
-        onclick={() => archivedProjectsOpen = !archivedProjectsOpen}
+        onclick={() => (archivedProjectsOpen = !archivedProjectsOpen)}
       >
         <span class="project-chevron" aria-hidden="true"
           >{@html icon(ChevronDown, { size: 12 })}</span
