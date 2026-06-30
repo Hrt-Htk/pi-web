@@ -9,6 +9,16 @@
 - **Before starting work on any issue:** create a properly named branch (`type/issueN-description`). Never work on `main` directly. Run `git status` first — it must be clean.
 - Never start new work on a dirty tree. Run `git status` first; commit, stash, or discard changes before beginning. Scratch (`.tmp/`, `.pi/tasks/`, screenshots, transcripts) is gitignored so it never counts as dirty.
 
+## Pre-flight (mandatory before any `edit` or `write` on source files)
+
+**Before calling `edit` or `write` on any file under `web/src/`, `internal/`, `cmd/`, `e2e/`, or `docs/`, you MUST run these checks in order. If any check fails, STOP — do not proceed with the edit.**
+
+1. **`git status`** — working tree must be clean. If dirty, tell the user and stop.
+2. **`git branch --show-current`** — must match `type/issueN-description` (e.g. `feat/issue42-project-panel`). If on `main` or any other branch, tell the user and stop.
+3. **Issue exists** — verify an open GitHub issue covers this work. If none exists, tell the user and stop (do not create the issue yourself — ask the user).
+
+**This is not a suggestion. Run these three checks every time, before every code change.**
+
 ## Docs
 
 Read the relevant doc in `@docs/` before structural changes, and update the matching doc whenever your change makes it out of date.
@@ -87,8 +97,9 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 - **NEVER stop, kill, or restart the production server on port `31415`.** This is a hard rule. The prod server is always running and must not be touched during development.
   - **Test server on separate port — always.** For any testing (E2E, screenshots, manual verification):
     - **E2E suite:** `e2e/lib/server.ts` auto-spawns a test server on a free port via `startServer()` — just run `cd e2e && npx playwright test <spec>`.
-    - **Manual testing:** `PI_WEB_TOKEN="" start "" pi-web.exe -p <free-port> -host 127.0.0.1` (auth disabled, separate port).
-    - **Killing a test server:** always target by PID, never by image name. Find PID via `netstat -ano | findstr :<port>` then `taskkill //PID <pid> //F`. Never use `taskkill //IM pi-web.exe //F` — that kills all instances including prod.
+    - **Manual testing (launch):** `powershell -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` (localhost only, auth disabled), records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing.
+    - **Manual testing (stop):** `powershell -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1` — kills ONLY the test server by recorded PID. Safe — never touches prod.
+    - **NEVER use `taskkill //IM pi-web.exe`** — that kills ALL instances including prod. The stop script targets only the test server PID.
   - Never run tests against port `31415`.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
 
