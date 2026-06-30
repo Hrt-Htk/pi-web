@@ -3,7 +3,19 @@
   // Shows project metadata, git status, open issues, and open PRs.
   import { t } from '../../shared/i18n.js';
   import FullScreenSheet from '../session/FullScreenSheet.svelte';
-  import { icon, ExternalLink, FolderOpen, Pencil, FolderGit2, ListTree, GitFork, CircleHelp, CircleAlert, FileText, Loader } from '../../shared/icons.js';
+  import {
+    icon,
+    ExternalLink,
+    FolderOpen,
+    Pencil,
+    FolderGit2,
+    ListTree,
+    GitFork,
+    CircleHelp,
+    CircleAlert,
+    FileText,
+    Loader,
+  } from '../../shared/icons.js';
   import { fetchProjectData, updateProjectName } from '../../project/project-page-data.js';
 
   let { open = $bindable(false), projectPath = '' } = $props();
@@ -205,12 +217,7 @@
           {:else}
             <div class="project-list">
               {#each openIssues as issue (issue.number)}
-                <a
-                  class="project-item"
-                  href={issue.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a class="project-item" href={issue.url} target="_blank" rel="noopener noreferrer">
                   <span class="project-item-number">#{issue.number}</span>
                   <span class="project-item-title">{issue.title}</span>
                 </a>
@@ -234,12 +241,7 @@
           {:else}
             <div class="project-list">
               {#each openPRs as pr (pr.number)}
-                <a
-                  class="project-item"
-                  href={pr.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a class="project-item" href={pr.url} target="_blank" rel="noopener noreferrer">
                   <span class="project-item-number">#{pr.number}</span>
                   <span class="project-item-title">{pr.title}</span>
                 </a>
