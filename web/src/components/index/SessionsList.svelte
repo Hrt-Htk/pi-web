@@ -334,7 +334,6 @@
           {@const isCollapsed = !!collapsed[group.project]}
           {@const split = splitArchived(group.sessions)}
           {@const cards = searching ? group.sessions : split.active}
-          {@const archOpen = !!archivedOpen[group.project]}
           <div class="project-group" class:collapsed={isCollapsed} data-project={group.project}>
             <div class="project-header">
               <button

@@ -52,7 +52,7 @@
   let projectsError = $state('');
   let projectPanelOpen = $state(false);
   let selectedProjectPath = $state('');
-  let archivedProjects = $state(new Set());
+  let archivedProjects = new SvelteSet();
   let refreshInflight = false;
 
   const totalSessionsLabel = $derived(
@@ -108,11 +108,11 @@
   }
 
   function archiveProject(project, archived) {
-    const next = new Set(archivedProjects);
-    if (archived) next.add(project);
-    else next.delete(project);
-    archivedProjects = next;
-    writeSetting(archivedProjectsStorageKey, JSON.stringify([...next]), { storage: localStorage });
+    if (archived) archivedProjects.add(project);
+    else archivedProjects.delete(project);
+    writeSetting(archivedProjectsStorageKey, JSON.stringify([...archivedProjects]), {
+      storage: localStorage,
+    });
   }
 
   const RELOAD_DEBOUNCE_MS = 500;
@@ -251,7 +251,10 @@
     } catch {}
     try {
       const raw = localStorage.getItem(archivedProjectsStorageKey);
-      if (raw) archivedProjects = new Set(JSON.parse(raw));
+      if (raw) {
+        archivedProjects.clear();
+        for (const p of JSON.parse(raw)) archivedProjects.add(p);
+      }
     } catch {}
     hydrateSettings({ storage: localStorage })
       .then((settings) => {
@@ -260,7 +263,10 @@
         if (serverLayout !== layout) setLayout(serverLayout);
         try {
           const raw = settings[archivedProjectsStorageKey];
-          if (raw) archivedProjects = new Set(JSON.parse(raw));
+          if (raw) {
+            archivedProjects.clear();
+            for (const p of JSON.parse(raw)) archivedProjects.add(p);
+          }
         } catch {}
       })
       .catch(() => {});
