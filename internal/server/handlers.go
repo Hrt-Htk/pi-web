@@ -404,6 +404,7 @@ func (s *Server) handleArchiveSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 0, map[string]any{"ok": true, "archived": body.Archived})
 }
 
+
 func (s *Server) handleLabelSessionEntry(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")

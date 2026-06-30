@@ -65,9 +65,13 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 
 ### Additional Rules
 - **Lint/format (frontend):** ESLint (`eslint-plugin-svelte`) + Prettier, config in `web/`. `make check` runs `frontend-lint` + `frontend-format-check`. Fix locally with `cd web && npm run format` (auto-format) and `npm run lint`. Style is 2-space indent, single quotes (enforced by Prettier).
-- **Testing on a live server without restarting production:** `e2e/lib/server.ts` spawns a fresh pi-web instance on a free port (`startServer()`). Run E2E tests with `cd e2e && npx playwright test <spec>` — global-setup starts the test server automatically. To test manually, run `pi-web.exe -p <free-port> -host 127.0.0.1` in a separate terminal.
+- **NEVER stop, kill, or restart the production server on port `31415`.** This is a hard rule. The prod server is always running and must not be touched during development.
+  - **Test server on separate port — always.** For any testing (E2E, screenshots, manual verification):
+    - **E2E suite:** `e2e/lib/server.ts` auto-spawns a test server on a free port via `startServer()` — just run `cd e2e && npx playwright test <spec>`.
+    - **Manual testing:** `PI_WEB_TOKEN="" start "" pi-web.exe -p <free-port> -host 127.0.0.1` (auth disabled, separate port).
+    - **Killing a test server:** always target by PID, never by image name. Find PID via `netstat -ano | findstr :<port>` then `taskkill //PID <pid> //F`. Never use `taskkill //IM pi-web.exe //F` — that kills all instances including prod.
+  - Never run tests against port `31415`.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
-- **Auth token:** `PI_WEB_TOKEN` is read from the `.env` file (loaded via `godotenv`) or the environment variable. The `.env` file is gitignored — never commit it. To run a test server without auth (e.g. for E2E or screenshots), start a second instance on a different port with `PI_WEB_TOKEN="" start "" pi-web.exe -p 31416 -host 127.0.0.1`. Never stop the production server (port 31415) for testing.
 
 ## Critical Rules
 

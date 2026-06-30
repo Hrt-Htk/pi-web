@@ -38,6 +38,7 @@
   <a
     class="session-card"
     class:session-card--running={running}
+    class:session-card--stale={!session.chatAvailable}
     class:show-project={showProject}
     {href}
     onclick={(event) => handleNavClick(event, href)}

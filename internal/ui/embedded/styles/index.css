@@ -364,6 +364,23 @@ a { color: inherit; }
     color: var(--text);
 }
 
+.project-archive-btn {
+    all: unset;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 2px;
+    opacity: 0.55;
+    transition: opacity 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.project-archive-btn:hover {
+    opacity: 1;
+    color: var(--text);
+}
+
 .content--timeline .project-name { text-transform: uppercase; }
 .session-grid {
     display: grid;
@@ -395,6 +412,10 @@ a { color: inherit; }
 .session-card--running {
     background: color-mix(in srgb, var(--surface-2) 74%, var(--surface));
     border-color: color-mix(in srgb, var(--accent) 50%, var(--dim));
+}
+.session-card--stale {
+    opacity: 0.6;
+    filter: grayscale(0.3);
 }
 .session-card-wrap {
     position: relative;
