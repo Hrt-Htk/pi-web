@@ -1,6 +1,10 @@
 .PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test frontend-knip frontend-lint frontend-format-check extension-test memory-test go-test install-test vet test check clean dev release-patch release-minor release-major release-beta e2e e2e-setup install
 
+ifeq ($(OS),Windows_NT)
 BINARY ?= pi-web.exe
+else
+BINARY ?= pi-web
+endif
 WEB_DIR := web
 E2E_DIR := e2e
 NODE_MODULES := $(WEB_DIR)/node_modules
