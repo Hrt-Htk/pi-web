@@ -3,6 +3,7 @@ import { t } from '../shared/i18n.js';
 
 export const layoutStorageKey = 'pi-sessions:view-layout';
 export const collapsedProjectsStorageKey = 'pi-sessions:collapsed-projects';
+export const archivedProjectsStorageKey = 'pi-sessions:archived-projects';
 
 export const sessionsCountLabel = (n) =>
   n === 1 ? t('index.sessionCountOne') : t('index.sessionsCount', { count: n });
@@ -122,3 +123,4 @@ export function defaultUpdateProject(path, action) {
 export function defaultArchiveSession(id, archived) {
   return postJSON('/api/archive-session?id=' + encodeURIComponent(id), { archived });
 }
+

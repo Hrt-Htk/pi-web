@@ -29,6 +29,7 @@
     defaultUpdateProject,
     layoutStorageKey,
     normalizeSession,
+    archivedProjectsStorageKey,
   } from '../index/sessions.js';
 
   let sessions = $state([]);
@@ -51,6 +52,7 @@
   let projectsError = $state('');
   let projectPanelOpen = $state(false);
   let selectedProjectPath = $state('');
+  let archivedProjects = $state(new Set());
   let refreshInflight = false;
 
   const totalSessionsLabel = $derived(
@@ -103,6 +105,14 @@
     } catch {
       // Soft-fail: leave the list as-is if the toggle request fails.
     }
+  }
+
+  function archiveProject(project, archived) {
+    const next = new Set(archivedProjects);
+    if (archived) next.add(project);
+    else next.delete(project);
+    archivedProjects = next;
+    try { localStorage.setItem('pi-sessions:archived-projects', JSON.stringify([...next])); } catch {}
   }
 
   const RELOAD_DEBOUNCE_MS = 500;
@@ -239,6 +249,10 @@
     try {
       layout = localStorage.getItem(layoutStorageKey) === 'projects' ? 'projects' : 'timeline';
     } catch {}
+    try {
+      const raw = localStorage.getItem(archivedProjectsStorageKey);
+      if (raw) archivedProjects = new Set(JSON.parse(raw));
+    } catch {}
     hydrateSettings({ storage: localStorage })
       .then((settings) => {
         if (!settings) return;
@@ -339,6 +353,8 @@
   {loading}
   {layoutReady}
   onArchive={archiveSession}
+  onArchiveProject={archiveProject}
+  {archivedProjects}
   onNewSession={createSessionForProject}
   onViewProject={(path) => {
     selectedProjectPath = path;

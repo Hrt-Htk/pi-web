@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { icon, ChevronDown, Info } from '../../shared/icons.js';
+  import { icon, ChevronDown, Info, Archive } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
     activityMs,
@@ -21,21 +21,26 @@
     loading = false,
     layoutReady = false,
     onArchive = null,
+    onArchiveProject = null,
     onNewSession = null,
     onViewProject = null,
+    archivedProjects = new Set(),
   } = $props();
 
   let now = $state(Date.now());
   let collapsed = $state({});
   let archivedOpen = $state({});
   let timelineArchivedOpen = $state(false);
+  let archivedProjectsOpen = $state(false);
   let gitInfos = $state({});
 
   const visibleSessions = $derived(filterSessions(sessions, query));
   const isTimeline = $derived(layout === 'timeline');
   const searching = $derived(String(query || '').trim() !== '');
 
-  const groups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
+  const allGroups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
+  const groups = $derived(searching ? allGroups : allGroups.filter(g => !archivedProjects.has(g.project)));
+  const archivedGroups = $derived(searching ? [] : allGroups.filter(g => archivedProjects.has(g.project)));
 
   const timelineSorted = $derived(
     [...visibleSessions].sort((a, b) => activityMs(b) - activityMs(a)),
@@ -247,6 +252,17 @@
               onclick={() => onViewProject(group.project)}>{@html icon(Info, { size: 14 })}</button
             >
           {/if}
+          {#if onArchiveProject}
+            <button
+              type="button"
+              class="project-archive-btn"
+              aria-label={t('index.archiveProject')}
+              title={t('index.archiveProject')}
+              onclick={() => onArchiveProject(group.project, true)}
+            >
+              {@html icon(Archive, { size: 14 })}
+            </button>
+          {/if}
           <button
             class="project-new-btn"
             type="button"
@@ -296,5 +312,76 @@
         {/if}
       </div>
     {/each}
+    {#if archivedGroups.length > 0}
+      <button
+        class="archived-toggle"
+        type="button"
+        aria-expanded={String(archivedProjectsOpen)}
+        onclick={() => archivedProjectsOpen = !archivedProjectsOpen}
+      >
+        <span class="project-chevron" aria-hidden="true"
+          >{@html icon(ChevronDown, { size: 12 })}</span
+        >
+        {t('index.archivedProjectsCount', { count: archivedGroups.length })}
+      </button>
+      {#if archivedProjectsOpen}
+        {#each archivedGroups as group (group.project + ':' + group.sessions[0]?.id)}
+          {@const runningCount = runningCountFor(group)}
+          {@const isCollapsed = !!collapsed[group.project]}
+          {@const split = splitArchived(group.sessions)}
+          {@const cards = searching ? group.sessions : split.active}
+          {@const archOpen = !!archivedOpen[group.project]}
+          <div class="project-group" class:collapsed={isCollapsed} data-project={group.project}>
+            <div class="project-header">
+              <button
+                class="project-toggle"
+                type="button"
+                aria-expanded={String(!isCollapsed)}
+                onclick={() => toggleProject(group.project)}
+              >
+                <span class="project-chevron" aria-hidden="true"
+                  >{@html icon(ChevronDown, { size: 12 })}</span
+                >
+                <span class="project-name-line">
+                  <span class="project-name">{group.project}</span>
+                </span>
+                <span
+                  class="project-count"
+                  data-project-count
+                  data-running={runningCount}
+                  data-total={cards.length}
+                >
+                  {runningCount > 0
+                    ? t('index.activeCount', { count: runningCount })
+                    : sessionsCountLabel(cards.length)}
+                </span>
+              </button>
+              {#if onArchiveProject}
+                <button
+                  type="button"
+                  class="project-archive-btn"
+                  aria-label={t('index.unarchiveProject')}
+                  title={t('index.unarchiveProject')}
+                  onclick={() => onArchiveProject(group.project, false)}
+                >
+                  {@html icon(Archive, { size: 14 })}
+                </button>
+              {/if}
+            </div>
+            <div class="session-grid">
+              {#each cards as session (session.id)}
+                <SessionCard
+                  {session}
+                  running={runningSessionIds.has(session.id)}
+                  runningStatus={runningStatuses.get(session.id)}
+                  {now}
+                  {onArchive}
+                />
+              {/each}
+            </div>
+          </div>
+        {/each}
+      {/if}
+    {/if}
   {/if}
 </div>
