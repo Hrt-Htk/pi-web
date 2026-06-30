@@ -61,7 +61,7 @@ export default {
   'index.archiveFailed': 'Failed to archive session',
   'index.archiveProject': 'Archive project',
   'index.unarchiveProject': 'Unarchive project',
-  'index.archivedProjectsCount': '{count} archived project|{count} archived projects',
+  'index.archivedProjectsCount': '{count} archived projects',
   'index.removeProject': 'Remove',
   'index.enterPath': 'Please enter a path',
   'index.failedCreateSession': 'Failed to create session',
