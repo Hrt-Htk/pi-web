@@ -97,8 +97,9 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 - **NEVER stop, kill, or restart the production server on port `31415`.** This is a hard rule. The prod server is always running and must not be touched during development.
   - **Test server on separate port — always.** For any testing (E2E, screenshots, manual verification):
     - **E2E suite:** `e2e/lib/server.ts` auto-spawns a test server on a free port via `startServer()` — just run `cd e2e && npx playwright test <spec>`.
-    - **Manual testing:** `PI_WEB_TOKEN="" start "" pi-web.exe -p <free-port> -host 127.0.0.1` (auth disabled, separate port).
-    - **Killing a test server:** always target by PID, never by image name. Find PID via `netstat -ano | findstr :<port>` then `taskkill //PID <pid> //F`. Never use `taskkill //IM pi-web.exe //F` — that kills all instances including prod.
+    - **Manual testing (launch):** `powershell -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` (localhost only, auth disabled), records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing.
+    - **Manual testing (stop):** `powershell -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1` — kills ONLY the test server by recorded PID. Safe — never touches prod.
+    - **NEVER use `taskkill //IM pi-web.exe`** — that kills ALL instances including prod. The stop script targets only the test server PID.
   - Never run tests against port `31415`.
 - **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
 
