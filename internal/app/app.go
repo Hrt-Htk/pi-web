@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"pi-web/internal/agentdir"
 	"pi-web/internal/auth"
 	"pi-web/internal/frontend"
@@ -54,6 +55,7 @@ func Main(version string) {
 	}
 
 	bindHost := chooseBindHost(*hostOverride)
+	_ = godotenv.Load() // load .env from working directory (best-effort)
 	token := tokenFromEnv()
 	tokenRequired := token == "" && !isLoopbackHost(bindHost) && !*insecure
 	if tokenRequired {
