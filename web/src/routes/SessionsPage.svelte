@@ -256,6 +256,9 @@
         for (const p of JSON.parse(raw)) archivedProjects.add(p);
       }
     } catch {}
+    // Fetch project names for the session overview
+    refreshProjectsList();
+
     hydrateSettings({ storage: localStorage })
       .then((settings) => {
         if (!settings) return;
@@ -358,6 +361,7 @@
   {sessions}
   {layout}
   {query}
+  {projects}
   {runningSessionIds}
   {runningStatuses}
   {loading}

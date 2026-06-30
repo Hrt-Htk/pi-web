@@ -83,6 +83,7 @@ func (s *Server) setProjectFilterEnabled(enabled bool) {
 
 type projectEntry struct {
 	Path         string `json:"path"`
+	Name         string `json:"name"`
 	Enabled      bool   `json:"enabled"`
 	SessionCount int    `json:"sessionCount"`
 	Source       string `json:"source"`
@@ -464,6 +465,7 @@ func (s *Server) handleApiProjects(w http.ResponseWriter, r *http.Request) {
 
 	enabled := make(map[string]bool)
 	source := make(map[string]string)
+	names := make(map[string]string)
 	if s.db != nil {
 		rows, err := s.db.Query("SELECT project_path, enabled, source FROM project_prefs")
 		if err == nil {
@@ -476,6 +478,18 @@ func (s *Server) handleApiProjects(w http.ResponseWriter, r *http.Request) {
 				}
 				enabled[p] = en == 1
 				source[p] = src
+			}
+		}
+		// Load project display names
+		rows2, err := s.db.Query("SELECT project_path, name FROM projects")
+		if err == nil {
+			defer rows2.Close()
+			for rows2.Next() {
+				var p, n string
+				if err := rows2.Scan(&p, &n); err != nil {
+					continue
+				}
+				names[p] = n
 			}
 		}
 	}
@@ -501,8 +515,13 @@ func (s *Server) handleApiProjects(w http.ResponseWriter, r *http.Request) {
 		if s.db == nil {
 			en = true
 		}
+		name := names[p]
+		if name == "" {
+			name = filepath.Base(p)
+		}
 		entries = append(entries, projectEntry{
 			Path:         p,
+			Name:         name,
 			Enabled:      en,
 			SessionCount: counts[p],
 			Source:       src,
