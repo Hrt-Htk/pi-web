@@ -25,6 +25,24 @@ Read the relevant doc in `@docs/` before structural changes, and update the matc
 
 Every change must be tested at the appropriate level. Follow this bottom-up pyramid:
 
+### Test-Driven Development (TDD) — mandatory
+
+For every new feature or bug fix, write the test **before** the implementation:
+
+1. **Red** — write a test that describes the desired behavior. Run it; it must fail.
+2. **Green** — write the minimum code to make the test pass.
+3. **Refactor** — clean up while keeping the test green.
+
+The "watch it fail first" step is non-negotiable — it proves the test actually exercises the behavior. A test that passes on the first run is testing nothing.
+
+**Exceptions** — TDD does not apply to:
+- Documentation changes (`docs`)
+- Build, config, or tooling changes (`chore`, `ci`, `build`)
+- Quick UI tweaks with no logic (icon swaps, copy edits, removing dead buttons)
+- Dependency bumps with no behavioral change
+
+Everything else — backend handlers, worker/session logic, Svelte component behavior, bug fixes — is test-first. Pick the layer from the pyramid below that matches the change.
+
 ### Level 1: Unit Tests (mandatory for logic changes)
 Pure functions: input → output, no side effects. Fast, isolated, run on every change.
 - **Go:** table-driven tests in `*_test.go` alongside source.
