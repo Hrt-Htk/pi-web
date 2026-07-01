@@ -75,7 +75,7 @@ func (s *Server) maybeAutoTitle(sessID string) {
 	// Skip auto-titling when the last file change was a metadata-only
 	// operation (archive, rename, auto_title) — no new user content to title.
 	switch inputs.LastEntryType {
-	case "archive", "rename", "auto_title":
+	case "archive", "rename", "auto_title", "session_info":
 		return
 	}
 

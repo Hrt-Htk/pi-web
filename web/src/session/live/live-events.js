@@ -23,6 +23,7 @@ export async function handleSessionReload({
   showFollowButton = () => {},
   onReloaded = () => {},
   onNewEntries = null,
+  _requestAnimationFrame = requestAnimationFrame,
 } = {}) {
   const response = await fetchImpl('/api/session?id=' + encodeURIComponent(sessionId));
   const data = await response.json();
@@ -67,6 +68,14 @@ export async function handleSessionReload({
     }
   });
 
+  // Detect whether any new entries are metadata types (archive, session_info).
+  // When a reload brings both metadata and content entries, we defer the preview
+  // clear so Svelte can render the new entries first — otherwise the user sees
+  // a flash of empty content.
+  const hasNewMetadata = newIds.some((id) =>
+    ['archive', 'session_info'].includes(entries.find((e) => e.id === id)?.type),
+  );
+
   // Clear the optimistic preview only when a canonical assistant entry with
   // content arrives. A file-watcher reload that only brings the user message
   // (or a label) should keep the streaming preview alive. A reload that brings
@@ -78,14 +87,22 @@ export async function handleSessionReload({
       entries.find((e) => e.id === id)?.message?.content?.length > 0,
   );
   if (hasNewAssistantWithContent) {
-    clearChatPreview();
+    if (hasNewMetadata) {
+      _requestAnimationFrame(() => clearChatPreview());
+    } else {
+      clearChatPreview();
+    }
   }
 
   const hasNewUserMessage = newIds.some(
     (id) => entries.find((e) => e.id === id)?.message?.role === 'user',
   );
   if (hasNewUserMessage) {
-    clearPendingUser();
+    if (hasNewMetadata) {
+      _requestAnimationFrame(() => clearPendingUser());
+    } else {
+      clearPendingUser();
+    }
   }
 
   if (newCount > 0) {

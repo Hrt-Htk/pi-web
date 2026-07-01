@@ -293,6 +293,40 @@ func TestMaybeAutoTitleSkipsOnArchiveEntry(t *testing.T) {
 	}
 }
 
+func TestMaybeAutoTitleSkipsOnSessionInfoEntry(t *testing.T) {
+	// When the last entry is a session_info without an explicit name
+	// (e.g. auto-title marker update), auto-titling must not fire —
+	// the file change is metadata-only, no new user content to title.
+	// This exercises the LastEntryType skip (not the userOwned guard).
+	s := newAutoTitleServer(t, map[string]string{
+		"pi-web:v1:auto-title:model": "anthropic/sonnet",
+	})
+	project := filepath.Join(s.sessionsDir, "proj")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	id := "2026-06-03T00-00-00.000Z_sinfo.jsonl"
+	content := `{"type":"session","version":3,"id":"si","cwd":"` + filepath.ToSlash(project) + `"}` + "\n" +
+		`{"type":"message","message":{"role":"user","content":"do something"}}` + "\n" +
+		`{"type":"session_info"}` + "\n"
+	if err := os.WriteFile(filepath.Join(project, id), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := 0
+	restore := autoTitleGenerate
+	autoTitleGenerate = func(ctx context.Context, opts rpc.PromptOpts) (string, error) {
+		calls++
+		return "Title", nil
+	}
+	t.Cleanup(func() { autoTitleGenerate = restore })
+
+	s.maybeAutoTitle(id)
+	if calls != 0 {
+		t.Fatalf("auto-title should be skipped for session_info entries, got %d model call(s)", calls)
+	}
+}
+
 func TestMaybeAutoTitleNoUserMessage(t *testing.T) {
 	s := newAutoTitleServer(t, nil)
 	id := writeAutoTitleSession(t, s.sessionsDir, "", "")
