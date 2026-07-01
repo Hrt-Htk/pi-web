@@ -61,8 +61,8 @@ func SetFontProvider(fn func() (string, string, string, string, string)) {
 //   2. Toggles the `wco` class when Window Controls Overlay is active.
 const wcoBootScript = `<script>
 (function(){
-  var chromeBgs = {dark:'#0f0f14',light:'#ddddda',nord:'#292f3a',dracula:'#242631'};
-  var bodyBgs   = {dark:'#111116',light:'#f6f5f2',nord:'#2e3440',dracula:'#282a36'};
+  var chromeBgs = {dark:'#0f0f14',light:'#ddddda',nord:'#292f3a',dracula:'#242631',samsung:'#02050d'};
+  var bodyBgs   = {dark:'#111116',light:'#f6f5f2',nord:'#2e3440',dracula:'#282a36',samsung:'#030713'};
   // Detect WCO via the display-mode media query — the reliable, synchronous
   // signal. navigator.windowControlsOverlay.visible is commonly false during
   // initial load (and the SPA shell renders an empty body first), so relying on
@@ -180,7 +180,7 @@ func themeBootScript(defaultTheme string) template.HTML {
 	return template.HTML(fmt.Sprintf(`<script>
 (function(){
   var STORAGE_KEY = 'pi-web-theme';
-  var themes = ['dark', 'light', 'nord', 'dracula', 'custom'];
+  var themes = ['dark', 'light', 'nord', 'dracula', 'samsung', 'custom'];
   function applyTheme(t){ document.documentElement.dataset.theme = t || 'dark'; }
   function currentTheme(){ return document.documentElement.dataset.theme || 'dark'; }
   // Lucide theme icons, inlined so the indicator is painted before the JS
@@ -190,6 +190,7 @@ func themeBootScript(defaultTheme string) template.HTML {
     light: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>',
     nord: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="m10 20-1.25-2.5L6 18" /><path d="M10 4 8.75 6.5 6 6" /><path d="m14 20 1.25-2.5L18 18" /><path d="m14 4 1.25 2.5L18 6" /><path d="m17 21-3-6h-4" /><path d="m17 3-3 6 1.5 3" /><path d="M2 12h6.5L10 9" /><path d="m20 10-1.5 2 1.5 2" /><path d="M22 12h-6.5L14 15" /><path d="m4 10 1.5 2L4 14" /><path d="m7 21 3-6-1.5-3" /><path d="m7 3 3 6h4" /></svg>',
     dracula: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M9 10h.01" /><path d="M15 10h.01" /><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z" /></svg>',
+    samsung: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg>',
     custom: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>'
   };
   function updateBtn(){
@@ -202,6 +203,7 @@ func themeBootScript(defaultTheme string) template.HTML {
     if(t === 'light')   { chromeBg = '#ddddda'; bodyBg = '#f6f5f2'; }
     else if(t === 'nord')    { chromeBg = '#292f3a'; bodyBg = '#2e3440'; }
     else if(t === 'dracula') { chromeBg = '#242631'; bodyBg = '#282a36'; }
+    else if(t === 'samsung') { chromeBg = '#02050d'; bodyBg = '#030713'; }
     else if(t !== 'dark') {
       // User-defined custom theme: read its background from the loaded
       // /custom-themes.css (--body-bg) instead of the hardcoded built-ins.

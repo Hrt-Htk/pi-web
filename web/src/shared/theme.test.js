@@ -48,6 +48,17 @@ describe('theme helpers', () => {
     expect(documentImpl._meta.content).toBe('#1a1b26');
   });
 
+  it('uses samsung theme background', () => {
+    const storage = fakeStorage();
+    const documentImpl = fakeDocument();
+    const windowImpl = { localStorage: storage, navigator: {}, getComputedStyle: () => ({ getPropertyValue: () => '' }) };
+
+    applyTheme(windowImpl, documentImpl, 'samsung');
+
+    expect(documentImpl.documentElement.style.backgroundColor).toBe('#030713');
+    expect(documentImpl._meta.content).toBe('#030713');
+  });
+
   it('falls back to the dark background when custom defines no --body-bg', () => {
     const storage = fakeStorage();
     const documentImpl = fakeDocument();
@@ -62,11 +73,23 @@ describe('theme helpers', () => {
     expect(documentImpl.documentElement.style.backgroundColor).toBe('#111116');
   });
 
-  it('cycles from dracula to custom', () => {
+  it('cycles from dracula to samsung', () => {
     const storage = fakeStorage();
     const documentImpl = fakeDocument();
     const windowImpl = { localStorage: storage, navigator: {} };
     documentImpl.documentElement.dataset.theme = 'dracula';
+
+    toggleTheme(windowImpl, documentImpl);
+
+    expect(documentImpl.documentElement.dataset.theme).toBe('samsung');
+    expect(storage.getItem('pi-web-theme')).toBe('samsung');
+  });
+
+  it('cycles from samsung to custom', () => {
+    const storage = fakeStorage();
+    const documentImpl = fakeDocument();
+    const windowImpl = { localStorage: storage, navigator: {} };
+    documentImpl.documentElement.dataset.theme = 'samsung';
 
     toggleTheme(windowImpl, documentImpl);
 

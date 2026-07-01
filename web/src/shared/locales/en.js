@@ -225,6 +225,7 @@ export default {
   'settings.themeDark': 'Dark',
   'settings.themeLight': 'Light',
   'settings.themeCustom': 'Custom',
+  'settings.themeSamsung': 'Samsung',
   'settings.interfaceFont': 'Interface font',
   'settings.interfaceFontHint': 'Font for the app UI — menus, lists, headers.',
   'settings.contentFont': 'Content font',

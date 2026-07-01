@@ -120,7 +120,7 @@
         onchange={(e) => commitTheme(e.currentTarget.value)}
         ><option value="dark">{t('settings.themeDark')}</option><option value="light"
           >{t('settings.themeLight')}</option
-        ><option value="nord">Nord</option><option value="dracula">Dracula</option><option
+        ><option value="nord">Nord</option><option value="dracula">Dracula</option><option value="samsung">{t('settings.themeSamsung')}</option><option
           value="custom">{t('settings.themeCustom')}</option
         ></select
       >

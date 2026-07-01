@@ -33,7 +33,7 @@ var exportJs string
 // value from being interpolated verbatim into the export <script> block.
 func sanitizeTheme(t string) string {
 	switch t {
-	case "dark", "light", "nord", "dracula", "custom":
+	case "dark", "light", "nord", "dracula", "samsung", "custom":
 		return t
 	}
 	return "dark"
