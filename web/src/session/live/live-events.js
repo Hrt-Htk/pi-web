@@ -72,8 +72,8 @@ export async function handleSessionReload({
   // When a reload brings both metadata and content entries, we defer the preview
   // clear so Svelte can render the new entries first — otherwise the user sees
   // a flash of empty content.
-  const hasNewMetadata = newIds.some(
-    (id) => ['archive', 'session_info'].includes(entries.find((e) => e.id === id)?.type),
+  const hasNewMetadata = newIds.some((id) =>
+    ['archive', 'session_info'].includes(entries.find((e) => e.id === id)?.type),
   );
 
   // Clear the optimistic preview only when a canonical assistant entry with

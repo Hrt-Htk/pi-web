@@ -265,10 +265,7 @@ describe('live events', () => {
     // fires and fetches /api/session. If the only new entry is the archive
     // metadata entry, the streaming preview must survive — it should only be
     // cleared when a canonical assistant entry with content arrives.
-    const entries = [
-      { id: 'welcome' },
-      { id: 'archive-entry', type: 'archive', archived: false },
-    ];
+    const entries = [{ id: 'welcome' }, { id: 'archive-entry', type: 'archive', archived: false }];
     const fetchImpl = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
     );
