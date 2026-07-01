@@ -6,8 +6,20 @@ import { setThemeIconElement } from './icons.js';
 // background-color on <html> before first paint; applyTheme must update that
 // same inline style on a live theme switch, otherwise the page surround keeps
 // the previous theme's color until the next reload.
-const BODY_BGS = { dark: '#111116', light: '#f6f5f2', nord: '#2e3440', dracula: '#282a36', samsung: '#030713' };
-const CHROME_BGS = { dark: '#0f0f14', light: '#ddddda', nord: '#292f3a', dracula: '#242631', samsung: '#02050d' };
+const BODY_BGS = {
+  dark: '#111116',
+  light: '#f6f5f2',
+  nord: '#2e3440',
+  dracula: '#282a36',
+  samsung: '#030713',
+};
+const CHROME_BGS = {
+  dark: '#0f0f14',
+  light: '#ddddda',
+  nord: '#292f3a',
+  dracula: '#242631',
+  samsung: '#02050d',
+};
 
 function readThemeBg(windowImpl, documentImpl) {
   try {

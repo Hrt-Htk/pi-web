@@ -51,7 +51,11 @@ describe('theme helpers', () => {
   it('uses samsung theme background', () => {
     const storage = fakeStorage();
     const documentImpl = fakeDocument();
-    const windowImpl = { localStorage: storage, navigator: {}, getComputedStyle: () => ({ getPropertyValue: () => '' }) };
+    const windowImpl = {
+      localStorage: storage,
+      navigator: {},
+      getComputedStyle: () => ({ getPropertyValue: () => '' }),
+    };
 
     applyTheme(windowImpl, documentImpl, 'samsung');
 
