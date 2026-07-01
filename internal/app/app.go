@@ -36,6 +36,7 @@ func Main(version string) {
 	hostOverride := flag.String("host", "", "host/IP to bind; defaults to 127.0.0.1")
 	open := flag.Bool("o", false, "auto-open browser")
 	insecure := flag.Bool("insecure", false, "allow non-loopback bind without "+tokenEnvVar+" (DANGEROUS)")
+	dev := flag.Bool("dev", false, "development mode: disable auth (ignore "+tokenEnvVar+") and skip Tailscale Serve; binds loopback by default")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -56,7 +57,7 @@ func Main(version string) {
 
 	bindHost := chooseBindHost(*hostOverride)
 	_ = godotenv.Load() // load .env from working directory (best-effort)
-	token := tokenFromEnv()
+	token := resolveAuthToken(*dev, tokenFromEnv())
 	tokenRequired := token == "" && !isLoopbackHost(bindHost) && !*insecure
 	if tokenRequired {
 		fmt.Fprintf(os.Stderr,
@@ -122,7 +123,7 @@ func Main(version string) {
 	url := fmt.Sprintf("http://%s", net.JoinHostPort(bindHost, *port))
 	var tailscaleURL string
 	var tailscaleServe bool
-	if *hostOverride == "" {
+	if *hostOverride == "" && !*dev {
 		tsCtx, tsCancel := context.WithTimeout(context.Background(), tailscaleConfigureTimeout)
 		tsURL, tsOk, tsErr := configureTailscaleServe(tsCtx, *port)
 		tsCancel()
@@ -144,6 +145,8 @@ func Main(version string) {
 	fmt.Printf("Serving from: %s\n", sessionsDir)
 	if authMiddleware.Enabled() {
 		fmt.Println("Auth: enabled (set PI_WEB_TOKEN to require token)")
+	} else if *dev {
+		fmt.Println("Auth: disabled (dev mode)")
 	} else {
 		fmt.Printf("Auth: disabled — set %s to require a token for access.\n", tokenEnvVar)
 	}
@@ -196,4 +199,13 @@ func Main(version string) {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", serveErr)
 		os.Exit(1)
 	}
+}
+
+// resolveAuthToken returns the token that gates access. In dev mode the token is
+// forced empty so auth is disabled, ignoring any PI_WEB_TOKEN in the environment.
+func resolveAuthToken(dev bool, envToken string) string {
+	if dev {
+		return ""
+	}
+	return envToken
 }
