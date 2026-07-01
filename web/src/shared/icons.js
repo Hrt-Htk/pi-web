@@ -15,6 +15,7 @@ import {
   BookOpen,
   ChartColumn,
   Check,
+  Globe,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -133,6 +134,7 @@ const THEME_ICONS = {
   light: Sun,
   nord: Snowflake,
   dracula: Ghost,
+  samsung: Globe,
   custom: Settings,
 };
 
@@ -170,6 +172,7 @@ export {
   FolderGit2,
   FolderOpen,
   Ghost,
+  Globe,
   Info,
   GitFork,
   Lightbulb,

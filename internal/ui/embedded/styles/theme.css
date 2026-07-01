@@ -311,6 +311,96 @@
     --customMessageText: #d8dee9;
 }
 
+[data-theme="samsung"] {
+    /* ── Typography & Layout ── */
+    --line-height: 1.5;
+
+    /* ── Color Palette (Samsung Internet Dark) ── */
+    --body-bg: #030713;
+    --surface: #030817;
+    --surface-2: #1f2132;
+    --text: #e6e7fc;
+    --text-soft: #c4c3d4;
+    --muted: #7090a7;
+    --dim: #464b61;
+    --dim-2: #434655;
+    --accent: #698da7;
+    --border-accent: #3c5b6e;
+    --danger: #cc6666;
+
+    --pi-menu-bg: var(--surface);
+    --pi-menu-border: var(--dim);
+    --pi-menu-item-color: var(--text-soft);
+    --pi-menu-item-hover-color: var(--text);
+    --pi-menu-muted-color: var(--muted);
+    --pi-menu-accent-color: var(--accent);
+    --pi-menu-hover-bg: var(--surface-2);
+
+    /* ── Workspace / Session Visual Tokens ── */
+    --container-bg: var(--surface);
+    --info-bg: #1a1520;
+    --hover: color-mix(in srgb, var(--selectedBg) 50%, transparent);
+
+    --cyan: #698da7;
+    --blue: #5e7f96;
+    --green: #7aad7e;
+    --red: #cc8888;
+    --yellow: #c4b87a;
+    --gray: #5e6171;
+    --dimGray: #464b61;
+    --darkGray: #393e55;
+    --accent-color: #3c5b6e;
+    --selectedBg: #434655;
+    --userMessageBg: #1f2132;
+    --toolPendingBg: #1a1c2e;
+    --toolSuccessBg: #131f1a;
+    --toolErrorBg: #2a1515;
+    --customMessageBg: #1f1a2e;
+    --customMessageLabel: #8a7ab0;
+    --thinkingText: #5e6171;
+    --mdHeading: #c4c3d4;
+    --mdLink: #698da7;
+    --mdLinkUrl: #5e7f96;
+    --mdCode: #698da7;
+    --mdCodeBlock: #7aad7e;
+    --mdCodeBlockBorder: #393e55;
+    --code-bg: rgba(0, 0, 0, 0.35);
+    --mdQuote: #5e7f96;
+    --mdQuoteBorder: #393e55;
+    --mdHr: #393e55;
+    --mdListBullet: #698da7;
+    --toolDiffAdded: #7aad7e;
+    --toolDiffRemoved: #cc8888;
+    --toolDiffContext: #5e6171;
+    --syntaxComment: #5e6171;
+    --syntaxKeyword: #5e7f96;
+    --syntaxFunction: #698da7;
+    --syntaxVariable: #b9bbcf;
+    --syntaxString: #7aad7e;
+    --syntaxNumber: #c4b87a;
+    --syntaxType: #698da7;
+    --syntaxOperator: #b9bbcf;
+    --syntaxPunctuation: #b9bbcf;
+    --thinkingOff: #393e55;
+    --thinkingMinimal: #464b61;
+    --thinkingLow: #5e7f96;
+    --thinkingMedium: #698da7;
+    --thinkingHigh: #8a7ab0;
+    --thinkingXhigh: #9a6ab0;
+    --bashMode: #7aad7e;
+    --success: #7aad7e;
+    --error: #cc8888;
+    --warning: #c4b87a;
+    --border: #3c5b6e;
+    --borderAccent: #698da7;
+    --borderMuted: #393e55;
+    --toolOutput: #5e7f96;
+    --bg: var(--body-bg);
+    --selected-bg: #434655;
+    --userMessageText: var(--text-soft);
+    --customMessageText: var(--text-soft);
+}
+
 [data-theme="dracula"] {
     /* ── Typography & Layout ── */
     --line-height: 1.5;
