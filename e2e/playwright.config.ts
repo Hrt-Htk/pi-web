@@ -19,7 +19,7 @@ export default defineConfig({
   },
   // Tiered matrix: default = 2 projects (Chrome desktop + mobile) for fast PR feedback.
   // Set E2E_FULL_MATRIX=1 (push to main in CI) for the full 7-project matrix.
-  projects: process.env.E2E_FULL_MATRIX
+  projects: process.env.E2E_FULL_MATRIX === 'true'
     ? [
         { name: "Desktop Chrome", use: { ...devices["Desktop Chrome"] } },
         { name: "Desktop Firefox", use: { ...devices["Desktop Firefox"] } },
