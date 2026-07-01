@@ -78,6 +78,7 @@ refactor/issue42-simplify-session-worker
 - The PR template includes a checklist — fill it out completely.
 - Every PR must reference an open issue. The link can be in the PR body or in a commit message.
 - The PR title should follow conventional commit format (e.g. `feat: add workflow checks to CI`).
+- **Before creating a PR, run `cd web && npm run format`** — this auto-fixes formatting so the Prettier CI check passes. If you skip this and the format check fails, fix the formatting and push before requesting review. This applies to all changes, whether written by a human or a delegated subagent.
 
 ## Size Limits
 
