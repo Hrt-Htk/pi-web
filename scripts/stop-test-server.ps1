@@ -4,7 +4,7 @@
 # Usage: pwsh -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1
 
 $ErrorActionPreference = "Stop"
-$pidFile = "h:\software\pi-web\.tmp\test-server.pid"
+$pidFile = ".\.tmp\test-server.pid"
 
 if (-not (Test-Path $pidFile)) {
     Write-Warning "No test server PID file found. Is a test server running?"

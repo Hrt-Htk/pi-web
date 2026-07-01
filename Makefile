@@ -1,4 +1,4 @@
-.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test frontend-knip frontend-lint frontend-format-check extension-test memory-test go-test install-test vet test check clean dev release-patch release-minor release-major release-beta e2e e2e-setup install
+.PHONY: build setup frontend-setup go-setup root-setup frontend-build frontend-test frontend-knip frontend-lint frontend-format-check extension-test memory-test go-test install-test vet test check clean dev release-patch release-minor release-major release-beta e2e e2e-setup
 
 ifeq ($(OS),Windows_NT)
 BINARY ?= pi-web.exe
@@ -62,12 +62,6 @@ go-test: go-setup
 
 install-test:
 	bash tests/install/inplace_test.sh
-
-# Copy the freshly built binary to ~/.pi/agent/bin/ so it shadows any
-# older pi-managed install when running `pi-web.exe` from PATH.
-# Run after `make build` whenever you need the running server to pick up changes.
-install: build
-	cp $(BINARY) $(HOME)/.pi/agent/bin/$(BINARY)
 
 vet: go-setup
 	go vet ./...
