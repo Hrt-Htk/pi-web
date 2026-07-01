@@ -11,7 +11,7 @@ This is the map of how pi-web is tested, and what we deliberately borrowed (and 
 | **Integration (in-memory)** | `go test` | `internal/integration/` — fake worker + real server/manager | Yes |
 | **Extension / memory / install** | vitest / Python / bash | `tests/` | Yes |
 | **Benchmark** | `go test -bench` | `internal/server/bench_test.go` | No (run on demand) |
-| **E2E** | Playwright | `e2e/tests/` — real browser, real binary, 7 device projects | Yes (non-pi specs) |
+| **E2E** | Playwright | `e2e/tests/` — real browser, real binary, 2 projects default (7 with `E2E_FULL_MATRIX=1`) | Yes (non-pi specs) |
 | **Manual / mobile smoke** | human | browser + real device (`docs/dev/mobile-smoke-checklist.md`) | No (release gate) |
 
 Run `make test` for the fast layers, `make check` before pushing, `make e2e` for the browser layer (needs `make e2e-setup` once).

@@ -159,6 +159,9 @@ jobs:
 
       - name: Run UI Playwright tests (pi specs run locally only)
         working-directory: e2e
+        env:
+          # Full 7-project browser matrix on main; PRs use reduced 2-project matrix.
+          E2E_FULL_MATRIX: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         run: npx playwright test --grep-invert "real pi"
 
       - name: Upload Playwright report

@@ -114,6 +114,10 @@ Prod runs from `h:\software\pi-web-prod\pi-web.exe` on port 31415 with auth enab
 
 `deploy.ps1` is the ONLY sanctioned way to stop or replace prod. Never kill prod by process name (`Stop-Process -Name pi-web` / `taskkill`) — it would also kill any running test server.
 
+## Merging PRs
+
+**Before merging a PR, all 3 CI checks must pass.** Run `gh pr checks <number>` and wait until every job (Test, Workflow Checks, E2E UI) reports `pass`. Never merge with pending or failing checks.
+
 ## Critical Rules
 
 1. **Live app and export are separate renders.** Live = Svelte SPA via `internal/ui/embedded/app.html` (`spa_page.go`). Export/share = static snapshot via `internal/ui/embedded/share-session.html` (`export.go`), built from `web/src/export/export-entry.js` which reuses the live `web/src/session/` modules. Never leak live-only chrome (SPA scripts, SSE, chat) into the export.

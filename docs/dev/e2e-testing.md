@@ -30,7 +30,8 @@ make e2e                 # build the binary, then run the whole suite
 
 # or, from e2e/ directly (assumes ./pi-web is already built):
 cd e2e
-npx playwright test                                  # all projects
+npx playwright test                                  # default 2 projects
+E2E_FULL_MATRIX=1 npx playwright test                # full 7 projects
 npx playwright test --project="Desktop Chrome"       # one project
 npx playwright test tests/chat.spec.ts               # one spec
 npx playwright test --ui                             # interactive debug UI
@@ -62,7 +63,8 @@ PWDEBUG=1 npx playwright test --project="Desktop Chrome" tests/chat.spec.ts
 ```
 
 Tips for eyeballing:
-- Always add `--project=...` in headed mode — otherwise all 7 browsers open together.
+- Always add `--project=...` in headed mode — otherwise all browsers open together
+  (2 by default, 7 with `E2E_FULL_MATRIX=1`).
 - `--workers=1` runs tests one at a time so windows don't stack up.
 - `--ui` (the Playwright UI runner) is usually the nicest way to watch + re-run.
 - To slow actions, set `use: { launchOptions: { slowMo: 500 } }` temporarily in
@@ -72,7 +74,22 @@ Tips for eyeballing:
 
 ## Project matrix
 
-Layout follows a **900px breakpoint**, not device type. Seven projects:
+Layout follows a **900px breakpoint**, not device type.
+
+### Default (2 projects)
+
+The default matrix runs **2 projects** — one desktop + one mobile, both Chromium.
+This is the fast path used for PRs and local runs:
+
+| Project | Engine | Viewport | Layout |
+|---|---|---|---|
+| Desktop Chrome | Chromium | 1280 | desktop |
+| Mobile Chrome (Pixel 5) | Chromium | 393 | mobile |
+
+### Full matrix (7 projects)
+
+Set `E2E_FULL_MATRIX=1` to run all 7 projects. This is the CI path for pushes to
+`main` — catches WebKit/Firefox/iPad regressions on every merge:
 
 | Project | Engine | Viewport | Layout |
 |---|---|---|---|
@@ -95,8 +112,8 @@ apply. iPad portrait exercises mobile, iPad landscape exercises desktop.
 
 ### Expected skips
 
-A full run reports **13 skipped** — these are intentional `test.skip()` guards,
-not failures:
+A full run (7 projects) reports **13 skipped** — these are intentional
+`test.skip()` guards, not failures:
 
 - **7** from `mobile-layout.spec.ts`: it has a mobile test and a desktop test;
   each skips on the projects whose layout doesn't apply (mobile test skips the 4
@@ -106,6 +123,8 @@ not failures:
   projects in parallel would race on the same key. It's gated to Desktop Chrome
   (persistence is browser-independent), so the other 6 projects skip it.
 
+The default 2-project run has far fewer skips (only the settings gate applies —
+1 skip from the mobile-layout spec's desktop test on Mobile Chrome, if applicable).
 The exact pass/skip count depends on the current suite size — several diagnostic
 specs were removed and the pi specs now run against the live server, so the total
 may differ from earlier versions. Each skip carries a reason string, visible with
