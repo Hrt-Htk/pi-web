@@ -260,6 +260,136 @@ describe('live events', () => {
     expect(onReload).not.toHaveBeenCalled();
   });
 
+  it('does not clear preview when reload only brings metadata entries (archive/unarchive)', async () => {
+    // When the user unarchives during an active agent response, the SSE reload
+    // fires and fetches /api/session. If the only new entry is the archive
+    // metadata entry, the streaming preview must survive — it should only be
+    // cleared when a canonical assistant entry with content arrives.
+    const entries = [
+      { id: 'welcome' },
+      { id: 'archive-entry', type: 'archive', archived: false },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
+    const onReloaded = vi.fn();
+
+    await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      clearPendingUser,
+      onReloaded,
+    });
+
+    // Archive entry is new — model is reconciled, but preview stays alive
+    expect(onReloaded).toHaveBeenCalledWith({ entries });
+    expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(clearPendingUser).not.toHaveBeenCalled();
+  });
+
+  it('does not clear preview when reload brings archive + already-seen assistant entry', async () => {
+    // The key bug scenario: unarchive reload fires, archive entry is new,
+    // but the assistant entry was already seen (flushed to disk earlier).
+    // The preview must survive — the assistant content is already in #messages.
+    const entries = [
+      { id: 'welcome' },
+      {
+        id: 'assistant-msg',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Hi!' }] },
+      },
+      { id: 'archive-entry', type: 'archive', archived: false },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    // Assistant entry was already seen (flushed to disk during streaming)
+    const entryState = { seen: new Set(['welcome', 'assistant-msg']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
+    const onReloaded = vi.fn();
+
+    await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      clearPendingUser,
+      onReloaded,
+    });
+
+    // Only the archive entry is new — preview must survive
+    expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(clearPendingUser).not.toHaveBeenCalled();
+  });
+
+  it('defers preview clear when reload brings both metadata and assistant content', async () => {
+    // When the unarchive reload brings both an archive entry AND a new assistant
+    // entry, the preview clear should be deferred (via requestAnimationFrame) so
+    // Svelte can render the new entries first. Without deferral, the preview is
+    // cleared synchronously and the user sees a flash of empty content.
+    const entries = [
+      { id: 'welcome' },
+      {
+        id: 'assistant-msg',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Hi!' }] },
+      },
+      { id: 'archive-entry', type: 'archive', archived: false },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
+    const onReloaded = vi.fn();
+
+    const result = await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      clearPendingUser,
+      onReloaded,
+    });
+
+    // Both entries are new, but clear should NOT be called synchronously
+    // (it should be deferred via requestAnimationFrame)
+    expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(result.newCount).toBe(2);
+  });
+
+  it('does not clear preview when reload only brings session_info entries', async () => {
+    // A session_info (rename/title) entry is metadata — preview must survive.
+    const entries = [
+      { id: 'welcome' },
+      { id: 'info-entry', type: 'session_info', name: 'Renamed Session' },
+    ];
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ entries }), { status: 200 })),
+    );
+    const entryState = { seen: new Set(['welcome']), liveRendered: new Set() };
+    const clearChatPreview = vi.fn();
+    const clearPendingUser = vi.fn();
+    const onReloaded = vi.fn();
+
+    await handleSessionReload({
+      sessionId: 's',
+      fetchImpl,
+      entryState,
+      clearChatPreview,
+      clearPendingUser,
+      onReloaded,
+    });
+
+    expect(clearChatPreview).not.toHaveBeenCalled();
+    expect(clearPendingUser).not.toHaveBeenCalled();
+  });
+
   it('dispatches pi-session-reload window event on reload', () => {
     const eventSource = { addEventListener: vi.fn() };
     const dispatched = [];
