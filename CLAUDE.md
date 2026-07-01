@@ -80,7 +80,7 @@ Real browser against running server. Playwright — lives in `e2e/`.
 
 ### Level 5: Manual Browser Verification (mandatory for UI changes)
 Before committing any UI change:
-1. Build (see Environment — run the frontend build, then `go build -o pi-web.exe`), then start the isolated test server: `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` (port 31416). Do NOT deploy to prod to verify UI changes.
+1. Build (see Environment — run the frontend build, then `go build -o pi-web.exe`), then start the test server: `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` (port 31416). Do NOT deploy to prod to verify UI changes.
 2. Open the affected page in the browser.
 3. Verify the change visually works as expected.
 4. Test edge cases: empty states, error states, transitions.
@@ -98,8 +98,8 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 - **NEVER stop, kill, or restart the production server on port `31415` during development or testing.** This is a hard rule — the prod server is always running and must not be touched by dev/test work. The ONLY sanctioned way to stop or replace prod is `scripts/deploy.ps1` (a deliberate deploy action — see "Deploying to prod").
   - **Test server on separate port — always.** For any testing (E2E, screenshots, manual verification):
     - **E2E suite:** `e2e/lib/server.ts` auto-spawns a test server on a free port via `startServer()` — just run `cd e2e && npx playwright test <spec>`.
-    - **Manual testing (launch):** `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` (localhost only, auth disabled), records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing. (Requires PowerShell 7+ / `pwsh`; the script uses `Start-Process -Environment`, which Windows PowerShell 5.1 lacks.)
-    - **Isolated data:** the test server runs against an isolated throwaway agent dir (`.tmp/test-agent`, gitignored), mirrored from the real sessions via `robocopy /MIR` on each startup. So you can rename/title/drive sessions on 31416 without ever touching the real `~/.pi/agent/sessions` that prod serves. Pass `-NoRefresh` to skip the mirror and reuse the existing copy for a fast restart.
+    - **Manual testing (launch):** `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` and records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing. The script launches pi-web **exactly like prod** (a plain `Start-Process` with the full inherited environment) plus the `-dev` flag, which disables auth (ignores `PI_WEB_TOKEN`), binds loopback, and skips Tailscale Serve. Because it inherits the real environment instead of rebuilding it, no system vars get stripped and the pi worker (`pi --mode rpc`) spawns reliably.
+    - **Real data — NOT isolated:** the test server serves the **real** agent dir (`~/.pi/agent/sessions`), the same sessions prod serves, so it stays as close to prod as possible. ⚠️ This means renaming/titling/**driving chat** on 31416 **does** mutate real session data (`-dev` changes only auth/bind/tailscale, never the data dir). For scratch chat tests, create a throwaway session via `POST /api/new-session` and delete its `.jsonl` afterward. True data isolation would require a separate `-agent-dir` flag (not yet implemented).
     - **Manual testing (stop):** `pwsh -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1` — kills ONLY the test server by recorded PID. Safe — never touches prod.
     - **NEVER use `taskkill //IM pi-web.exe`** — that kills ALL instances including prod. The stop script targets only the test server PID.
   - Never run tests against port `31415`.
