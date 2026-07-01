@@ -26,9 +26,9 @@ Read the relevant doc in `@docs/` before structural changes, and update the matc
 ## Environment
 
 - **Go:** `/c/Users/HTK/go/bin/go.exe` (add to PATH if not found: `export PATH="$PATH:/c/Users/HTK/go/bin"`)
-- **Always build with `-o pi-web.exe`** — WSL/Git Bash produces `pi-web` (no extension) by default, but the user runs `pi-web.exe` from PATH. Without `.exe` the new binary is never picked up.
-- **Restarting the server:** always kill the old PID and start the new binary in a **single command** — never ask the user to start it manually. Use: `powershell -Command "Stop-Process -Name pi-web -Force -ErrorAction SilentlyContinue" && sleep 2 && start "" pi-web.exe`. (PowerShell `Stop-Process -Name` is reliable; `taskkill` can fail with Access Denied.)
-- **`make install` after building:** `~/.pi/agent/bin/pi-web.exe` (pi-managed) shadows the repo build when running `pi-web.exe` from PATH. After `make build`, run `make install` to copy the fresh binary there, otherwise the running server will serve stale embedded assets.
+- **Always build with `-o pi-web.exe`** — WSL/Git Bash produces `pi-web` (no extension) by default. Without `.exe` Windows can't run it.
+- **Server layout:** prod runs from `h:\software\pi-web-prod\pi-web.exe` (port 31415). Test server runs from `h:\software\pi-web\pi-web.exe` (port 31416). Always use explicit paths — `pi-web.exe` is not in PATH.
+- **Deploying / restarting the prod server:** use `scripts/deploy.ps1` — it stops prod by its recorded PID, copies the freshly built `pi-web.exe` into `h:\software\pi-web-prod\`, restarts it on 31415, and records the new PID. To start prod without redeploying (e.g. after a reboot), use `h:\software\pi-web-prod\start-prod.ps1`. **Never** stop prod with `Stop-Process -Name pi-web` or `taskkill /IM pi-web.exe` — those kill *every* pi-web instance, including a running test server on 31416. See "Deploying to prod" below for the full procedure.
 - **Node:** `/c/nvm4w/nodejs/` (npm at `C:/nvm4w/nodejs/npm.cmd`)
 - **make:** `C:/Users/HTK/AppData/Local/Microsoft/WinGet/Packages/ezwinports.make_Microsoft.Winget.Source_8wekyb3d8bbwe/bin` (GNU Make 4.4.1, on the user PATH). A reduced shell may not see it — add to PATH: `export PATH="$PATH:/c/Users/HTK/AppData/Local/Microsoft/WinGet/Packages/ezwinports.make_Microsoft.Winget.Source_8wekyb3d8bbwe/bin"`. Note: make recipes run via `sh`, which can't resolve `npm` (it's `npm.cmd`), so `make build`/`make frontend-build` fail at the npm step. When that bites, run the steps directly: `cd web && /c/nvm4w/nodejs/npm.cmd run build` then `go build -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty)" -o pi-web.exe ./cmd/pi-web`.
 
@@ -79,7 +79,7 @@ Real browser against running server. Playwright — lives in `e2e/`.
 
 ### Level 5: Manual Browser Verification (mandatory for UI changes)
 Before committing any UI change:
-1. Build and serve: `make install` then restart server.
+1. Build (see Environment — run the frontend build, then `go build -o pi-web.exe`), then start the isolated test server: `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` (port 31416). Do NOT deploy to prod to verify UI changes.
 2. Open the affected page in the browser.
 3. Verify the change visually works as expected.
 4. Test edge cases: empty states, error states, transitions.
@@ -94,14 +94,25 @@ make e2e    # Playwright E2E; needs `make e2e-setup` once. Not in test/check
 
 ### Additional Rules
 - **Lint/format (frontend):** ESLint (`eslint-plugin-svelte`) + Prettier, config in `web/`. `make check` runs `frontend-lint` + `frontend-format-check`. Fix locally with `cd web && npm run format` (auto-format) and `npm run lint`. Style is 2-space indent, single quotes (enforced by Prettier).
-- **NEVER stop, kill, or restart the production server on port `31415`.** This is a hard rule. The prod server is always running and must not be touched during development.
+- **NEVER stop, kill, or restart the production server on port `31415` during development or testing.** This is a hard rule — the prod server is always running and must not be touched by dev/test work. The ONLY sanctioned way to stop or replace prod is `scripts/deploy.ps1` (a deliberate deploy action — see "Deploying to prod").
   - **Test server on separate port — always.** For any testing (E2E, screenshots, manual verification):
     - **E2E suite:** `e2e/lib/server.ts` auto-spawns a test server on a free port via `startServer()` — just run `cd e2e && npx playwright test <spec>`.
-    - **Manual testing (launch):** `powershell -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` (localhost only, auth disabled), records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing.
-    - **Manual testing (stop):** `powershell -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1` — kills ONLY the test server by recorded PID. Safe — never touches prod.
+    - **Manual testing (launch):** `pwsh -ExecutionPolicy Bypass -File scripts/start-test-server.ps1` — starts on port `31416` (localhost only, auth disabled), records PID to `.tmp/test-server.pid`. Fails if already running or if `pi-web.exe` is missing. (Requires PowerShell 7+ / `pwsh`; the script uses `Start-Process -Environment`, which Windows PowerShell 5.1 lacks.)
+    - **Isolated data:** the test server runs against an isolated throwaway agent dir (`.tmp/test-agent`, gitignored), mirrored from the real sessions via `robocopy /MIR` on each startup. So you can rename/title/drive sessions on 31416 without ever touching the real `~/.pi/agent/sessions` that prod serves. Pass `-NoRefresh` to skip the mirror and reuse the existing copy for a fast restart.
+    - **Manual testing (stop):** `pwsh -ExecutionPolicy Bypass -File scripts/stop-test-server.ps1` — kills ONLY the test server by recorded PID. Safe — never touches prod.
     - **NEVER use `taskkill //IM pi-web.exe`** — that kills ALL instances including prod. The stop script targets only the test server PID.
   - Never run tests against port `31415`.
-- **Always `make build`, never `go build` alone** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js` from the frontend build.
+- **Run the frontend build before `go build`** — `//go:embed` needs `web/dist` + `internal/ui/embedded/export/export.js`, produced by the frontend build. `make build` does both, but fails in a reduced shell where `npm` isn't resolvable (see Environment); when that happens, build directly: `cd web && npm run build` then `go build -o pi-web.exe ./cmd/pi-web`. Never ship a `go build` that skipped the frontend build.
+
+## Deploying to prod
+
+Prod runs from `h:\software\pi-web-prod\pi-web.exe` on port 31415 with auth enabled (the `PI_WEB_TOKEN` User-level environment variable) and serves the real sessions at `~/.pi/agent/sessions`. Deploy is a deliberate action, separate from dev/test work.
+
+1. Build the binary (frontend build then `go build -o pi-web.exe`, see Environment). The output is `.\pi-web.exe` in the dev repo.
+2. Run `pwsh -ExecutionPolicy Bypass -File scripts/deploy.ps1`. It stops the current prod by recorded PID, copies the binary into `pi-web-prod\`, restarts on 31415, and writes the new PID to `pi-web-prod\.tmp\prod-server.pid`.
+3. Verify: `http://localhost:31415/` returns HTTP 401 (auth on) and the running version reflects your build.
+
+`deploy.ps1` is the ONLY sanctioned way to stop or replace prod. Never kill prod by process name (`Stop-Process -Name pi-web` / `taskkill`) — it would also kill any running test server.
 
 ## Critical Rules
 
