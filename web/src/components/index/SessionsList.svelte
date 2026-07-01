@@ -38,9 +38,7 @@
   const visibleSessions = $derived(filterSessions(sessions, query));
   const isTimeline = $derived(layout === 'timeline');
   const searching = $derived(String(query || '').trim() !== '');
-  const projectNames = $derived(
-    Object.fromEntries(projects.map((p) => [p.path, p.name || ''])),
-  );
+  const projectNames = $derived(Object.fromEntries(projects.map((p) => [p.path, p.name || ''])));
 
   const allGroups = $derived(isTimeline ? [] : groupSessionsByProject(visibleSessions));
   const groups = $derived(
