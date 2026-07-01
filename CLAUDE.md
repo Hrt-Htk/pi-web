@@ -6,7 +6,6 @@
 - Avoid helper functions when a simple inline expression would suffice
 - Use knip to remove unused code if making large changes
 - **Before any commit, PR, or issue:** read `docs/dev/workflow.md` and follow its rules — labels mandatory, conventional commits (`type(scope): desc` + `Closes #N`), branch naming (`type/issueN-description`), one issue one PR, never close an issue before its PR merges.
-- **Before creating a PR:** run `cd web && npm run format` to auto-fix formatting. A PR that fails the Prettier CI check is a failed PR — fix the format locally and push before requesting review. This applies regardless of who wrote the code (human, subagent, or copilot).
 - **Before starting work on any issue:** create a properly named branch (`type/issueN-description`). Never work on `main` directly. Run `git status` first — it must be clean.
 - Never start new work on a dirty tree. Run `git status` first; commit, stash, or discard changes before beginning. Scratch (`.tmp/`, `.pi/tasks/`, screenshots, transcripts) is gitignored so it never counts as dirty.
 

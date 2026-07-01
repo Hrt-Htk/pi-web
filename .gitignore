@@ -25,4 +25,3 @@ e2e/scripts/shot-actions.mjs
 e2e/scripts/shot-clip.mjs
 .env
 __pycache__/
-.pi/skills/
