@@ -155,6 +155,26 @@ describe('GitFooter', () => {
     expect(id('pi-chat-message').value).toBe(MERGE_PR_PROMPT);
   });
 
+  it('keeps the status container hidden when all counts are zero', async () => {
+    renderFooter({
+      getGitInfo: vi.fn().mockResolvedValue({
+        isRepo: true,
+        branch: 'main',
+        isDefault: true,
+        hasChanges: false,
+        dirty: false,
+        modified: 0,
+        added: 0,
+        deleted: 0,
+        untracked: 0,
+        ahead: 0,
+        behind: 0,
+      }),
+    });
+    await flush();
+    expect(id('pi-git-status').hidden).toBe(true);
+  });
+
   describe('refresh polling', () => {
     it('starts a periodic poll that re-fetches git info', async () => {
       const getGitInfo = vi.fn().mockResolvedValue({

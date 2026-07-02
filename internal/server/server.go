@@ -275,6 +275,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/files", s.auth.Wrap(s.handleApiFiles))
 	mux.HandleFunc("/api/git/info", s.auth.Wrap(s.handleGitInfo))
 	mux.HandleFunc("/api/git/dirty-files", s.auth.Wrap(s.handleGitDirtyFiles))
+	mux.HandleFunc("/api/files/tree", s.auth.Wrap(s.handleFilesTree))
+	mux.HandleFunc("/api/files/git-status", s.auth.Wrap(s.handleFilesGitStatus))
 	// Public (no auth): the login gate needs the custom palette to theme
 	// correctly before the user authenticates. Contents are non-secret color
 	// variables only.

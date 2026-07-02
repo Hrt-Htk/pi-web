@@ -1405,7 +1405,167 @@
       border-color: var(--accent);
     }
 
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      padding: 4px 8px 2px 8px;
+    }
 
+    .tab-btn {
+      padding: 3px 8px;
+      font-size: 10px;
+      font-family: inherit;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: var(--body-bg);
+      border-color: var(--accent);
+    }
+
+    /* File tree (Files tab, issue #25). Global — the live SPA only loads these
+       inlined stylesheets, not vite-extracted component CSS, so file-tree styles
+       live here rather than in a Svelte scoped <style>. */
+    .file-tree {
+      padding: 4px 0;
+      overflow-y: auto;
+    }
+
+    .file-tree-state {
+      padding: 12px 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .file-tree-error {
+      color: #f85149;
+    }
+
+    .ft-node {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text, #e0e0e0);
+    }
+
+    .ft-node-folder {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px;
+      background: none;
+      border: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+
+    .ft-node-folder:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+
+    .ft-chevron {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .ft-folder-icon,
+    .ft-file-icon {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .ft-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Colour the file/folder name by git status (folders aggregate descendants). */
+    .ft-name.modified {
+      color: #d4a84b;
+    }
+
+    .ft-name.added {
+      color: #6ab87a;
+    }
+
+    .ft-name.deleted {
+      color: #d46a6a;
+    }
+
+    .ft-name.untracked {
+      color: #c9b03a;
+    }
+
+    .ft-name.updated {
+      color: #d4884b;
+    }
+
+    .ft-node-file {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .ft-node-file:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .ft-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .ft-status-dot.modified {
+      background: #d4a84b;
+    }
+
+    .ft-status-dot.added {
+      background: #6ab87a;
+    }
+
+    .ft-status-dot.deleted {
+      background: #d46a6a;
+    }
+
+    .ft-status-dot.untracked {
+      background: #c9b03a;
+    }
+
+    .ft-status-dot.updated {
+      background: #d4884b;
+    }
+
+    .ft-node-loading {
+      padding: 4px 0 4px 34px;
+      color: var(--muted);
+      font-style: italic;
+      font-size: 12px;
+    }
 
     .tree-container {
       flex: 1;

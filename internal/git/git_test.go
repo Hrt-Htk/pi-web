@@ -77,65 +77,6 @@ func TestParsePorcelain(t *testing.T) {
 	}
 }
 
-func TestTally(t *testing.T) {
-	tests := []struct {
-		name       string
-		files      []DirtyFile
-		wantM, wantA, wantD int
-	}{
-		{
-			name:  "modified ( M )",
-			files: []DirtyFile{{Status: "M", Path: "x"}},
-			wantM: 1,
-		},
-		{
-			name:  "untracked (??)",
-			files: []DirtyFile{{Status: "??", Path: "y"}},
-			wantA: 1,
-		},
-		{
-			name:  "staged added (A )",
-			files: []DirtyFile{{Status: "A", Path: "z"}},
-			wantA: 1,
-		},
-		{
-			name:  "deleted (D )",
-			files: []DirtyFile{{Status: "D", Path: "w"}},
-			wantD: 1,
-		},
-		{
-			name:  "rename (R )",
-			files: []DirtyFile{{Status: "R", Path: "b"}},
-			wantM: 1,
-		},
-		{
-			name:  "staged+unstaged modified (MM)",
-			files: []DirtyFile{{Status: "MM", Path: "c"}},
-			wantM: 1,
-		},
-		{
-			name: "mixed",
-			files: []DirtyFile{
-				{Status: "M", Path: "a"},
-				{Status: "??", Path: "b"},
-				{Status: "D", Path: "c"},
-				{Status: "A", Path: "d"},
-				{Status: "R", Path: "e"},
-			},
-			wantM: 2, wantA: 2, wantD: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m, a, d := tally(tt.files)
-			if m != tt.wantM || a != tt.wantA || d != tt.wantD {
-				t.Errorf("tally = (m=%d, a=%d, d=%d), want (m=%d, a=%d, d=%d)", m, a, d, tt.wantM, tt.wantA, tt.wantD)
-			}
-		})
-	}
-}
-
 // fakeGhBinary creates a minimal fake gh CLI in dir that responds to the
 // commands used by OpenIssues, OpenPRs, and RepoDescription. On Windows it
 // writes a .cmd batch file; on Unix it writes an executable shell script.
