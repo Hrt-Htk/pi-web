@@ -446,14 +446,31 @@ func ArchiveSession(path string, archived bool, now func() time.Time) error {
 		now = time.Now
 	}
 
-	entry := struct {
-		Type      string `json:"type"`
-		Timestamp string `json:"timestamp"`
-		Archived  bool   `json:"archived"`
-	}{
-		Type:      "archive",
-		Timestamp: now().UTC().Format(time.RFC3339),
-		Archived:  archived,
+	// Thread the archive entry onto the current leaf, giving it an id and
+	// parentId (like LabelSessionEntry). If it were left id-less as the file's
+	// last entry, pi's session loader would set the active leaf to its undefined
+	// id and resume the worker with an empty conversation — the agent would
+	// "forget" the whole session after archive/unarchive (issue #123).
+	entries, err := loadEntriesFromFile(path)
+	if err != nil {
+		return err
+	}
+	var parentID any
+	for _, e := range entries {
+		if id, _ := e["id"].(string); id != "" {
+			parentID = id
+		}
+	}
+	entryID, err := randomEntryID()
+	if err != nil {
+		return err
+	}
+	entry := map[string]any{
+		"type":      "archive",
+		"id":        entryID,
+		"parentId":  parentID,
+		"timestamp": now().UTC().Format(time.RFC3339),
+		"archived":  archived,
 	}
 	data, err := json.Marshal(entry)
 	if err != nil {
@@ -636,12 +653,15 @@ func CanonicalProject(path string) string {
 // pi-web are discoverable by pi --resume and vice versa.
 //
 // Algorithm (matches session-manager.js in pi):
-//   1. Strip leading / or \
-//   2. Replace / \ : with -
-//   3. Wrap in --
 //
-//	/home/user/my-project → --home-user-my-project--
-//	H:\Software           → --H--Software--
+//  1. Strip leading / or \
+//
+//  2. Replace / \ : with -
+//
+//  3. Wrap in --
+//
+//     /home/user/my-project → --home-user-my-project--
+//     H:\Software           → --H--Software--
 func EncodeProjectName(path string) string {
 	s := strings.TrimSpace(path)
 	s = strings.TrimLeft(s, `/\`)
@@ -689,10 +709,10 @@ func isWindowsDrivePath(s string) bool {
 
 // decodeProjectBody decodes the content between the "--" wrappers.
 // It handles three encoding formats:
-//   1. Pi-compatible (simple): - means / (no _ escaping)
-//   2. Old escape-based: _as_ → *, _qu_ → ?, _pi_ → |, _dq_ → ",
-//      _gt_ → >, _lt_ → <, _co_ → :, _bs_ → \, _- → /, __ → _
-//   3. Legacy: - means / (no _ at all)
+//  1. Pi-compatible (simple): - means / (no _ escaping)
+//  2. Old escape-based: _as_ → *, _qu_ → ?, _pi_ → |, _dq_ → ",
+//     _gt_ → >, _lt_ → <, _co_ → :, _bs_ → \, _- → /, __ → _
+//  3. Legacy: - means / (no _ at all)
 //
 // To distinguish old escape format from pi-compatible format, we check
 // whether all _ characters are part of known escape sequences.
@@ -720,9 +740,10 @@ func decodeProjectBody(s string) string {
 // isOldEscapeFormat checks whether s uses the old escape-based encoding.
 // Heuristic: if s contains escape sequences that can ONLY come from the old
 // format, it's the old format.  Markers include:
-//   __  (escaped literal _)
-//   _co_ (escaped :), _bs_ (escaped \)
-//   _lt_, _gt_, _dq_, _pi_, _qu_, _as_ (other Windows-invalid chars)
+//
+//	__  (escaped literal _)
+//	_co_ (escaped :), _bs_ (escaped \)
+//	_lt_, _gt_, _dq_, _pi_, _qu_, _as_ (other Windows-invalid chars)
 //
 // For "_-" we use a secondary check: in the old format, ALL dashes are part
 // of "_-" (the only way / is encoded). In the new format, dashes are bare

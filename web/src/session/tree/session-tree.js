@@ -1,5 +1,28 @@
 import { hasTextContent } from './session-filter.js';
 
+const REPARENTABLE_ORPHAN_TYPES = new Set(['model_change', 'thinking_level_change']);
+
+// Session-metadata entries (a model change, a thinking-level change) are sometimes
+// written with a null parentId mid-session — e.g. after an unarchive. Left as-is
+// each one becomes a second tree root, so the conversation that continues from it
+// renders as a separate branch and the earlier history drops off the active path
+// (issue #123). Re-thread every such orphan onto the entry that precedes it so the
+// session stays a single spine. Only non-message metadata is touched: real message
+// branches carry valid parentIds and a genuine root/branch message is left alone.
+export function relinkOrphanMetadata(entries = []) {
+  let lastId = null;
+  return entries.map((entry) => {
+    if (!entry?.id) return entry;
+    const orphaned = entry.parentId == null || entry.parentId === entry.id;
+    const relinked =
+      lastId && orphaned && REPARENTABLE_ORPHAN_TYPES.has(entry.type)
+        ? { ...entry, parentId: lastId }
+        : entry;
+    lastId = entry.id;
+    return relinked;
+  });
+}
+
 export function buildTree(entries = [], labelMap = new Map()) {
   const nodeMap = new Map();
   const roots = [];

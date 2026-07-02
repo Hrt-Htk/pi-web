@@ -8,6 +8,7 @@ import {
   flattenTree,
   getGroupedPath,
   getPath,
+  relinkOrphanMetadata,
 } from './session-tree.js';
 
 const entries = [
@@ -319,5 +320,94 @@ describe('getGroupedPath memberIds', () => {
     ];
     const grouped = getGroupedPath(path);
     expect(grouped[0].message.content[0].sourceId).toBe('term1');
+  });
+});
+
+describe('relinkOrphanMetadata', () => {
+  // Reproduces issue #123: after an unarchive, a model_change / thinking_level_change
+  // gets written with a null parentId mid-session, forking the tree into a second
+  // root so the earlier conversation drops off the active path.
+  const unarchived = [
+    { id: 'm1', type: 'message', timestamp: '2026-01-01T00:00:00Z', message: { role: 'user' } },
+    {
+      id: 'm2',
+      parentId: 'm1',
+      type: 'message',
+      timestamp: '2026-01-01T00:01:00Z',
+      message: { role: 'assistant' },
+    },
+    { type: 'archive', archived: true, timestamp: '2026-01-01T00:02:00Z' },
+    { type: 'archive', archived: false, timestamp: '2026-01-01T00:03:00Z' },
+    { id: 'mc', type: 'model_change', parentId: null, timestamp: '2026-01-01T00:04:00Z' },
+    {
+      id: 'tl',
+      type: 'thinking_level_change',
+      parentId: 'mc',
+      timestamp: '2026-01-01T00:05:00Z',
+    },
+    {
+      id: 'u2',
+      parentId: 'tl',
+      type: 'message',
+      timestamp: '2026-01-01T00:06:00Z',
+      message: { role: 'user' },
+    },
+    {
+      id: 'a2',
+      parentId: 'u2',
+      type: 'message',
+      timestamp: '2026-01-01T00:07:00Z',
+      message: { role: 'assistant' },
+    },
+  ];
+
+  it('re-threads an orphan model_change onto the preceding entry', () => {
+    const linked = relinkOrphanMetadata(unarchived);
+    expect(linked.find((e) => e.id === 'mc').parentId).toBe('m2');
+  });
+
+  it('keeps the whole post-unarchive exchange on one path back to the earlier history', () => {
+    const linked = relinkOrphanMetadata(unarchived);
+    const byId = new Map(linked.filter((e) => e.id).map((e) => [e.id, e]));
+    const pathIds = getPath('a2', byId).map((e) => e.id);
+    expect(pathIds).toContain('m1');
+    expect(pathIds).toContain('m2');
+    expect(pathIds).toEqual(['m1', 'm2', 'mc', 'tl', 'u2', 'a2']);
+  });
+
+  it('leaves id-less metadata and normal entries untouched', () => {
+    const linked = relinkOrphanMetadata(unarchived);
+    expect(linked.filter((e) => e.type === 'archive')).toHaveLength(2);
+    expect(linked.find((e) => e.id === 'm2').parentId).toBe('m1');
+  });
+
+  it('never re-parents a message with a null parentId (genuine new root/branch)', () => {
+    const withOrphanMessage = [
+      { id: 'm1', type: 'message', timestamp: '2026-01-01T00:00:00Z', message: { role: 'user' } },
+      {
+        id: 'm2',
+        parentId: null,
+        type: 'message',
+        timestamp: '2026-01-01T00:01:00Z',
+        message: { role: 'user' },
+      },
+    ];
+    const linked = relinkOrphanMetadata(withOrphanMessage);
+    expect(linked.find((e) => e.id === 'm2').parentId).toBe(null);
+  });
+
+  it('leaves a leading orphan metadata entry as a root (no preceding entry)', () => {
+    const leading = [
+      { id: 'mc', type: 'model_change', parentId: null, timestamp: '2026-01-01T00:00:00Z' },
+      {
+        id: 'm1',
+        parentId: 'mc',
+        type: 'message',
+        timestamp: '2026-01-01T00:01:00Z',
+        message: { role: 'user' },
+      },
+    ];
+    const linked = relinkOrphanMetadata(leading);
+    expect(linked.find((e) => e.id === 'mc').parentId).toBe(null);
   });
 });
