@@ -33,6 +33,7 @@ import {
   findNewestLeaf,
   getPath,
   getGroupedPath,
+  relinkOrphanMetadata,
 } from '../tree/session-tree.js';
 import { filterNodes } from '../tree/session-filter.js';
 
@@ -129,7 +130,7 @@ export class SessionDataModel {
   }
 
   #hydrate(data, { preserveView = false } = {}) {
-    this.entries = Array.isArray(data.entries) ? data.entries : [];
+    this.entries = relinkOrphanMetadata(Array.isArray(data.entries) ? data.entries : []);
     this.header = data.header ?? null;
     this.systemPrompt = data.systemPrompt ?? null;
     this.tools = data.tools ?? null;
@@ -176,6 +177,7 @@ export class SessionDataModel {
   // it was unset.
   reconcile(entries) {
     if (!Array.isArray(entries)) return;
+    entries = relinkOrphanMetadata(entries);
     // Guard against stale reloads: if the incoming entries are fewer than what
     // we already have, the reload fetched the session before the worker flushed
     // canonical entries to disk. Skip the replace so optimistic preview entries

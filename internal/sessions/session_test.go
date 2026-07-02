@@ -344,6 +344,38 @@ func TestArchiveSessionAppendsAndToggles(t *testing.T) {
 	}
 }
 
+// Issue #123: the archive entry must carry an id and a parentId threaded onto
+// the current leaf. Otherwise it becomes the file's last entry with no id, and
+// pi's session loader sets leafId to that undefined id → the resumed worker
+// sees an empty conversation and the agent "forgets" the whole session.
+func TestArchiveSessionThreadsOntoLeaf(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	content := `{"type":"session","id":"sess1","timestamp":"2026-05-08T10:00:00Z"}` + "\n" +
+		`{"type":"message","id":"m1","parentId":"sess1","timestamp":"2026-05-08T10:00:01Z","message":{"role":"user","content":"hi"}}` + "\n" +
+		`{"type":"message","id":"m2","parentId":"m1","timestamp":"2026-05-08T10:00:02Z","message":{"role":"assistant","content":"hello"}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	now := func() time.Time { return time.Date(2026, 5, 8, 10, 1, 2, 0, time.UTC) }
+	if err := ArchiveSession(path, true, now); err != nil {
+		t.Fatalf("ArchiveSession failed: %v", err)
+	}
+	entries, err := loadEntriesFromFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := entries[len(entries)-1]
+	if last["type"] != "archive" {
+		t.Fatalf("last entry type = %v, want archive", last["type"])
+	}
+	if id, _ := last["id"].(string); id == "" {
+		t.Fatalf("archive entry has no id; pi's leaf loader will null out and drop history")
+	}
+	if pid, _ := last["parentId"].(string); pid != "m2" {
+		t.Fatalf("archive parentId = %v, want m2 (the current leaf)", last["parentId"])
+	}
+}
+
 func TestRenameSessionAppendsSessionInfo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	content := `{"type":"session","name":"Old Name","timestamp":"2026-05-08T10:00:00Z"}` + "\n"
@@ -951,7 +983,8 @@ func TestEncodeProjectNameWindows(t *testing.T) {
 }
 
 // encodePiPath mimics pi's encoding from session-manager.js:
-//   const safePath = `--${resolvedCwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+//
+//	const safePath = `--${resolvedCwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
 func encodePiPath(path string) string {
 	s := strings.TrimLeft(path, `/\`)
 	s = strings.ReplaceAll(s, `/`, `-`)

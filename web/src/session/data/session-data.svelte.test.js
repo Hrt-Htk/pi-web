@@ -155,6 +155,45 @@ describe('SessionDataModel', () => {
     expect(m.activePath.map((e) => e.id)).toEqual(['root', 'old']);
   });
 
+  // Issue #123: after an unarchive, a model_change is written with a null parentId
+  // mid-session. Left unlinked it forks the tree, so the earlier conversation drops
+  // off the active path and the session looks like it lost all prior messages.
+  it('keeps earlier history on the active path after an orphan model_change (unarchive)', () => {
+    const unarchived = [
+      { id: 'h1', type: 'message', timestamp: '2026-01-01T00:00:00Z', message: { role: 'user' } },
+      {
+        id: 'h2',
+        parentId: 'h1',
+        type: 'message',
+        timestamp: '2026-01-01T00:01:00Z',
+        message: { role: 'assistant' },
+      },
+      { type: 'archive', archived: false, timestamp: '2026-01-01T00:02:00Z' },
+      { id: 'mc', type: 'model_change', parentId: null, timestamp: '2026-01-01T00:03:00Z' },
+      {
+        id: 'nu',
+        parentId: 'mc',
+        type: 'message',
+        timestamp: '2026-01-01T00:04:00Z',
+        message: { role: 'user' },
+      },
+      {
+        id: 'na',
+        parentId: 'nu',
+        type: 'message',
+        timestamp: '2026-01-01T00:05:00Z',
+        message: { role: 'assistant' },
+      },
+    ];
+    const m = new SessionDataModel({ entries: unarchived, header: { cwd: '/x' }, leafId: 'na' });
+    expect(m.activePath.map((e) => e.id)).toEqual(['h1', 'h2', 'mc', 'nu', 'na']);
+    // reconcile (live reload path) must repair it too
+    const m2 = model();
+    m2.reconcile(unarchived);
+    expect(m2.activePath.map((e) => e.id)).toContain('h1');
+    expect(m2.activePath.map((e) => e.id)).toContain('h2');
+  });
+
   it('applies the search filter reactively', () => {
     const m = model();
     const unfiltered = m.filteredNodes.length;
