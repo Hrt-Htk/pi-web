@@ -8,7 +8,10 @@
     FolderOpen,
   } from '../../shared/icons.js';
   import { fileStatusKind, folderStatusKind } from '../../session/chat/file-status.js';
-  import { getFileTree as defaultGetFileTree } from '../../session/chat/files-api.js';
+  import {
+    getFileTree as defaultGetFileTree,
+    getDownloadUrl,
+  } from '../../session/chat/files-api.js';
   import FileTreeNode from './FileTreeNode.svelte';
 
   let {
@@ -72,13 +75,13 @@
       {/if}
     </button>
   {:else}
-    <div class="ft-node-file">
+    <a class="ft-node-file" href={getDownloadUrl(sessionId, entry.path)}>
       <span class="ft-file-icon">{@html icon(FileText, { size: 16 })}</span>
       <span class="ft-name {statusKind ?? ''}">{basename}</span>
       {#if statusKind}
         <span class="ft-status-dot {statusKind}"></span>
       {/if}
-    </div>
+    </a>
   {/if}
 
   {#if expanded && entry.isDir}

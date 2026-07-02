@@ -23,3 +23,13 @@ export function getFileTree(sessionId, scope = '', { getImpl = getJSON } = {}) {
 export function getFilesGitStatus(sessionId, { getImpl = getJSON } = {}) {
   return getImpl(`/api/files/git-status?id=${encodeURIComponent(sessionId)}`);
 }
+
+/**
+ * Return the URL that triggers a browser download for the given file.
+ * @param {string} sessionId
+ * @param {string} fileRel - path relative to the session's cwd
+ * @returns {string}
+ */
+export function getDownloadUrl(sessionId, fileRel) {
+  return `/api/files/download?id=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(fileRel)}`;
+}
