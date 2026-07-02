@@ -440,4 +440,11 @@ export default {
   'settings.clipboardUnavailable': 'Clipboard unavailable — inserted the template below.',
   'settings.invalidJson': 'Invalid JSON: {error}',
   'settings.expectedArray': 'Expected an array of { "code", "label", "strings" } objects.',
+
+  // ── File tree ──
+  'files.loading': 'Loading files…',
+  'files.empty': 'No files to show',
+  'files.error': 'Failed to load files',
+  'files.tabSession': 'Session',
+  'files.tabFiles': 'Files',
 };

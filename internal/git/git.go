@@ -49,7 +49,7 @@ type Info struct {
 	Behind int `json:"behind"`
 	// Modified/Added/Deleted count working-tree changes by kind (for the footer badges).
 	Modified int `json:"modified"`
-	Added    int `json:"added"`   // new / untracked files
+	Added    int `json:"added"` // new / untracked files
 	Deleted  int `json:"deleted"`
 	// PRCreateURL is the GitHub "open a pull request" URL for this branch.
 	PRCreateURL string `json:"prCreateUrl"`
@@ -147,29 +147,17 @@ func isDirty(dir string) bool {
 	return false
 }
 
-// tally counts working-tree changes by kind from parsed porcelain entries.
-// Precedence: untracked/added first, then deleted, else modified.
-func tally(files []DirtyFile) (modified, added, deleted int) {
-	for _, f := range files {
-		switch {
-		case f.Status == "??" || strings.ContainsRune(f.Status, 'A'):
-			added++
-		case strings.ContainsRune(f.Status, 'D'):
-			deleted++
-		default:
-			modified++
-		}
-	}
-	return modified, added, deleted
-}
-
-// dirtyCounts tallies changed files by kind from `git status --porcelain`.
+// dirtyCounts tallies changed files by kind from `git status --porcelain` for
+// the footer badges. Untracked files are folded into the "added"/new count
+// (the footer shows N/M/D); the file tree gets untracked separately via
+// Summarize on the /api/files/git-status endpoint.
 func dirtyCounts(dir string) (modified, added, deleted int) {
 	out, err := run(dir, "status", "--porcelain")
 	if err != nil || out == "" {
 		return 0, 0, 0
 	}
-	return tally(parsePorcelain(out))
+	s := Summarize(parsePorcelain(out))
+	return s.Modified, s.Added + s.Untracked, s.Deleted
 }
 
 // aheadBehind returns the number of local commits ahead of upstream and
@@ -353,6 +341,34 @@ func pullRequestURL(dir, branch string) (string, error) {
 		return "", ErrNoRemote
 	}
 	return fmt.Sprintf("https://github.com/%s/pull/new/%s", slug, branch), nil
+}
+
+// Summary counts working-tree changes by kind, untracked separate from added.
+type Summary struct {
+	Modified  int `json:"modified"`
+	Added     int `json:"added"`
+	Deleted   int `json:"deleted"`
+	Untracked int `json:"untracked"`
+}
+
+// Summarize classifies each DirtyFile by its status code.
+// "??" -> Untracked, contains 'A' -> Added, contains 'D' -> Deleted,
+// otherwise (M, R, C, etc.) -> Modified.
+func Summarize(files []DirtyFile) Summary {
+	var s Summary
+	for _, f := range files {
+		switch {
+		case f.Status == "??":
+			s.Untracked++
+		case strings.ContainsRune(f.Status, 'A'):
+			s.Added++
+		case strings.ContainsRune(f.Status, 'D'):
+			s.Deleted++
+		default:
+			s.Modified++
+		}
+	}
+	return s
 }
 
 // DirtyFile is one changed entry from `git status --porcelain`.
