@@ -5,11 +5,12 @@
   // keeps its `entry-<id>` anchor so annotation offsets + scroll/toggle survive.
   // Shared by the live app and the static export (model passed as a prop).
   import { marked } from 'marked';
-  import { icon, GitFork, Link2, Tag } from '../../shared/icons.js';
+  import { icon, GitFork, Link2, Paperclip, Tag } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import { safeMarkedParse } from '../../session/render/markdown.js';
   import { formatTimestamp } from '../../session/render/entry-format.js';
   import { chipsFromItems, resolveToolResult } from '../../session/render/tool-summary.js';
+  import { extractAttachmentRefs } from './attachment-refs.js';
   import ToolOutput from './ToolOutput.svelte';
   import ToolChip from './ToolChip.svelte';
   import AskQuestion from './AskQuestion.svelte';
@@ -24,7 +25,7 @@
   const md = (text) => safeMarkedParse(text, { marked });
 
   const msg = $derived(entry?.type === 'message' ? entry.message : null);
-  const userText = $derived.by(() => {
+  const rawUserText = $derived.by(() => {
     if (!msg || msg.role !== 'user') return '';
     const c = msg.content;
     return typeof c === 'string'
@@ -34,6 +35,7 @@
           .map((b) => b.text)
           .join('\n');
   });
+  const { text: userText, refs: userAttachments } = $derived(extractAttachmentRefs(rawUserText));
   const userImages = $derived(
     Array.isArray(msg?.content) ? msg.content.filter((b) => b.type === 'image') : [],
   );
@@ -133,6 +135,11 @@
           />{/each}
       </div>{/if}
     {#if userText.trim()}<div class="markdown-content">{@html md(userText)}</div>{/if}
+    {#if userAttachments.length > 0}<div class="message-attachments">
+        {#each userAttachments as ref, i (i)}<span class="message-attachment" title={ref.path}
+            >{@html icon(Paperclip, { size: 13 })}{ref.name}</span
+          >{/each}
+      </div>{/if}
   </div>
 {:else if msg && msg.role === 'assistant'}
   <div class="assistant-message" id={`entry-${entry.id}`}>

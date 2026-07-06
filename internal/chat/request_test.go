@@ -64,10 +64,60 @@ func TestParseChatRequestRejectsEmpty(t *testing.T) {
 	}
 }
 
-func TestParseChatRequestRejectsNonImage(t *testing.T) {
-	_, err := ParseRequest(multipartRequest(t, "see file", map[string]testUpload{"images": {"a.txt", "plain text"}}), 1024, 4096)
-	if err != ErrUnsupportedImageType {
-		t.Fatalf("err = %v, want ErrUnsupportedImageType", err)
+func TestParseChatRequestAcceptsNonImageFile(t *testing.T) {
+	chat, err := ParseRequest(multipartRequest(t, "see file", map[string]testUpload{"images": {"a.txt", "plain text"}}), 1024, 4096)
+	if err != nil {
+		t.Fatalf("ParseRequest error: %v", err)
+	}
+	if len(chat.Files) != 1 {
+		t.Fatalf("Files = %d, want 1", len(chat.Files))
+	}
+	if chat.Files[0].Name != "a.txt" {
+		t.Fatalf("Files[0].Name = %q, want a.txt", chat.Files[0].Name)
+	}
+	if len(chat.Images) != 0 {
+		t.Fatalf("Images = %d, want 0 (non-image should not be in Images)", len(chat.Images))
+	}
+}
+
+func TestParseChatRequestBmpNotInImages(t *testing.T) {
+	// BMP bytes: magic number 0x42 0x4D
+	bmpData := "\x42\x4D" + strings.Repeat("x", 100)
+	chat, err := ParseRequest(multipartRequest(t, "bmp", map[string]testUpload{"images": {"pic.bmp", bmpData}}), 1024, 4096)
+	if err != nil {
+		t.Fatalf("ParseRequest error: %v", err)
+	}
+	// BMP is detected as image/bmp by DetectContentType, but it's not in the
+	// inline whitelist, so it should be in Files but NOT in Images.
+	if len(chat.Files) != 1 {
+		t.Fatalf("Files = %d, want 1", len(chat.Files))
+	}
+	if len(chat.Images) != 0 {
+		t.Fatalf("Images = %d, want 0 (bmp not in inline whitelist)", len(chat.Images))
+	}
+}
+
+func TestParseChatRequestPngInBothImagesAndFiles(t *testing.T) {
+	chat, err := ParseRequest(multipartRequest(t, "png", map[string]testUpload{"images": {"pic.png", "\x89PNG\r\n\x1a\nimage data"}}), 1024, 4096)
+	if err != nil {
+		t.Fatalf("ParseRequest error: %v", err)
+	}
+	if len(chat.Images) != 1 {
+		t.Fatalf("Images = %d, want 1", len(chat.Images))
+	}
+	if len(chat.Files) != 1 {
+		t.Fatalf("Files = %d, want 1", len(chat.Files))
+	}
+}
+
+func TestParseChatRequestFilesOnlyNoMessage(t *testing.T) {
+	// A request with files but empty typed message is valid
+	chat, err := ParseRequest(multipartRequest(t, "", map[string]testUpload{"images": {"a.txt", "content"}}), 1024, 4096)
+	if err != nil {
+		t.Fatalf("ParseRequest error: %v", err)
+	}
+	if len(chat.Files) != 1 {
+		t.Fatalf("Files = %d, want 1", len(chat.Files))
 	}
 }
 

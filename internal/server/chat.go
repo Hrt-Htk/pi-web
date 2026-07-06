@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"pi-web/internal/agentdir"
 	"pi-web/internal/chat"
 	"pi-web/internal/sessions"
 	"pi-web/internal/workers"
@@ -47,8 +49,6 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, chat.ErrImageTooLarge):
 			writeJSONError(w, http.StatusRequestEntityTooLarge, err.Error())
-		case errors.Is(err, chat.ErrUnsupportedImageType):
-			writeJSONError(w, http.StatusUnsupportedMediaType, err.Error())
 		case errors.As(err, new(*http.MaxBytesError)):
 			writeJSONError(w, http.StatusRequestEntityTooLarge, err.Error())
 		default:
@@ -62,6 +62,27 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := resolved.Session.ID
 	sessionPath := resolved.Path
+
+	// Save uploaded files and append reference lines to the message
+	if len(chatReq.Files) > 0 {
+		uploadDir := filepath.Join(agentdir.WebDir(s.agentDir), "chat-uploads", sessionID)
+		saved, err := chat.SaveUploads(uploadDir, chatReq.Files)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "save uploads failed for %s: %v\n", sessionID, err)
+			writeJSONError(w, http.StatusInternalServerError, "failed to save uploaded file")
+			return
+		}
+		var lines []string
+		for _, s := range saved {
+			lines = append(lines, chat.AttachmentLine(s))
+		}
+		if chatReq.Message != "" {
+			chatReq.Message += "\n\n" + strings.Join(lines, "\n")
+		} else {
+			chatReq.Message = strings.Join(lines, "\n")
+		}
+	}
+
 	go func() {
 		if err := s.chatSender.Send(context.Background(), sessionID, sessionPath, chatReq); err != nil {
 			fmt.Fprintf(os.Stderr, "chat send failed for %s: %v\n", sessionID, err)

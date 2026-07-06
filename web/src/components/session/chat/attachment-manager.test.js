@@ -16,6 +16,77 @@ function setupDom() {
 }
 
 describe('attachment manager', () => {
+  it('adds a non-image file pasted from clipboard (text/csv)', () => {
+    const { dom, textarea, fileInput, attachButton, attachmentList } = setupDom();
+    const manager = setupAttachmentManager({
+      documentImpl: dom.window.document,
+      windowImpl: dom.window,
+      textarea,
+      fileInput,
+      attachButton,
+      attachmentList,
+    });
+
+    const file = new dom.window.File(['col1,col2'], 'data.csv', { type: 'text/csv' });
+    const pasteEvent = new dom.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { files: [file], items: [], getData: () => '' },
+    });
+    textarea.dispatchEvent(pasteEvent);
+
+    expect(manager.files()).toHaveLength(1);
+    expect(manager.files()[0].name).toBe('data.csv');
+    expect(pasteEvent.defaultPrevented).toBe(true);
+  });
+
+  it('adds a file with an empty type string', () => {
+    const { dom, textarea, fileInput, attachButton, attachmentList } = setupDom();
+    const manager = setupAttachmentManager({
+      documentImpl: dom.window.document,
+      windowImpl: dom.window,
+      textarea,
+      fileInput,
+      attachButton,
+      attachmentList,
+    });
+
+    const file = new dom.window.File(['raw'], 'unknown.txt', { type: '' });
+    const pasteEvent = new dom.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { files: [file], items: [], getData: () => '' },
+    });
+    textarea.dispatchEvent(pasteEvent);
+
+    expect(manager.files()).toHaveLength(1);
+    expect(manager.files()[0].name).toBe('unknown.txt');
+  });
+
+  it('renders a non-image file as a filename chip', () => {
+    const { dom, textarea, fileInput, attachButton, attachmentList } = setupDom();
+    setupAttachmentManager({
+      documentImpl: dom.window.document,
+      windowImpl: dom.window,
+      textarea,
+      fileInput,
+      attachButton,
+      attachmentList,
+    });
+
+    const file = new dom.window.File(['col1,col2'], 'report.csv', { type: 'text/csv' });
+    const pasteEvent = new dom.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { files: [file], items: [], getData: () => '' },
+    });
+    textarea.dispatchEvent(pasteEvent);
+
+    const chip = attachmentList.querySelector('.pi-chat-attachment');
+    expect(chip).toBeTruthy();
+    expect(chip.classList.contains('image-only')).toBe(false);
+    expect(attachmentList.querySelector('.pi-chat-attachment-name')?.textContent).toBe(
+      'report.csv',
+    );
+    expect(attachmentList.querySelector('.pi-chat-attachment-preview')).toBeNull();
+  });
   it('renders image previews from pasted files and deduplicates them', () => {
     const { dom, textarea, fileInput, attachButton, attachmentList } = setupDom();
     const updateSendEnabled = vi.fn();

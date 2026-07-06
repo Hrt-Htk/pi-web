@@ -2874,6 +2874,36 @@
       cursor: zoom-in;
     }
 
+    /* Attachment chips in user messages (issue #140) */
+    .message-attachments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .message-attachment {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: min(260px, 100%);
+      color: var(--muted);
+      background: var(--container-bg);
+      border: 1px solid var(--dim);
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: default;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message-attachment svg {
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
     /* Full-size image overlay (click-to-zoom for transcript + composer images) */
     .image-modal {
       display: none;

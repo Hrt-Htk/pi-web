@@ -778,3 +778,100 @@ func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool) {
 		t.Fatal("condition not met before timeout")
 	}
 }
+
+func TestHandleChatSavesUploadedFile(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
+	fake := &fakeSender{sendCh: make(chan struct{}, 1)}
+	s := &Server{agentDir: root, sessionsDir: root, chatSender: fake}
+
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	mw.WriteField("message", "check this")
+	part, err := mw.CreateFormFile("images", "notes.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte("hello world"))
+	mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/chat?id=session.jsonl", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	s.handleChat(w, req)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+
+	// Wait for async send
+	select {
+	case <-fake.sendCh:
+	case <-time.After(time.Second):
+		t.Fatal("Send was not called")
+	}
+
+	// Verify file was saved on disk
+	uploadDir := filepath.Join(root, "pi-web", "chat-uploads", "session.jsonl")
+	entries, err := os.ReadDir(uploadDir)
+	if err != nil {
+		t.Fatalf("ReadDir(%q): %v", uploadDir, err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 file in upload dir, got %d", len(entries))
+	}
+	data, err := os.ReadFile(filepath.Join(uploadDir, entries[0].Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "hello world" {
+		t.Fatalf("file content = %q, want hello world", string(data))
+	}
+
+	// Verify the forwarded message contains the attachment line
+	_, _, sentReq := fake.sentInfo()
+	if !strings.Contains(sentReq.Message, "[Attached file:") {
+		t.Fatalf("message missing attachment line: %q", sentReq.Message)
+	}
+	if !strings.Contains(sentReq.Message, "notes.txt") {
+		t.Fatalf("message missing filename: %q", sentReq.Message)
+	}
+	if !strings.Contains(sentReq.Message, "text/plain") {
+		t.Fatalf("message missing mime type: %q", sentReq.Message)
+	}
+}
+
+func TestHandleChatFilesOnlyNoTypedMessage(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "--tmp--project--", "session.jsonl")
+	fake := &fakeSender{sendCh: make(chan struct{}, 1)}
+	s := &Server{agentDir: root, sessionsDir: root, chatSender: fake}
+
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	// No message field — only a file
+	part, err := mw.CreateFormFile("images", "data.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte("a,b\n1,2\n"))
+	mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/chat?id=session.jsonl", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	s.handleChat(w, req)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+
+	select {
+	case <-fake.sendCh:
+	case <-time.After(time.Second):
+		t.Fatal("Send was not called")
+	}
+
+	_, _, sentReq := fake.sentInfo()
+	if !strings.Contains(sentReq.Message, "[Attached file:") {
+		t.Fatalf("message missing attachment line: %q", sentReq.Message)
+	}
+}
