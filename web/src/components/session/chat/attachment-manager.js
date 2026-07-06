@@ -156,24 +156,20 @@ export function setupAttachmentManager({
   textarea?.addEventListener('paste', (event) => {
     const data = event.clipboardData;
     if (!data) return;
-    const imageFiles = [];
+    const pastedFiles = [];
 
     if (data.items) {
       for (const item of data.items) {
-        if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+        if (item.kind === 'file') {
           const file = item.getAsFile();
-          if (file) imageFiles.push(file);
+          if (file) pastedFiles.push(file);
         }
       }
     }
 
-    let added = addFiles(imageFiles);
+    let added = addFiles(pastedFiles);
     if (!added && data.files) {
-      const fallbackFiles = [];
-      for (const file of data.files) {
-        if (file.type && file.type.startsWith('image/')) fallbackFiles.push(file);
-      }
-      added = addFiles(fallbackFiles);
+      added = addFiles(Array.from(data.files));
     }
 
     if (added) {

@@ -240,7 +240,7 @@ describe('chat composer runner', () => {
     expect(pasteEvent.defaultPrevented).toBe(true);
   });
 
-  it('ignores non-image paste', () => {
+  it('accepts non-image file paste', () => {
     const dom = new JSDOM(
       '<body><form id="pi-chat-composer" data-chat-available="true" data-session-id="s1"><textarea id="pi-chat-message"></textarea><input id="pi-chat-images"><button id="pi-chat-attach"></button><div id="pi-chat-attachments"></div><button id="pi-chat-send"></button><span id="pi-chat-status"></span></form></body>',
     );
@@ -263,8 +263,8 @@ describe('chat composer runner', () => {
     });
     textarea.dispatchEvent(pasteEvent);
 
-    expect(dom.window.document.getElementById('pi-chat-attachments').children.length).toBe(0);
-    expect(pasteEvent.defaultPrevented).toBe(false);
+    expect(dom.window.document.getElementById('pi-chat-attachments').children.length).toBe(1);
+    expect(pasteEvent.defaultPrevented).toBe(true);
   });
 
   it('deduplicates pasted images', () => {

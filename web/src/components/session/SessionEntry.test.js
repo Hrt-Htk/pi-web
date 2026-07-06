@@ -90,4 +90,26 @@ describe('SessionEntry', () => {
     });
     expect(c2.querySelector('#entry-m2')).toBeNull();
   });
+
+  it('renders attachment chips for user messages with attachment refs', () => {
+    const entry = {
+      id: 'u',
+      type: 'message',
+      message: {
+        role: 'user',
+        content: 'Please review\n[Attached file: /home/user/report.csv (text/csv, 1024 bytes)]',
+      },
+    };
+    const { container } = render(SessionEntry, { props: { entry, model: model([entry]) } });
+    const node = container.querySelector('#entry-u');
+    expect(node).not.toBeNull();
+
+    const chip = node.querySelector('.message-attachment');
+    expect(chip).not.toBeNull();
+    expect(chip.getAttribute('title')).toBe('/home/user/report.csv');
+    expect(chip.textContent).toContain('report.csv');
+
+    const markdownContent = node.querySelector('.markdown-content');
+    expect(markdownContent?.textContent).not.toContain('[Attached file:');
+  });
 });

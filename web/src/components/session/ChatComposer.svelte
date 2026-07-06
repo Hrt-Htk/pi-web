@@ -78,15 +78,7 @@
   data-chat-available={chatAvailable}
   data-chat-disabled-reason={chatDisabledReason}
 >
-  <input
-    id="pi-chat-images"
-    name="images"
-    type="file"
-    accept="image/*"
-    multiple
-    hidden
-    disabled={!chatAvailable}
-  />
+  <input id="pi-chat-images" name="images" type="file" multiple hidden disabled={!chatAvailable} />
   <div class="pi-chat-shell">
     <ChatExpandButton {chatAvailable} />
     <!-- eslint-disable svelte/no-at-html-tags -- trusted: Lucide icon SVG -->

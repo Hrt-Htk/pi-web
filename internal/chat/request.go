@@ -12,8 +12,14 @@ const DefaultMaxImageBytes int64 = 10 << 20
 const DefaultMaxRequestBytes int64 = 32 << 20
 
 var ErrEmptyRequest = errors.New("message or image required")
-var ErrUnsupportedImageType = errors.New("only image attachments are supported")
 var ErrImageTooLarge = errors.New("image attachment too large")
+
+var inlineImageMimes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+	"image/webp": true,
+}
 
 type Image struct {
 	Type     string `json:"type"`
@@ -24,6 +30,15 @@ type Image struct {
 type Request struct {
 	Message string
 	Images  []Image
+	Files   []UploadedFile
+}
+
+// stripCharset removes a "; charset=..." suffix from a MIME type.
+func stripCharset(mimeType string) string {
+	if idx := strings.Index(mimeType, ";"); idx >= 0 {
+		return mimeType[:idx]
+	}
+	return mimeType
 }
 
 func ParseRequest(r *http.Request, maxImageBytes, maxRequestBytes int64) (Request, error) {
@@ -45,7 +60,7 @@ func ParseRequest(r *http.Request, maxImageBytes, maxRequestBytes int64) (Reques
 		if err != nil {
 			return Request{}, err
 		}
-		data, readErr := io.ReadAll(io.LimitReader(file, maxImageBytes+1))
+		data, readErr := io.ReadAll(file)
 		closeErr := file.Close()
 		if readErr != nil {
 			return Request{}, readErr
@@ -53,17 +68,22 @@ func ParseRequest(r *http.Request, maxImageBytes, maxRequestBytes int64) (Reques
 		if closeErr != nil {
 			return Request{}, closeErr
 		}
-		if int64(len(data)) > maxImageBytes {
-			return Request{}, ErrImageTooLarge
+		mimeType := stripCharset(http.DetectContentType(data))
+
+		// Every uploaded file is saved to disk
+		chat.Files = append(chat.Files, UploadedFile{Name: fh.Filename, MimeType: mimeType, Data: data})
+
+		// Only whitelisted image types are sent inline to the model
+		if inlineImageMimes[mimeType] {
+			// Inline images are capped at maxImageBytes
+			if int64(len(data)) > maxImageBytes {
+				return Request{}, ErrImageTooLarge
+			}
+			chat.Images = append(chat.Images, Image{Type: "image", Data: base64.StdEncoding.EncodeToString(data), MimeType: mimeType})
 		}
-		mimeType := http.DetectContentType(data)
-		if !strings.HasPrefix(mimeType, "image/") {
-			return Request{}, ErrUnsupportedImageType
-		}
-		chat.Images = append(chat.Images, Image{Type: "image", Data: base64.StdEncoding.EncodeToString(data), MimeType: mimeType})
 	}
 
-	if chat.Message == "" && len(chat.Images) == 0 {
+	if chat.Message == "" && len(chat.Files) == 0 {
 		return Request{}, ErrEmptyRequest
 	}
 	return chat, nil
