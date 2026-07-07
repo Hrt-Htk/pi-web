@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -229,5 +230,14 @@ func TestHandleRPCLineTracksThinkingAndTextStreamEvents(t *testing.T) {
 		if got := w.Status(); got.State != workers.WorkerStateRunning {
 			t.Fatalf("line %s => status = %q, want running", strings.TrimSpace(line), got.State)
 		}
+	}
+}
+
+func TestPiCommandArgsIncludesApprove(t *testing.T) {
+	if !slices.Contains(piCmdArgs, "--approve") {
+		t.Fatal("pi command args missing --approve flag; project-local files (skills, extensions) will not be loaded")
+	}
+	if !slices.Contains(piCmdArgs, "--mode") || !slices.Contains(piCmdArgs, "rpc") {
+		t.Fatal("pi command args must include --mode rpc")
 	}
 }
