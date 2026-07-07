@@ -65,11 +65,16 @@ func (w *piRPCWorker) StartedAt() time.Time {
 	return w.startedAt
 }
 
+// piCmdArgs are the arguments passed to the pi binary when spawning a worker.
+// --approve enables project-local files (.pi/skills/, .pi/extensions/, APPEND_SYSTEM.md)
+// so the agent has full context for the session's working directory.
+var piCmdArgs = []string{"--mode", "rpc", "--approve"}
+
 func NewPiWorkerWithStream(sessionPath string, streamSink StreamEventSink) (workers.ChatWorker, error) {
 	if _, err := exec.LookPath("pi"); err != nil {
 		return nil, fmt.Errorf("pi executable not found: %w", err)
 	}
-	cmd := exec.Command("pi", "--mode", "rpc")
+	cmd := exec.Command("pi", piCmdArgs...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
