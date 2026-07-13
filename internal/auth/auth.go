@@ -95,7 +95,6 @@ func (a *Middleware) Wrap(h http.HandlerFunc) http.HandlerFunc {
 				Path:     "/",
 				HttpOnly: true,
 				SameSite: http.SameSiteLaxMode,
-				MaxAge:   30 * 24 * 60 * 60,
 			})
 		}
 
