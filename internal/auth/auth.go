@@ -95,6 +95,7 @@ func (a *Middleware) Wrap(h http.HandlerFunc) http.HandlerFunc {
 				Path:     "/",
 				HttpOnly: true,
 				SameSite: http.SameSiteLaxMode,
+				MaxAge:   3600, // 1 hour, hard expiry (not refreshed)
 			})
 		}
 
