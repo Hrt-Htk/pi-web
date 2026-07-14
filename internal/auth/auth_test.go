@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func okHandler(w http.ResponseWriter, r *http.Request) {
@@ -67,8 +68,11 @@ func TestAuthAcceptsQueryAndRedirects(t *testing.T) {
 	if found == nil {
 		t.Fatalf("expected %s cookie to be set", TokenCookieName)
 	}
-	if found.Value != "secret" {
-		t.Fatalf("cookie value = %q", found.Value)
+	if found.Value == "secret" {
+		t.Fatal("cookie value must be signed, not the raw token")
+	}
+	if !strings.Contains(found.Value, ".") {
+		t.Fatalf("cookie value = %q, expected signed format with dot", found.Value)
 	}
 	if !found.HttpOnly {
 		t.Fatal("expected HttpOnly cookie")
@@ -94,10 +98,12 @@ func TestAuthAcceptsQueryPreservesOtherParams(t *testing.T) {
 }
 
 func TestAuthAcceptsCookie(t *testing.T) {
+	now := time.Now().Unix()
 	a := New("secret")
+	a.now = func() int64 { return now }
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: "secret"})
+	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: signAuthCookie("secret", now)})
 	a.Wrap(okHandler)(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
@@ -215,8 +221,11 @@ func TestAuthAcceptsPostLoginAndRedirects(t *testing.T) {
 	if found == nil {
 		t.Fatalf("expected %s cookie to be set after POST login", TokenCookieName)
 	}
-	if found.Value != "secret" {
-		t.Fatalf("cookie value = %q", found.Value)
+	if found.Value == "secret" {
+		t.Fatal("cookie value must be signed, not the raw token")
+	}
+	if !strings.Contains(found.Value, ".") {
+		t.Fatalf("cookie value = %q, expected signed format with dot", found.Value)
 	}
 }
 
@@ -256,25 +265,146 @@ func TestAuthPostLoginPrefersFormTokenOverStaleQuery(t *testing.T) {
 		t.Fatalf("redirect Location = %q, want /session?id=abc", loc)
 	}
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == TokenCookieName && c.Value == "secret" {
+		if c.Name == TokenCookieName && strings.Contains(c.Value, ".") {
 			return
 		}
 	}
-	t.Fatalf("expected %s cookie to be set from form token", TokenCookieName)
+	t.Fatalf("expected %s cookie to be set from form token (signed, containing dot)", TokenCookieName)
 }
 
 func TestAuthAllowsBrowserWithCorrectTokenViaCookie(t *testing.T) {
 	// After login, browsers use the cookie — handler proceeds normally.
+	now := time.Now().Unix()
 	a := New("secret")
+	a.now = func() int64 { return now }
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: "secret"})
+	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: signAuthCookie("secret", now)})
 	a.Wrap(okHandler)(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	if rec.Body.String() != "ok" {
 		t.Fatal("handler should have been invoked")
+	}
+}
+
+// ── Signed cookie unit tests ──────────────────────────────────────────────
+
+func TestSignValidateRoundTrip(t *testing.T) {
+	now := int64(1700000000)
+	signed := signAuthCookie("mytoken", now)
+	if !validAuthCookie("mytoken", signed, now) {
+		t.Fatal("round-trip sign→validate should succeed")
+	}
+}
+
+func TestValidAuthCookieExpired(t *testing.T) {
+	issuedAt := int64(1700000000)
+	signed := signAuthCookie("mytoken", issuedAt)
+	if validAuthCookie("mytoken", signed, issuedAt+3601) {
+		t.Fatal("cookie 1 second past expiry should be rejected")
+	}
+}
+
+func TestValidAuthCookieExactBoundary(t *testing.T) {
+	issuedAt := int64(1700000000)
+	signed := signAuthCookie("mytoken", issuedAt)
+	if !validAuthCookie("mytoken", signed, issuedAt+3600) {
+		t.Fatal("cookie at exactly 3600s should still be valid")
+	}
+}
+
+func TestValidAuthCookieTamperedSignature(t *testing.T) {
+	now := int64(1700000000)
+	signed := signAuthCookie("mytoken", now)
+	// Flip a character in the hex part
+	parts := strings.SplitN(signed, ".", 2)
+	tampered := parts[0] + "." + "0" + parts[1][1:]
+	if validAuthCookie("mytoken", tampered, now) {
+		t.Fatal("tampered signature should be rejected")
+	}
+}
+
+func TestValidAuthCookieOldStyleRawToken(t *testing.T) {
+	// Old-style cookie with raw token value (no dot) must be rejected.
+	now := int64(1700000000)
+	if validAuthCookie("secret", "secret", now) {
+		t.Fatal("old-style raw-token cookie should be rejected")
+	}
+}
+
+func TestValidAuthCookieWrongToken(t *testing.T) {
+	now := int64(1700000000)
+	signed := signAuthCookie("correct", now)
+	if validAuthCookie("wrong", signed, now) {
+		t.Fatal("signed cookie should be rejected when token differs")
+	}
+}
+
+func TestValidAuthCookieMalformedValue(t *testing.T) {
+	now := int64(1700000000)
+	if validAuthCookie("token", "nodothere", now) {
+		t.Fatal("malformed value without dot should be rejected")
+	}
+	if validAuthCookie("token", "notanumber.abcdef", now) {
+		t.Fatal("malformed value with non-numeric timestamp should be rejected")
+	}
+}
+
+// ── Wrap integration: signed cookies ──────────────────────────────────────
+
+func TestWrapValidSignedCookiePasses(t *testing.T) {
+	now := int64(1700000000)
+	a := New("secret")
+	a.now = func() int64 { return now }
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: signAuthCookie("secret", now)})
+	a.Wrap(okHandler)(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+}
+
+func TestWrapExpiredSignedCookieFails(t *testing.T) {
+	issuedAt := int64(1700000000)
+	a := New("secret")
+	a.now = func() int64 { return issuedAt + 3601 }
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: TokenCookieName, Value: signAuthCookie("secret", issuedAt)})
+	a.Wrap(okHandler)(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 for expired cookie", rec.Code)
+	}
+}
+
+func TestWrapQueryTokenProducesSignedCookie(t *testing.T) {
+	a := New("secret")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?token=secret", nil)
+	a.Wrap(okHandler)(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302", rec.Code)
+	}
+	cookies := rec.Result().Cookies()
+	var found *http.Cookie
+	for _, c := range cookies {
+		if c.Name == TokenCookieName {
+			found = c
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("expected cookie to be set")
+	}
+	if !strings.Contains(found.Value, ".") {
+		t.Fatalf("cookie value = %q, expected signed format with dot", found.Value)
+	}
+	// The cookie value must be a valid signed cookie
+	if !validAuthCookie("secret", found.Value, a.now()) {
+		t.Fatal("cookie value must pass validAuthCookie")
 	}
 }
