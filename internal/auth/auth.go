@@ -1,32 +1,73 @@
 package auth
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"pi-web/internal/ui"
 )
 
-const TokenCookieName = "pi_token"
+const (
+	TokenCookieName     = "pi_token"
+	cookieMaxAgeSeconds = 3600
+)
 
 type Middleware struct {
 	token string
+	now   func() int64
 }
 
 func New(token string) *Middleware {
-	return &Middleware{token: strings.TrimSpace(token)}
+	return &Middleware{
+		token: strings.TrimSpace(token),
+		now:   func() int64 { return time.Now().Unix() },
+	}
 }
 
 func (a *Middleware) Enabled() bool {
 	return a.token != ""
 }
 
+// signAuthCookie returns a signed cookie value in the format "<issuedAtUnix>.<hexHMAC>".
+func signAuthCookie(token string, issuedAt int64) string {
+	ts := strconv.FormatInt(issuedAt, 10)
+	mac := hmac.New(sha256.New, []byte(token))
+	mac.Write([]byte(ts))
+	return ts + "." + hex.EncodeToString(mac.Sum(nil))
+}
+
+// validAuthCookie checks whether a signed cookie value is authentic and not expired.
+func validAuthCookie(token, value string, now int64) bool {
+	parts := strings.SplitN(value, ".", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	issuedAt, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(token))
+	mac.Write([]byte(parts[0]))
+	expectedHex := hex.EncodeToString(mac.Sum(nil))
+	if subtle.ConstantTimeCompare([]byte(parts[1]), []byte(expectedHex)) != 1 {
+		return false
+	}
+	elapsed := now - issuedAt
+	return elapsed >= 0 && elapsed <= cookieMaxAgeSeconds
+}
+
 // Wrap returns a handler that enforces the token check when auth is enabled.
 //
 // Token sources (checked in order): for browser POSTs, form body first;
-// otherwise query parameter, Authorization header, X-Pi-Token header, and
-// cookie. When the token arrives via query or POST, a cookie is set and the
+// otherwise query parameter, Authorization header, X-Pi-Token header.
+// The cookie is checked separately as a signed, timestamped value.
+// When the token arrives via query or POST, a signed cookie is set and the
 // browser is redirected to the same URL without the token, so the secret never
 // appears in the address bar or browser history.
 //
@@ -58,7 +99,23 @@ func (a *Middleware) Wrap(h http.HandlerFunc) http.HandlerFunc {
 			got, fromQuery = ExtractToken(r)
 		}
 
-		if subtle.ConstantTimeCompare([]byte(got), []byte(a.token)) != 1 {
+		authenticated := false
+
+		// Check raw token sources (POST form, query, Authorization, X-Pi-Token).
+		if subtle.ConstantTimeCompare([]byte(got), []byte(a.token)) == 1 {
+			authenticated = true
+		}
+
+		// If not authenticated via raw token, try signed cookie.
+		if !authenticated {
+			if c, err := r.Cookie(TokenCookieName); err == nil {
+				if validAuthCookie(a.token, c.Value, a.now()) {
+					authenticated = true
+				}
+			}
+		}
+
+		if !authenticated {
 			if strings.Contains(r.Header.Get("Accept"), "text/html") {
 				// Invalid login attempt — redirect with error flag so
 				// the prompt shows "Invalid token".
@@ -85,17 +142,16 @@ func (a *Middleware) Wrap(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Token is valid. Set a cookie if it came from query or POST so
+		// Token is valid. Set a signed cookie if it came from query or POST so
 		// subsequent requests authenticate automatically.
-		shouldSetCookie := fromQuery || fromPost
-		if shouldSetCookie {
+		if fromQuery || fromPost {
 			http.SetCookie(w, &http.Cookie{
 				Name:     TokenCookieName,
-				Value:    got,
+				Value:    signAuthCookie(a.token, a.now()),
 				Path:     "/",
 				HttpOnly: true,
 				SameSite: http.SameSiteLaxMode,
-				MaxAge:   3600, // 1 hour, hard expiry (not refreshed)
+				MaxAge:   cookieMaxAgeSeconds,
 			})
 		}
 
@@ -124,7 +180,8 @@ func cleanURL(r *http.Request) string {
 }
 
 // ExtractToken returns the candidate token and whether it came from the query
-// string (in which case a cookie should be set).
+// string (in which case a cookie should be set). Only checks query,
+// Authorization header, and X-Pi-Token header — not the cookie.
 func ExtractToken(r *http.Request) (string, bool) {
 	if t := r.URL.Query().Get("token"); t != "" {
 		return t, true
@@ -134,9 +191,6 @@ func ExtractToken(r *http.Request) (string, bool) {
 	}
 	if h := r.Header.Get("X-Pi-Token"); h != "" {
 		return h, false
-	}
-	if c, err := r.Cookie(TokenCookieName); err == nil {
-		return c.Value, false
 	}
 	return "", false
 }
