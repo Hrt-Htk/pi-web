@@ -266,6 +266,8 @@ export function getGroupedPath(path) {
             message: { ...msg, content: terminalContent },
             memberIds,
           });
+          pendingBlocks = [];
+          pendingIds = [];
         }
       }
     } else if (msg?.role === 'toolResult') {
@@ -278,9 +280,11 @@ export function getGroupedPath(path) {
       // New human turn — flush any internal blocks that never reached a terminal, then the user msg
       if (pendingBlocks.length > 0) {
         grouped.push(buildOrphanGroupEntry(lastAssistantEntry, pendingBlocks, pendingIds));
-        pendingBlocks = [];
-        pendingIds = [];
       }
+      // A user turn always ends the previous assistant turn unconditionally,
+      // even when there are no pending blocks (e.g. a block-less aborted entry).
+      pendingBlocks = [];
+      pendingIds = [];
       grouped.push({ ...entry, memberIds: [entry.id] });
     } else {
       // Any other entry mid-turn (custom hook, model_change, compaction, etc.) must NOT split the

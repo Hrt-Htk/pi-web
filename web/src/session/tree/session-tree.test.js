@@ -323,6 +323,86 @@ describe('getGroupedPath memberIds', () => {
   });
 });
 
+describe('getGroupedPath duplicate id regression (issue #149)', () => {
+  it('does not leak an aborted entry id into subsequent terminal grouped entries', () => {
+    // An assistant entry with empty content + stopReason 'aborted' is classed internal
+    // (hasTextContent([]) is false). It pushes its id to pendingIds but contributes
+    // NO pendingBlocks. That stale id must NOT leak into the id of later terminals.
+    const abortedId = 'aborted-1';
+    const terminal1Id = 'term-1';
+    const terminal2Id = 'term-2';
+    const path = [
+      // 1. assistant with empty content — internal, block-less
+      {
+        id: abortedId,
+        type: 'message',
+        message: { role: 'assistant', content: [], stopReason: 'aborted' },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      // 2. user message
+      {
+        id: 'user-1',
+        type: 'message',
+        message: { role: 'user', content: 'hello' },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+      // 3. terminal assistant with thinking + text
+      {
+        id: terminal1Id,
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'thinking...' },
+            { type: 'text', text: 'answer 1' },
+          ],
+          stopReason: 'stop',
+        },
+        timestamp: '2026-01-01T00:02:00Z',
+      },
+      // 4. another user message
+      {
+        id: 'user-2',
+        type: 'message',
+        message: { role: 'user', content: 'more' },
+        timestamp: '2026-01-01T00:03:00Z',
+      },
+      // 5. another terminal assistant with thinking + text
+      {
+        id: terminal2Id,
+        type: 'message',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'thinking again...' },
+            { type: 'text', text: 'answer 2' },
+          ],
+          stopReason: 'stop',
+        },
+        timestamp: '2026-01-01T00:04:00Z',
+      },
+    ];
+
+    const grouped = getGroupedPath(path);
+
+    // Every grouped entry id must be unique (Svelte each_key_duplicate guard)
+    const ids = grouped.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // The two terminal grouped entries must carry their OWN ids — not the aborted entry's id
+    const terminal1 = grouped.find((e) => e.memberIds?.includes(terminal1Id));
+    const terminal2 = grouped.find((e) => e.memberIds?.includes(terminal2Id));
+    expect(terminal1).toBeDefined();
+    expect(terminal2).toBeDefined();
+    expect(terminal1.id).toBe(terminal1Id);
+    expect(terminal2.id).toBe(terminal2Id);
+
+    // Neither terminal should have the aborted id in its memberIds
+    expect(terminal1.memberIds).not.toContain(abortedId);
+    expect(terminal2.memberIds).not.toContain(abortedId);
+  });
+});
+
 describe('relinkOrphanMetadata', () => {
   // Reproduces issue #123: after an unarchive, a model_change / thinking_level_change
   // gets written with a null parentId mid-session, forking the tree into a second
