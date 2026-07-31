@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { icon, ChevronDown, Info, Archive } from '../../shared/icons.js';
+  import { icon, ChevronDown, Info, Archive, Terminal } from '../../shared/icons.js';
   import { t } from '../../shared/i18n.js';
   import {
     activityMs,
@@ -24,6 +24,7 @@
     onArchive = null,
     onArchiveProject = null,
     onNewSession = null,
+    onNewClaudeSession = null,
     onViewProject = null,
     archivedProjects = new Set(),
   } = $props();
@@ -267,6 +268,17 @@
               onclick={() => onArchiveProject(group.project, true)}
             >
               {@html icon(Archive, { size: 14 })}
+            </button>
+          {/if}
+          {#if onNewClaudeSession}
+            <button
+              class="project-claude-btn"
+              type="button"
+              aria-label="New Claude Session"
+              title="New Claude Session"
+              onclick={() => onNewClaudeSession(group.project)}
+            >
+              {@html icon(Terminal, { size: 14 })}
             </button>
           {/if}
           <button
