@@ -331,7 +331,10 @@
     ></span><span class="pi-git-status" id="pi-git-status" hidden></span>
   </div>
   <div class="pi-git-right">
-    <button type="button" class="pi-git-pr-button pi-compact-button" id="pi-compact-button"
+    <button
+      type="button"
+      class="pi-git-pr-button pi-compact-button"
+      id="pi-compact-button"
       title={t('git.compact')}><span id="pi-compact-label">{t('git.compact')}</span></button
     ><button type="button" class="pi-git-pr-button pi-btw-button" id="pi-btw-button" title="btw"
       >btw</button
