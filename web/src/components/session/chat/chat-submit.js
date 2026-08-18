@@ -1,3 +1,6 @@
+// Live-only DOM/runtime glue for the chat composer submit handler.
+import { t } from '../../../shared/i18n.js';
+
 export function setupChatSubmission({
   windowImpl = window,
   form,
@@ -61,9 +64,42 @@ export function setupChatSubmission({
     }
   }
 
+  // Slash commands run instead of sending the typed text as a prompt. Add more
+  // commands by extending this map (key = exact trimmed command, value = handler).
+  const slashCommands = {
+    '/compact': () => {
+      // Reuses the same endpoint as the footer compact button.
+      sendButton.disabled = true;
+      setStatus(t('git.compacting'), 'running');
+      return chatApi
+        .compactChat(sessionId)
+        .then(async (resp) => {
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data.error || t('git.compactFailed'));
+          // Success: the server broadcasts a reload that refreshes the transcript.
+          setStatus('', '');
+        })
+        .catch((error) => {
+          setStatus(error.message || String(error), 'error');
+        })
+        .finally(() => {
+          sendButton.disabled = false;
+          updateSendEnabled();
+        });
+    },
+  };
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const typed = textarea.value.trim();
+
+    const slashCommand = slashCommands[typed];
+    if (slashCommand) {
+      textarea.value = '';
+      autoResizeTextarea();
+      return slashCommand();
+    }
+
     const filesToSend = attachments.files().slice();
     const textAttachmentsToSend = attachments.textAttachments().slice();
     const message = attachments.composeMessage(typed);
