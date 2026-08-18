@@ -139,6 +139,17 @@ func TestHandleFilesDownload(t *testing.T) {
 			t.Errorf("unexpected Content-Type: %s", ct)
 		}
 	})
+
+	t.Run("sets Cache-Control no-cache so browsers revalidate", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet,
+			"/api/files/download?path="+tmpDir+"&file=hello.txt", nil)
+		rec := httptest.NewRecorder()
+		s.handleFilesDownload(rec, req)
+
+		if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+			t.Errorf("expected Cache-Control no-cache, got %q", cc)
+		}
+	})
 }
 
 func TestWithinCwd(t *testing.T) {

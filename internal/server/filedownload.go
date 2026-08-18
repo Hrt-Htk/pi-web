@@ -71,6 +71,9 @@ func (s *Server) handleFilesDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", ct)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+	// no-cache forces the browser to revalidate against Last-Modified instead of
+	// heuristically serving a stale copy, so an edited file always downloads fresh.
+	w.Header().Set("Cache-Control", "no-cache")
 
 	f, err := os.Open(target)
 	if err != nil {
@@ -87,4 +90,3 @@ func withinCwd(cwd, abs string) bool {
 	rel, err := filepath.Rel(cwd, abs)
 	return err == nil && !strings.HasPrefix(rel, "..")
 }
-
