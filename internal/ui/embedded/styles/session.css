@@ -6759,3 +6759,27 @@
 .chat-preview-stream .chat-preview-thought {
   margin-bottom: 0.4em;
 }
+
+.chat-preview-stream .chat-preview-thought .tool-chip-chevron {
+  transition: transform 0.15s ease;
+}
+
+.chat-preview-stream.expanded .chat-preview-thought .tool-chip-chevron {
+  transform: rotate(90deg);
+}
+
+.chat-preview-stream .chat-preview-thought-body {
+  display: none;
+  margin-bottom: 0.6em;
+  padding: 6px 8px;
+  border-left: 2px solid var(--dim);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.chat-preview-stream.expanded .chat-preview-thought-body {
+  display: block;
+}
