@@ -78,28 +78,21 @@ func (s *Server) handleClaudeSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// findClaudeStandbyScript locates scripts/claude-standby.ps1 relative to the
-// server binary, then falls back to common locations.
+// findClaudeStandbyScript locates scripts/claude-standby.ps1.
+// Prod is fully standalone — the script lives in <exe-dir>/scripts/.
 func findClaudeStandbyScript() string {
-	candidates := []string{}
-
-	// 1. Relative to the executable's directory.
+	// Same directory as the binary (prod: h:\software\pi-web-prod\scripts\)
+	// or dev test server (h:\software\pi-web\scripts\ when cwd matches).
 	if exe, err := os.Executable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "..", "scripts", "claude-standby.ps1"))
+		c := filepath.Join(filepath.Dir(exe), "scripts", "claude-standby.ps1")
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
 	}
-
-	// 2. Relative to the current working directory.
-	candidates = append(candidates, "scripts/claude-standby.ps1")
-
-	// 3. Common pi-web locations.
-	candidates = append(candidates,
-		"h:\\software\\pi-web\\scripts\\claude-standby.ps1",
-	)
-
-	for _, c := range candidates {
-		normalized := filepath.Clean(c)
-		if _, err := os.Stat(normalized); err == nil {
-			return normalized
+	// Fallback: current working directory.
+	if c, err := filepath.Abs("scripts/claude-standby.ps1"); err == nil {
+		if _, err := os.Stat(c); err == nil {
+			return c
 		}
 	}
 	return ""

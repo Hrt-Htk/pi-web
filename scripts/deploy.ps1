@@ -43,10 +43,15 @@ if (Test-Path $prodPidFile) {
 }
 sleep 2
 
-# 3. Copy binary to prod
+# 3. Copy binary + scripts to prod
 Write-Host "Copying binary to prod..."
 Copy-Item $devExe $prodExe -Force
 Write-Host "  Deployed to $prodExe"
+
+Write-Host "Copying scripts to prod..."
+New-Item -ItemType Directory -Force -Path "$prodDir\scripts" | Out-Null
+Copy-Item "scripts\*" "$prodDir\scripts\" -Force -Recurse
+Write-Host "  Deployed scripts to $prodDir\scripts"
 
 # 4. Start prod server
 Write-Host "Starting prod server..."
