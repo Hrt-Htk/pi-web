@@ -112,6 +112,106 @@ describe('chat submit', () => {
     expect(autoResizeTextarea).toHaveBeenCalled();
   });
 
+  describe('slash commands', () => {
+    // /compact is intercepted by the composer instead of being sent as a prompt.
+    it('submits /compact to the compact endpoint, not the normal send endpoint', async () => {
+      const { dom, form, textarea, sendButton, cancelButton } = setupDom();
+      textarea.value = '  /compact  ';
+      const sendChat = vi.fn();
+      const compactChat = vi.fn(() =>
+        Promise.resolve(new Response('{"ok":true,"status":"compacted"}', { status: 200 })),
+      );
+      const setStatus = vi.fn();
+
+      setupChatSubmission({
+        windowImpl: dom.window,
+        form,
+        textarea,
+        sendButton,
+        cancelButton,
+        attachments: createAttachments({ message: '/compact' }),
+        chatApi: { sendChat, compactChat, cancelChat: vi.fn() },
+        sessionId: 's1',
+        setStatus,
+        autoResizeTextarea: vi.fn(),
+        updateSendEnabled: vi.fn(),
+        FormDataImpl: dom.window.FormData,
+        CustomEventImpl: dom.window.CustomEvent,
+      });
+
+      form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(compactChat).toHaveBeenCalledWith('s1');
+      expect(sendChat).not.toHaveBeenCalled();
+      expect(textarea.value).toBe('');
+    });
+
+    it('sends a normal message to the prompt endpoint, not the compact endpoint', async () => {
+      const { dom, form, textarea, sendButton, cancelButton } = setupDom();
+      textarea.value = 'hello';
+      const sendChat = vi.fn(() =>
+        Promise.resolve(new Response('{"status":"queued"}', { status: 200 })),
+      );
+      const compactChat = vi.fn();
+
+      setupChatSubmission({
+        windowImpl: dom.window,
+        form,
+        textarea,
+        sendButton,
+        cancelButton,
+        attachments: createAttachments({ message: 'hello' }),
+        chatApi: { sendChat, compactChat, cancelChat: vi.fn() },
+        sessionId: 's1',
+        setStatus: vi.fn(),
+        autoResizeTextarea: vi.fn(),
+        updateSendEnabled: vi.fn(),
+        FormDataImpl: dom.window.FormData,
+        CustomEventImpl: dom.window.CustomEvent,
+      });
+
+      form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(sendChat).toHaveBeenCalledWith('s1', expect.any(dom.window.FormData));
+      expect(compactChat).not.toHaveBeenCalled();
+    });
+
+    it('surfaces the compact error in the status line', async () => {
+      const { dom, form, textarea, sendButton, cancelButton } = setupDom();
+      textarea.value = '/compact';
+      const compactChat = vi.fn(() =>
+        Promise.resolve(new Response('{"error":"Already compacted"}', { status: 409 })),
+      );
+      const setStatus = vi.fn();
+
+      setupChatSubmission({
+        windowImpl: dom.window,
+        form,
+        textarea,
+        sendButton,
+        cancelButton,
+        attachments: createAttachments({ message: '/compact' }),
+        chatApi: { sendChat: vi.fn(), compactChat, cancelChat: vi.fn() },
+        sessionId: 's1',
+        setStatus,
+        autoResizeTextarea: vi.fn(),
+        updateSendEnabled: vi.fn(),
+        FormDataImpl: dom.window.FormData,
+        CustomEventImpl: dom.window.CustomEvent,
+      });
+
+      form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(compactChat).toHaveBeenCalledWith('s1');
+      expect(setStatus).toHaveBeenCalledWith('Already compacted', 'error');
+    });
+  });
+
   it('rejects an empty draft without sending', async () => {
     const { dom, form, textarea, sendButton, cancelButton } = setupDom();
     const attachments = createAttachments({ message: '' });

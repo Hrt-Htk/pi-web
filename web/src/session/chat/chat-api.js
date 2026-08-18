@@ -10,6 +10,10 @@ export function sendChat(sessionId, body, { fetchImpl = fetch } = {}) {
   return fetchImpl(chatUrl('/api/chat', sessionId), { method: 'POST', body });
 }
 
+export function compactChat(sessionId, { fetchImpl = fetch } = {}) {
+  return fetchImpl(chatUrl('/api/chat/compact', sessionId), { method: 'POST' });
+}
+
 export function getWorkerStatus(sessionId, { fetchImpl = fetch } = {}) {
   return fetchImpl(chatUrl('/api/worker-status', sessionId));
 }
