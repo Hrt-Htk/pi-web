@@ -205,13 +205,19 @@ function createAssistantPreview(documentImpl, { waiting = false, windowImpl = nu
   const el = documentImpl.createElement('div');
   el.id = 'chat-preview-stream';
   el.className = 'assistant-message chat-preview-stream' + (waiting ? ' chat-preview-waiting' : '');
-  const thought = documentImpl.createElement('div');
+  const thought = documentImpl.createElement('button');
+  thought.type = 'button';
   thought.className = 'tool-chip chat-preview-thought';
+  thought.setAttribute('aria-expanded', 'false');
   thought.style.display = 'none';
   thought.innerHTML =
     '<span class="tool-chip-label">Thought</span>' +
     icon(ChevronRight, { size: 12, class: 'tool-chip-chevron' });
+  thought.addEventListener('click', () => {
+    thought.setAttribute('aria-expanded', String(el.classList.toggle('expanded')));
+  });
   el.append(thought);
+  el.append(createMarkdownBlock(documentImpl, 'chat-preview-thought-body'));
   el.append(createMarkdownBlock(documentImpl, 'message-content assistant-text markdown-content'));
   return el;
 }
@@ -298,6 +304,12 @@ export function renderChatPreviewState(
   const thoughtChip = state.chatPreviewEl.querySelector('.chat-preview-thought');
   if (thoughtChip) {
     thoughtChip.style.display = thinkingText.trim() ? '' : 'none';
+  }
+  const thoughtBody = state.chatPreviewEl.querySelector('.chat-preview-thought-body');
+  if (thinkingText.trim()) {
+    setMarkdownContent(thoughtBody, renderMarkdown(thinkingText));
+  } else if (thoughtBody) {
+    thoughtBody.innerHTML = '';
   }
   const content = state.chatPreviewEl.querySelector('.message-content');
   setMarkdownContent(content, renderMarkdown(payload.content));
