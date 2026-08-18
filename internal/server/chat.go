@@ -21,6 +21,7 @@ type ChatSender interface {
 	Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error
 	SetModel(ctx context.Context, sessionID, sessionPath, provider, modelID string) error
 	SetThinkingLevel(ctx context.Context, sessionID, sessionPath, level string) error
+	Compact(ctx context.Context, sessionID, sessionPath string) error
 	Abort(ctx context.Context, sessionID string) error
 	GetState(ctx context.Context, sessionID string) (workers.WorkerStatus, error)
 	GetCommands(ctx context.Context, sessionID string) ([]workers.SlashCommand, bool, error)
@@ -128,6 +129,46 @@ func (s *Server) readSessionStatus(sessionID string) *workers.WorkerStatus {
 		return nil
 	}
 	return &workers.WorkerStatus{State: workers.WorkerStateRunning}
+}
+
+// compactRequestTimeout bounds a manual compaction. Summary generation is a
+// full LLM turn over the compacted history, so it can take well over a minute
+// on long sessions.
+const compactRequestTimeout = 5 * time.Minute
+
+// handleCompact triggers a manual compaction of the session context via the
+// pi RPC worker. It blocks until pi finishes (or fails) so the frontend can
+// surface the result directly. On success it broadcasts a reload so the
+// transcript re-renders with the compaction summary.
+func (s *Server) handleCompact(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	resolved, err := sessions.ResolveByID(s.sessionsDir, r.URL.Query().Get("id"))
+	if resolveOrWriteError(w, err) {
+		return
+	}
+	if !resolved.Session.ChatAvailable {
+		writeJSONError(w, http.StatusConflict, resolved.Session.ChatDisabledReason)
+		return
+	}
+	if s.chatSender == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "chat unavailable")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), compactRequestTimeout)
+	defer cancel()
+	if err := s.chatSender.Compact(ctx, resolved.Session.ID, resolved.Path); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			status = http.StatusRequestTimeout
+		}
+		writeJSONError(w, status, err.Error())
+		return
+	}
+	s.broadcast(resolved.Session.ID, "reload")
+	writeJSON(w, 0, map[string]any{"ok": true, "status": "compacted"})
 }
 
 func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {

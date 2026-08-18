@@ -197,6 +197,15 @@ func (w *piRPCWorker) SetThinkingLevel(ctx context.Context, level string) error 
 	return w.sendAndAwait(ctx, BuildSetThinkingLevelCommand(w.nextID(), level))
 }
 
+// Compact triggers a manual compaction of the session context. It blocks
+// until pi finishes generating the compaction summary (or the context
+// expires). Errors such as "Nothing to compact (session too small)" are
+// returned verbatim from pi.
+func (w *piRPCWorker) Compact(ctx context.Context) error {
+	w.touch()
+	return w.sendAndAwait(ctx, BuildCompactCommand(w.nextID()))
+}
+
 func (w *piRPCWorker) Abort(ctx context.Context) error {
 	w.touch()
 	if err := w.sendAndAwait(ctx, BuildAbortCommand(w.nextID())); err != nil {

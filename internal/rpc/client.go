@@ -61,3 +61,7 @@ func BuildSetThinkingLevelCommand(id, level string) map[string]any {
 func BuildGetCommandsCommand(id string) map[string]any {
 	return map[string]any{"id": id, "type": "get_commands"}
 }
+
+func BuildCompactCommand(id string) map[string]any {
+	return map[string]any{"id": id, "type": "compact"}
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,7 @@ type fakeSender struct {
 	getStateErr    error
 	ensureWorkerCh chan struct{}
 	sendCh         chan struct{}
+	compactErr     error
 	commands       []workers.SlashCommand
 	commandsReady  bool
 	commandsErr    error
@@ -49,6 +51,9 @@ type fakeSender struct {
 	setThinkingSessionID    string
 	setThinkingLevel        string
 	getCommandsCalls        int
+	compactCalls            int
+	compactSessionID        string
+	compactSessionPath      string
 }
 
 func (f *fakeSender) Send(ctx context.Context, sessionID, sessionPath string, chat chat.Request) error {
@@ -78,6 +83,15 @@ func (f *fakeSender) SetThinkingLevel(ctx context.Context, sessionID, sessionPat
 	f.setThinkingLevel = level
 	f.mu.Unlock()
 	return nil
+}
+
+func (f *fakeSender) Compact(ctx context.Context, sessionID, sessionPath string) error {
+	f.mu.Lock()
+	f.compactCalls++
+	f.compactSessionID = sessionID
+	f.compactSessionPath = sessionPath
+	f.mu.Unlock()
+	return f.compactErr
 }
 
 func (f *fakeSender) Abort(ctx context.Context, sessionID string) error {
@@ -458,6 +472,67 @@ func TestHandleSetThinkingLevelRejectsMissingSession(t *testing.T) {
 	s.handleSetThinkingLevel(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleCompact(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	sender := &fakeSender{}
+	s := &Server{sessionsDir: root, chatSender: sender}
+	req := httptest.NewRequest(http.MethodPost, "/api/chat/compact?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleCompact(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"compacted"`) {
+		t.Fatalf("body = %q, want compacted", w.Body.String())
+	}
+	sender.mu.Lock()
+	calls, id, path := sender.compactCalls, sender.compactSessionID, sender.compactSessionPath
+	sender.mu.Unlock()
+	if calls != 1 {
+		t.Fatalf("compact calls = %d, want 1", calls)
+	}
+	if id != "session.jsonl" || path == "" {
+		t.Fatalf("compact session = %q path = %q", id, path)
+	}
+}
+
+func TestHandleCompactRejectsMissingSession(t *testing.T) {
+	s := &Server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodPost, "/api/chat/compact?id=missing.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleCompact(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleCompactRejectsWrongMethod(t *testing.T) {
+	s := &Server{sessionsDir: t.TempDir(), chatSender: &fakeSender{}}
+	req := httptest.NewRequest(http.MethodGet, "/api/chat/compact?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleCompact(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleCompactSurfacesWorkerError(t *testing.T) {
+	root := t.TempDir()
+	writeSessionFile(t, root, "test-project", "session.jsonl")
+	sender := &fakeSender{compactErr: errors.New("Nothing to compact (session too small)")}
+	s := &Server{sessionsDir: root, chatSender: sender}
+	req := httptest.NewRequest(http.MethodPost, "/api/chat/compact?id=session.jsonl", nil)
+	w := httptest.NewRecorder()
+	s.handleCompact(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Nothing to compact") {
+		t.Fatalf("body = %q, want worker error surfaced", w.Body.String())
 	}
 }
 

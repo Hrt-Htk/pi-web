@@ -59,6 +59,7 @@ type ChatWorker interface {
 	Prompt(ctx context.Context, chat chat.Request) error
 	SetModel(ctx context.Context, provider, modelID string) error
 	SetThinkingLevel(ctx context.Context, level string) error
+	Compact(ctx context.Context) error
 	Abort(ctx context.Context) error
 	GetState(ctx context.Context) (WorkerStatus, error)
 	GetCommands(ctx context.Context) ([]SlashCommand, error)
@@ -237,6 +238,14 @@ func (m *Manager) GetCommands(ctx context.Context, sessionID string) (cmds []Sla
 	}
 	cmds, err = worker.GetCommands(ctx)
 	return cmds, true, err
+}
+
+func (m *Manager) Compact(ctx context.Context, sessionID, sessionPath string) error {
+	worker, err := m.workerFor(sessionID, sessionPath)
+	if err != nil {
+		return err
+	}
+	return worker.Compact(ctx)
 }
 
 func (m *Manager) Abort(ctx context.Context, sessionID string) error {
