@@ -255,6 +255,46 @@
       });
     });
 
+    // ── Compact button ──
+    // Triggers a manual compaction of the session context via the pi RPC
+    // worker. The request blocks server-side until the summary is generated,
+    // so the button stays busy until the response lands; failures are
+    // surfaced in the button's title.
+    const compactBtn = documentImpl.getElementById('pi-compact-button');
+    const compactLabel = documentImpl.getElementById('pi-compact-label');
+    let compacting = false;
+    const setCompactBusy = (busy) => {
+      if (compactBtn) compactBtn.disabled = busy;
+      if (compactLabel) compactLabel.textContent = busy ? t('git.compacting') : t('git.compact');
+    };
+    if (compactBtn) {
+      on(compactBtn, 'click', (e) => {
+        e.preventDefault();
+        if (compacting) return;
+        compacting = true;
+        setCompactBusy(true);
+        const doFetch = windowImpl.fetch ?? fetch;
+        doFetch('/api/chat/compact?id=' + encodeURIComponent(sessionId), { method: 'POST' })
+          .then((resp) =>
+            resp
+              .json()
+              .catch(() => ({}))
+              .then((data) => ({ ok: resp.ok, data })),
+          )
+          .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || t('git.compactFailed'));
+            compactBtn.title = t('git.compact');
+          })
+          .catch((err) => {
+            compactBtn.title = String(err && err.message ? err.message : err);
+          })
+          .finally(() => {
+            compacting = false;
+            setCompactBusy(false);
+          });
+      });
+    }
+
     // ── Dirty files modal trigger ──
     if (branchWrap) {
       on(branchWrap, 'click', (e) => {
@@ -291,7 +331,9 @@
     ></span><span class="pi-git-status" id="pi-git-status" hidden></span>
   </div>
   <div class="pi-git-right">
-    <button type="button" class="pi-git-pr-button pi-btw-button" id="pi-btw-button" title="btw"
+    <button type="button" class="pi-git-pr-button pi-compact-button" id="pi-compact-button"
+      title={t('git.compact')}><span id="pi-compact-label">{t('git.compact')}</span></button
+    ><button type="button" class="pi-git-pr-button pi-btw-button" id="pi-btw-button" title="btw"
       >btw</button
     >
     <div class="pi-git-pr" id="pi-git-pr" hidden>

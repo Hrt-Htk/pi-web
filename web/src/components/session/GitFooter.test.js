@@ -175,6 +175,54 @@ describe('GitFooter', () => {
     expect(id('pi-git-status').hidden).toBe(true);
   });
 
+  describe('compact button', () => {
+    it('sits next to the btw button in the footer bar', async () => {
+      renderFooter({ getGitInfo: vi.fn().mockResolvedValue({ isRepo: false }) });
+      await flush();
+      const compact = id('pi-compact-button');
+      const btw = id('pi-btw-button');
+      expect(compact).not.toBeNull();
+      expect(btw).not.toBeNull();
+      expect(compact.parentElement).toBe(btw.parentElement);
+      expect(compact.nextElementSibling).toBe(btw);
+    });
+
+    it('posts to /api/chat/compact and resets when it succeeds', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'compacted' }) });
+      vi.stubGlobal('fetch', fetchMock);
+      renderFooter({ getGitInfo: vi.fn().mockResolvedValue({ isRepo: false }) });
+      await flush();
+
+      id('pi-compact-button').click();
+      await flush();
+      await flush();
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/chat/compact?id=s', { method: 'POST' });
+      expect(id('pi-compact-button').disabled).toBe(false);
+      expect(id('pi-compact-label').textContent).toBe('compact');
+    });
+
+    it('shows the worker error in the title when compaction fails', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: 'Nothing to compact (session too small)' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      renderFooter({ getGitInfo: vi.fn().mockResolvedValue({ isRepo: false }) });
+      await flush();
+
+      id('pi-compact-button').click();
+      await flush();
+      await flush();
+
+      expect(id('pi-compact-button').title).toBe('Nothing to compact (session too small)');
+      expect(id('pi-compact-button').disabled).toBe(false);
+      expect(id('pi-compact-label').textContent).toBe('compact');
+    });
+  });
+
   describe('refresh polling', () => {
     it('starts a periodic poll that re-fetches git info', async () => {
       const getGitInfo = vi.fn().mockResolvedValue({

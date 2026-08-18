@@ -24,6 +24,7 @@ type fakeWorker struct {
 	prompts        []chat.Request
 	setModelCalls  []modelCall
 	setThinkingCalls []string
+	compactCalls   int
 	abortCalls     int
 	closeCalls     int
 
@@ -85,6 +86,13 @@ func (f *fakeWorker) SetThinkingLevel(ctx context.Context, level string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.setThinkingCalls = append(f.setThinkingCalls, level)
+	return nil
+}
+
+func (f *fakeWorker) Compact(ctx context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.compactCalls++
 	return nil
 }
 
